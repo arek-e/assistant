@@ -19,6 +19,8 @@ type BreakpointQuery =
   | `max-${Breakpoint}`
   | `${Breakpoint}:max-${Breakpoint}`;
 
+const DEFAULT_QUERY = "(min-width: 0px)";
+
 function resolveMin(value: Breakpoint | number): string {
   const px = typeof value === "number" ? value : BREAKPOINTS[value];
   return `(min-width: ${px}px)`;
@@ -29,32 +31,52 @@ function resolveMax(value: Breakpoint | number): string {
   return `(max-width: ${px - 1}px)`;
 }
 
+function resolvePointer(pointer: MediaQueryInput["pointer"]): string | null {
+  if (!pointer) return null;
+  return `(pointer: ${pointer})`;
+}
+
+function parseInputQuery(query: MediaQueryInput): string {
+  const parts = [
+    query.min == null ? null : resolveMin(query.min),
+    query.max == null ? null : resolveMax(query.max),
+    resolvePointer(query.pointer)
+  ].filter((part): part is string => Boolean(part));
+
+  return parts.join(" and ") || DEFAULT_QUERY;
+}
+
+function getBreakpoint(value: string): Breakpoint | null {
+  return value in BREAKPOINTS ? (value as Breakpoint) : null;
+}
+
+function parseSegment(segment: string): string | null {
+  if (segment.startsWith("max-")) {
+    const breakpoint = getBreakpoint(segment.slice(4));
+    return breakpoint ? resolveMax(breakpoint) : null;
+  }
+
+  const breakpoint = getBreakpoint(segment);
+  return breakpoint ? resolveMin(breakpoint) : null;
+}
+
+function parseStringQuery(query: string): string {
+  if (query.startsWith("(")) return query;
+
+  const parts = query
+    .split(":")
+    .map(parseSegment)
+    .filter((part): part is string => Boolean(part));
+
+  return parts.join(" and ") || query;
+}
+
 function parseQuery(
   query: BreakpointQuery | MediaQueryInput | (string & {})
 ): string {
-  if (typeof query !== "string") {
-    const parts: string[] = [];
-    if (query.min != null) parts.push(resolveMin(query.min));
-    if (query.max != null) parts.push(resolveMax(query.max));
-    if (query.pointer === "coarse") parts.push("(pointer: coarse)");
-    if (query.pointer === "fine") parts.push("(pointer: fine)");
-    if (parts.length === 0) return "(min-width: 0px)";
-    return parts.join(" and ");
-  }
-
-  if (query.startsWith("(")) return query;
-
-  const parts: string[] = [];
-  for (const segment of query.split(":")) {
-    if (segment.startsWith("max-")) {
-      const bp = segment.slice(4);
-      if (bp in BREAKPOINTS) parts.push(resolveMax(bp as Breakpoint));
-    } else if (segment in BREAKPOINTS) {
-      parts.push(resolveMin(segment as Breakpoint));
-    }
-  }
-
-  return parts.length > 0 ? parts.join(" and ") : query;
+  return typeof query === "string"
+    ? parseStringQuery(query)
+    : parseInputQuery(query);
 }
 
 function getServerSnapshot(): boolean {
