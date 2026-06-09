@@ -4,14 +4,60 @@ import { getSchedulePrompt, scheduleSchema } from "agents/schedule";
 import { AIChatAgent, type OnChatMessageOptions } from "@cloudflare/ai-chat";
 import {
   convertToModelMessages,
+  jsonSchema,
   pruneMessages,
   stepCountIs,
   streamText,
   tool
 } from "ai";
-import { Effect } from "effect";
-import { z } from "zod";
+import { Effect, JSONSchema, Schema } from "effect";
 import { getDemoWeather } from "./effects";
+
+function effectInputSchema<A, I>(schema: Schema.Schema<A, I, never>) {
+  return jsonSchema<A>(JSONSchema.make(schema), {
+    validate: (value) => {
+      const result = Schema.decodeUnknownEither(schema)(value);
+
+      if (result._tag === "Right") {
+        return { success: true, value: result.right };
+      }
+
+      return { success: false, error: new Error(result.left.message) };
+    }
+  });
+}
+
+const weatherInputSchema = effectInputSchema(
+  Schema.Struct({
+    city: Schema.String.annotations({
+      description: "City name"
+    })
+  })
+);
+
+const emptyInputSchema = effectInputSchema(Schema.Struct({}));
+
+const calculateInputSchema = effectInputSchema(
+  Schema.Struct({
+    a: Schema.Number.annotations({
+      description: "First number"
+    }),
+    b: Schema.Number.annotations({
+      description: "Second number"
+    }),
+    operator: Schema.Literal("+", "-", "*", "/", "%").annotations({
+      description: "Arithmetic operator"
+    })
+  })
+);
+
+const cancelScheduledTaskInputSchema = effectInputSchema(
+  Schema.Struct({
+    taskId: Schema.String.annotations({
+      description: "The ID of the task to cancel"
+    })
+  })
+);
 
 export class ChatAgent extends AIChatAgent<Env> {
   maxPersistedMessages = 100;
@@ -69,9 +115,7 @@ If the user asks to schedule a task, use the schedule tool to schedule the task.
         // Server-side tool: runs automatically on the server
         getWeather: tool({
           description: "Get the current weather for a city",
-          inputSchema: z.object({
-            city: z.string().describe("City name")
-          }),
+          inputSchema: weatherInputSchema,
           execute: async ({ city }) => {
             // Replace with a real weather API in production
             return Effect.runPromise(getDemoWeather(city));
@@ -82,20 +126,14 @@ If the user asks to schedule a task, use the schedule tool to schedule the task.
         getUserTimezone: tool({
           description:
             "Get the user's timezone from their browser. Use this when you need to know the user's local time.",
-          inputSchema: z.object({})
+          inputSchema: emptyInputSchema
         }),
 
         // Approval tool: requires user confirmation before executing
         calculate: tool({
           description:
             "Perform a math calculation with two numbers. Requires user approval for large numbers.",
-          inputSchema: z.object({
-            a: z.number().describe("First number"),
-            b: z.number().describe("Second number"),
-            operator: z
-              .enum(["+", "-", "*", "/", "%"])
-              .describe("Arithmetic operator")
-          }),
+          inputSchema: calculateInputSchema,
           needsApproval: async ({ a, b }) =>
             Math.abs(a) > 1000 || Math.abs(b) > 1000,
           execute: async ({ a, b, operator }) => {
@@ -146,7 +184,7 @@ If the user asks to schedule a task, use the schedule tool to schedule the task.
 
         getScheduledTasks: tool({
           description: "List all tasks that have been scheduled",
-          inputSchema: z.object({}),
+          inputSchema: emptyInputSchema,
           execute: async () => {
             const tasks = this.getSchedules();
             return tasks.length > 0 ? tasks : "No scheduled tasks found.";
@@ -155,9 +193,7 @@ If the user asks to schedule a task, use the schedule tool to schedule the task.
 
         cancelScheduledTask: tool({
           description: "Cancel a scheduled task by its ID",
-          inputSchema: z.object({
-            taskId: z.string().describe("The ID of the task to cancel")
-          }),
+          inputSchema: cancelScheduledTaskInputSchema,
           execute: async ({ taskId }) => {
             try {
               this.cancelSchedule(taskId);
