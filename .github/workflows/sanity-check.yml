@@ -29,4 +29,6 @@ jobs:
       - uses: oven-sh/setup-bun@v2
 
       - run: bun install --frozen-lockfile
+        env:
+          UNIVERSAL_LICENSE_KEY: ${{ secrets.UNIVERSAL_LICENSE_KEY }}
       - run: bun run check:all
