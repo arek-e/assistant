@@ -1,4 +1,6 @@
 export { InMemoryCanonicalMemoryStore } from "./canonical-memory-store";
+export { SqliteCanonicalMemoryStore } from "./sqlite-memory-store";
+export { createMemoryPrimitiveTools } from "./tools";
 export {
   proposeMemoryWrite,
   type MemoryWriteDecision,

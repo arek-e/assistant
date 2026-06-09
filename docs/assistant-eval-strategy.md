@@ -124,7 +124,7 @@ Semantic recall does not need to be perfect at first. Repeated semantic recall f
 
 ## Implementation Shape
 
-Start with the Bun-powered eval runner in `evals/run.ts` that tests primitive functions directly. The first version does not require a live model call for retrieval, lifecycle, or routing assertions. The runner uses the app-side `InMemoryCanonicalMemoryStore` so fixtures exercise the same memory API that can later be backed by Durable Object SQLite.
+Start with the Bun-powered eval runner in `apps/worker/evals/run.ts` that tests primitive functions directly. The first version does not require a live model call for retrieval, lifecycle, or routing assertions. The runner uses the app-side `InMemoryCanonicalMemoryStore` so fixtures exercise the same memory API that can later be backed by Durable Object SQLite.
 
 Run it with:
 

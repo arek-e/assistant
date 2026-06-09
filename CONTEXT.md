@@ -53,16 +53,40 @@ The component that decides how much machinery a task deserves. It routes the tas
 _Avoid_: Model picker, reasoning toggle
 
 **Think Prototype**:
-A parallel Cloudflare Think agent used to validate the assistant foundation before replacing the current chat agent. It exists to prove memory, tools, scheduling, MCP, and UI compatibility without breaking the deployed assistant.
-_Avoid_: Rewrite, replacement agent
+The Cloudflare Think-based assistant runtime now used as the main product path. It exists to prove and operate memory, tools, scheduling, MCP, and UI compatibility while we keep refining primitives.
+_Avoid_: Temporary demo, parallel experiment
 
 **Primitive-First Slice**:
 The first Think prototype scope: one Think agent plus high-quality memory, routing, and evaluation tools. Agent roster and multiple specialized agents are deferred until the primitives prove useful.
 _Avoid_: Agent marketplace, multi-agent UI first
 
+**Legacy ChatAgent**:
+The previous `AIChatAgent` Durable Object class. It is no longer user-facing and has been removed from Worker code and bindings. Wrangler migration `v3` deletes this class, which will delete stored `ChatAgent` Durable Objects when deployed.
+_Avoid_: Active assistant, fallback product path
+
 **Primitive Tool**:
 A foundational assistant tool that manages durable records, routing, or self-improvement behavior. Primitive tools are more important than domain tools in the first Think prototype because they define how the assistant learns, decides, and audits itself.
 _Avoid_: Feature tool, demo tool
+
+**Runtime Boundary**:
+A source ownership boundary that separates deployable entrypoints, Cloudflare Agent actors, durable primitives, UI workflows, and shared contracts. Runtime boundaries should be visible in directory structure before the repo grows into a full monorepo.
+_Avoid_: Template folder, arbitrary module group
+
+**Bun Workspace Root**:
+The repository-level package that declares workspaces and delegates scripts to app or package workspaces. It should not own application runtime dependencies unless they are truly root-level tooling.
+_Avoid_: App package, dependency dumping ground
+
+**Worker App**:
+The deployable Cloudflare Worker workspace containing Wrangler config, Worker entrypoint, Agent classes, React client, and app-specific evals. It is currently `apps/worker`.
+_Avoid_: Backend folder, server-only package
+
+**Reference Repository**:
+An external codebase used for architecture comparison and implementation patterns, not as a dependency. OpenCode and T3 Code are reference repositories for package roles, agent runtime boundaries, session behavior, and operational safeguards.
+_Avoid_: Copied source, cargo-cult template
+
+**Contracts Package**:
+A future package or source boundary containing only shared Effect Schema contracts and TypeScript types. It should not contain runtime logic, side effects, persistence, or UI state.
+_Avoid_: Shared grab bag, utilities package
 
 **Canonical Memory Store**:
 The app-owned source of truth for durable typed records. Think context, search memory, and any future vector index should be projections from this store, not independent memory silos.

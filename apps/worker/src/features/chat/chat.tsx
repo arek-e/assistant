@@ -9,10 +9,10 @@ import {
 import { useAgent } from "agents/react";
 import { useAgentChat } from "@cloudflare/ai-chat/react";
 import type { MCPServersState } from "agents";
-import type { ChatAgent } from "@/server";
+import type { ThinkAgent } from "@/server";
 import {
+  BrainIcon,
   BugIcon,
-  ChatCircleDotsIcon,
   CircleIcon,
   ImageIcon,
   PlugsConnectedIcon,
@@ -55,8 +55,8 @@ export function Chat() {
   const [isAddingServer, setIsAddingServer] = useState(false);
   const mcpPanelRef = useRef<HTMLDivElement>(null);
 
-  const agent = useAgent<ChatAgent>({
-    agent: "ChatAgent",
+  const agent = useAgent<ThinkAgent>({
+    agent: "ThinkAgent",
     onOpen: useCallback(() => setConnected(true), []),
     onClose: useCallback(() => setConnected(false), []),
     onError: useCallback(
@@ -244,11 +244,11 @@ export function Chat() {
         <div className="max-w-3xl mx-auto flex items-center justify-between">
           <div className="flex items-center gap-3">
             <h1 className="text-lg font-semibold text-foreground">
-              <span className="mr-2">⛅</span>Agent Starter
+              <span className="mr-2">⛅</span>Teampitch
             </h1>
             <Badge variant="secondary">
-              <ChatCircleDotsIcon size={12} className="mr-1" />
-              AI Chat
+              <BrainIcon size={12} className="mr-1" />
+              Think
             </Badge>
           </div>
           <div className="flex items-center gap-3">

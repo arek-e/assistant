@@ -1,5 +1,5 @@
 import { routeAgentRequest } from "agents";
-export { ChatAgent } from "@/server/chat-agent";
+export { ThinkAgent } from "@/server/agents/think-agent";
 
 export default {
   async fetch(request: Request, env: Env) {

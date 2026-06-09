@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { createScheduledTaskMessage } from "./scheduled-task";
 
 describe("scheduled task messages", () => {
-  test("creates the websocket payload broadcast by ChatAgent.executeTask", () => {
+  test("creates the websocket payload broadcast by ThinkAgent.executeTask", () => {
     expect(
       createScheduledTaskMessage(
         "write the status update",

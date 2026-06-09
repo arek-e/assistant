@@ -1,19 +1,15 @@
 import { isToolUIPart, type UIMessage } from "ai";
 import { code } from "@streamdown/code";
 import { Streamdown } from "streamdown";
-import {
-  BrainIcon,
-  CaretDownIcon,
-  ChatCircleDotsIcon
-} from "@/components/app/icons";
+import { BrainIcon, CaretDownIcon } from "@/components/app/icons";
 import { Button, Empty } from "@/components/app/ui";
 import { ToolPartView } from "@/features/tools/tool-part-view";
 
 const starterPrompts = [
-  "What's the weather in Paris?",
-  "What timezone am I in?",
-  "Calculate 5000 * 3",
-  "Remind me in 5 minutes to take a break"
+  "What do you remember about this project?",
+  "What tools can you use here?",
+  "Search memory for current UI decisions",
+  "Record a proposed decision for this assistant"
 ];
 
 export function MessageList({
@@ -35,8 +31,8 @@ export function MessageList({
   if (messages.length === 0) {
     return (
       <Empty
-        icon={<ChatCircleDotsIcon size={32} />}
-        title="Start a conversation"
+        icon={<BrainIcon size={32} />}
+        title="Start thinking"
         contents={
           <div className="flex flex-wrap justify-center gap-2">
             {starterPrompts.map((prompt) => (
