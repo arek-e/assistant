@@ -1,0 +1,112 @@
+name: Quality
+
+on:
+  push:
+    branches:
+      - master
+      - main
+  pull_request:
+    branches:
+      - master
+      - main
+
+permissions:
+  contents: read
+
+concurrency:
+  group: quality-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  quality:
+    name: format / lint / typecheck / tests / audit
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - uses: oven-sh/setup-bun@v2
+
+      - name: Check private registry token
+        run: |
+          if [ -z "$UNIVERSAL_LICENSE_KEY" ]; then
+            echo "::error::UNIVERSAL_LICENSE_KEY is required to install @hugeicons-pro packages. Forked public PRs do not receive repository secrets; make the private icon packages optional before requiring fork CI."
+            exit 1
+          fi
+        env:
+          UNIVERSAL_LICENSE_KEY: ${{ secrets.UNIVERSAL_LICENSE_KEY }}
+
+      - run: bun install --frozen-lockfile
+        env:
+          UNIVERSAL_LICENSE_KEY: ${{ secrets.UNIVERSAL_LICENSE_KEY }}
+
+      - run: bun run check:all
+        env:
+          FALLOW_BASE: origin/${{ github.base_ref || github.event.repository.default_branch }}
+
+  build:
+    name: production build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - uses: oven-sh/setup-bun@v2
+
+      - name: Check private registry token
+        run: |
+          if [ -z "$UNIVERSAL_LICENSE_KEY" ]; then
+            echo "::error::UNIVERSAL_LICENSE_KEY is required to install @hugeicons-pro packages. Forked public PRs do not receive repository secrets; make the private icon packages optional before requiring fork CI."
+            exit 1
+          fi
+        env:
+          UNIVERSAL_LICENSE_KEY: ${{ secrets.UNIVERSAL_LICENSE_KEY }}
+
+      - run: bun install --frozen-lockfile
+        env:
+          UNIVERSAL_LICENSE_KEY: ${{ secrets.UNIVERSAL_LICENSE_KEY }}
+
+      - run: bun run build
+
+  health-report:
+    name: fallow health artifacts
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - uses: oven-sh/setup-bun@v2
+
+      - name: Check private registry token
+        run: |
+          if [ -z "$UNIVERSAL_LICENSE_KEY" ]; then
+            echo "::warning::UNIVERSAL_LICENSE_KEY is missing, so dependency install and Fallow health artifacts cannot run in this public-repo context."
+            echo "present=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          echo "present=true" >> "$GITHUB_OUTPUT"
+        id: registry-token
+        env:
+          UNIVERSAL_LICENSE_KEY: ${{ secrets.UNIVERSAL_LICENSE_KEY }}
+
+      - run: bun install --frozen-lockfile
+        if: steps.registry-token.outputs.present == 'true'
+        env:
+          UNIVERSAL_LICENSE_KEY: ${{ secrets.UNIVERSAL_LICENSE_KEY }}
+
+      - run: bun run health:report
+        if: steps.registry-token.outputs.present == 'true'
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: fallow-health
+          path: artifacts/fallow/
+          if-no-files-found: ignore

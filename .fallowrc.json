@@ -1,0 +1,18 @@
+{
+  "$schema": "https://raw.githubusercontent.com/fallow-rs/fallow/main/config-schema.json",
+  "ignoreDependencies": [
+    "@babel/plugin-proposal-decorators",
+    "@rolldown/plugin-babel"
+  ],
+  "usedClassMembers": [
+    {
+      "extends": "AIChatAgent",
+      "members": [
+        "maxPersistedMessages",
+        "onStart",
+        "onChatMessage",
+        "executeTask"
+      ]
+    }
+  ]
+}
