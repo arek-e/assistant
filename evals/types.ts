@@ -1,56 +1,29 @@
 import { Schema } from "effect";
-
-const MemoryRecordKindSchema = Schema.Literal(
-  "term_record",
-  "decision_record",
-  "preference_record",
-  "learning_record",
-  "mission_record",
-  "resource_record",
-  "reflection_record",
-  "task_record",
-  "route_record"
-);
-
-const MemoryScopeSchema = Schema.Literal("user", "project", "repo", "session");
-
-const LifecycleStatusSchema = Schema.Literal(
-  "draft",
-  "proposed",
-  "active",
-  "superseded",
-  "rejected"
-);
-
-const MemoryRecordSchema = Schema.Struct({
-  id: Schema.String,
-  kind: MemoryRecordKindSchema,
-  scope: MemoryScopeSchema,
-  status: LifecycleStatusSchema,
-  title: Schema.String,
-  body: Schema.String,
-  evidence: Schema.String,
-  rationale: Schema.String,
-  createdAt: Schema.String,
-  updatedAt: Schema.String,
-  reEvalTrigger: Schema.String,
-  consumerRules: Schema.Array(Schema.String),
-  tags: Schema.Array(Schema.String),
-  supersedes: Schema.Array(Schema.String)
-});
-
-export type MemoryRecord = Schema.Schema.Type<typeof MemoryRecordSchema>;
+import {
+  MemoryRecordSchema,
+  type MemoryRecord,
+  type MemoryWriteDecision,
+  type MemoryWriteKind,
+  type MemoryWriteStatus
+} from "../src/server/memory";
+import type {
+  RouteBudget,
+  RouteDecision,
+  RouteEffort,
+  RouteMode
+} from "../src/server/routing/effort-router";
 
 const EvalCategorySchema = Schema.Literal(
   "retrieval",
   "memory_write",
+  "lifecycle",
   "routing",
   "integration"
 );
 
 export type EvalCategory = Schema.Schema.Type<typeof EvalCategorySchema>;
 
-const RouteModeSchema = Schema.Literal(
+const RouteModeSchema: Schema.Schema<RouteMode> = Schema.Literal(
   "none",
   "direct",
   "agent",
@@ -58,27 +31,26 @@ const RouteModeSchema = Schema.Literal(
   "workflow"
 );
 
-export type RouteMode = Schema.Schema.Type<typeof RouteModeSchema>;
+const RouteEffortSchema: Schema.Schema<RouteEffort> = Schema.Literal(
+  "none",
+  "low",
+  "medium",
+  "high"
+);
 
-const RouteEffortSchema = Schema.Literal("none", "low", "medium", "high");
-
-export type RouteEffort = Schema.Schema.Type<typeof RouteEffortSchema>;
-
-const RouteBudgetSchema = Schema.Literal(
+const RouteBudgetSchema: Schema.Schema<RouteBudget> = Schema.Literal(
   "none",
   "small",
   "standard",
   "extended"
 );
 
-export type RouteBudget = Schema.Schema.Type<typeof RouteBudgetSchema>;
-
 const WorkspaceFileSchema = Schema.Struct({
   path: Schema.String,
   body: Schema.String
 });
 
-const ExpectedWriteKindSchema = Schema.Literal(
+const ExpectedWriteKindSchema: Schema.Schema<MemoryWriteKind> = Schema.Literal(
   "none",
   "term_record",
   "decision_record",
@@ -91,22 +63,15 @@ const ExpectedWriteKindSchema = Schema.Literal(
   "route_record"
 );
 
-export type ExpectedWriteKind = Schema.Schema.Type<
-  typeof ExpectedWriteKindSchema
->;
-
-const ExpectedWriteStatusSchema = Schema.Literal(
-  "none",
-  "draft",
-  "proposed",
-  "active",
-  "superseded",
-  "rejected"
-);
-
-export type ExpectedWriteStatus = Schema.Schema.Type<
-  typeof ExpectedWriteStatusSchema
->;
+const ExpectedWriteStatusSchema: Schema.Schema<MemoryWriteStatus> =
+  Schema.Literal(
+    "none",
+    "draft",
+    "proposed",
+    "active",
+    "superseded",
+    "rejected"
+  );
 
 export const EvalFixtureSchema = Schema.Struct({
   id: Schema.String,
@@ -120,6 +85,9 @@ export const EvalFixtureSchema = Schema.Struct({
   forbiddenToolCalls: Schema.Array(Schema.String),
   expectedWriteKind: ExpectedWriteKindSchema,
   expectedWriteStatus: ExpectedWriteStatusSchema,
+  promotionRecordId: Schema.String,
+  promotionStatus: ExpectedWriteStatusSchema,
+  expectedPromotedStatus: ExpectedWriteStatusSchema,
   expectedRouteMode: RouteModeSchema,
   expectedRouteEffort: RouteEffortSchema,
   expectedRouteBudget: RouteBudgetSchema,
@@ -129,33 +97,6 @@ export const EvalFixtureSchema = Schema.Struct({
 });
 
 export type EvalFixture = Schema.Schema.Type<typeof EvalFixtureSchema>;
-
-export interface RetrievalHit {
-  record: MemoryRecord;
-  score: number;
-  reasons: string[];
-}
-
-export interface RetrievalResult {
-  hits: RetrievalHit[];
-  lifecycleViolations: string[];
-}
-
-export interface MemoryWriteDecision {
-  shouldWrite: boolean;
-  kind: ExpectedWriteKind;
-  status: ExpectedWriteStatus;
-  reason: string;
-  hasEvidence: boolean;
-}
-
-export interface RouteDecision {
-  mode: RouteMode;
-  effort: RouteEffort;
-  budget: RouteBudget;
-  requiresApproval: boolean;
-  reason: string;
-}
 
 export interface EvalCheck {
   name: string;
@@ -173,3 +114,5 @@ export interface EvalResult {
   routeDecision: RouteDecision;
   durationMs: number;
 }
+
+export type { MemoryRecord, MemoryWriteDecision, RouteDecision };

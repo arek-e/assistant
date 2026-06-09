@@ -6,7 +6,7 @@ Run the deterministic primitive evals:
 bun run evals
 ```
 
-The runner validates fixtures with Effect Schema, exercises retrieval, memory-write admission, and routing primitives, then writes a JSONL trace to `.evals/latest.jsonl`.
+The runner validates fixtures with Effect Schema, exercises the app-side Canonical Memory Store, memory-write admission, and routing primitives, then writes a JSONL trace to `.evals/latest.jsonl`.
 
 ## Adding A Regression
 

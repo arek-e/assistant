@@ -3,7 +3,6 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { Schema } from "effect";
 import { fixtures } from "./fixtures";
-import { proposeMemoryWrite, retrieveRecords, routeTask } from "./primitives";
 import {
   EvalFixtureSchema,
   type EvalCheck,
@@ -12,6 +11,12 @@ import {
   type MemoryWriteDecision,
   type RouteDecision
 } from "./types";
+import {
+  InMemoryCanonicalMemoryStore,
+  proposeMemoryWrite,
+  type RetrievalResult
+} from "../src/server/memory";
+import { routeTask } from "../src/server/routing/effort-router";
 
 const emptyWriteDecision: MemoryWriteDecision = {
   shouldWrite: false,
@@ -35,6 +40,26 @@ interface CategoryEvaluation {
   routeDecision: RouteDecision;
 }
 
+interface EvaluationContext {
+  fixture: EvalFixture;
+  memoryStore: InMemoryCanonicalMemoryStore;
+  retrievalResult: RetrievalResult;
+  retrievedRecordIds: readonly string[];
+}
+
+type CategoryEvaluator = (context: EvaluationContext) => CategoryEvaluation;
+
+const CATEGORY_EVALUATORS = {
+  retrieval: ({ fixture, retrievalResult, retrievedRecordIds }) =>
+    evaluateRetrievalFixture(fixture, retrievalResult, retrievedRecordIds),
+  memory_write: ({ fixture }) => evaluateMemoryWriteFixture(fixture),
+  lifecycle: ({ fixture, memoryStore }) =>
+    evaluateLifecycleFixture(fixture, memoryStore),
+  routing: ({ fixture, retrievalResult }) =>
+    evaluateRoutingFixture(fixture, retrievalResult),
+  integration: () => noCategoryEvaluation()
+} satisfies Record<EvalFixture["category"], CategoryEvaluator>;
+
 function validateFixture(fixture: unknown): EvalFixture {
   const result = Schema.decodeUnknownEither(EvalFixtureSchema)(fixture);
 
@@ -47,10 +72,12 @@ function validateFixture(fixture: unknown): EvalFixture {
 
 function evaluateFixture(fixture: EvalFixture): EvalResult {
   const startedAt = Date.now();
-  const retrievalResult = retrieveRecords(fixture.seedRecords, fixture.input);
+  const memoryStore = createMemoryStore(fixture);
+  const retrievalResult = memoryStore.search(fixture.input);
   const retrievedRecordIds = retrievalResult.hits.map((hit) => hit.record.id);
   const categoryEvaluation = evaluateCategory(
     fixture,
+    memoryStore,
     retrievalResult,
     retrievedRecordIds
   );
@@ -68,33 +95,80 @@ function evaluateFixture(fixture: EvalFixture): EvalResult {
   };
 }
 
+function createMemoryStore(fixture: EvalFixture): InMemoryCanonicalMemoryStore {
+  return new InMemoryCanonicalMemoryStore(fixture.seedRecords);
+}
+
 function evaluateCategory(
   fixture: EvalFixture,
-  retrievalResult: ReturnType<typeof retrieveRecords>,
+  memoryStore: InMemoryCanonicalMemoryStore,
+  retrievalResult: RetrievalResult,
   retrievedRecordIds: readonly string[]
 ): CategoryEvaluation {
-  if (fixture.category === "retrieval") {
-    return evaluateRetrievalFixture(
-      fixture,
-      retrievalResult,
-      retrievedRecordIds
-    );
-  }
+  return CATEGORY_EVALUATORS[fixture.category]({
+    fixture,
+    memoryStore,
+    retrievalResult,
+    retrievedRecordIds
+  });
+}
 
-  if (fixture.category === "memory_write") {
-    return evaluateMemoryWriteFixture(fixture);
-  }
+function evaluateLifecycleFixture(
+  fixture: EvalFixture,
+  memoryStore: InMemoryCanonicalMemoryStore
+): CategoryEvaluation {
+  const promotedRecord = promoteFixtureRecord(fixture, memoryStore);
 
-  if (fixture.category === "routing") {
-    return evaluateRoutingFixture(fixture, retrievalResult);
-  }
+  return {
+    checks: [
+      recordPromotedCheck(fixture, promotedRecord),
+      promotedStatusCheck(fixture, promotedRecord)
+    ],
+    writeDecision: emptyWriteDecision,
+    routeDecision: emptyRouteDecision
+  };
+}
 
-  return noCategoryEvaluation();
+function promoteFixtureRecord(
+  fixture: EvalFixture,
+  memoryStore: InMemoryCanonicalMemoryStore
+) {
+  if (fixture.promotionStatus === "none") return null;
+  return memoryStore.promote(
+    fixture.promotionRecordId,
+    fixture.promotionStatus
+  );
+}
+
+function recordPromotedCheck(
+  fixture: EvalFixture,
+  promotedRecord: ReturnType<InMemoryCanonicalMemoryStore["promote"]>
+): EvalCheck {
+  return {
+    name: "record promoted",
+    passed: promotedRecord !== null,
+    detail: promotedRecord
+      ? `promoted ${promotedRecord.id}`
+      : `missing record ${fixture.promotionRecordId}`
+  };
+}
+
+function promotedStatusCheck(
+  fixture: EvalFixture,
+  promotedRecord: ReturnType<InMemoryCanonicalMemoryStore["promote"]>
+): EvalCheck {
+  return {
+    name: "expected promoted status",
+    passed: promotedRecord?.status === fixture.expectedPromotedStatus,
+    detail: `expected ${fixture.expectedPromotedStatus}, got ${
+      promotedRecord?.status ?? "none"
+    }`
+  };
 }
 
 function evaluateRetrievalFixture(
   fixture: EvalFixture,
-  retrievalResult: ReturnType<typeof retrieveRecords>,
+  retrievalResult: RetrievalResult,
   retrievedRecordIds: readonly string[]
 ): CategoryEvaluation {
   const checks = [
@@ -146,7 +220,7 @@ function evaluateMemoryWriteFixture(fixture: EvalFixture): CategoryEvaluation {
 
 function evaluateRoutingFixture(
   fixture: EvalFixture,
-  retrievalResult: ReturnType<typeof retrieveRecords>
+  retrievalResult: RetrievalResult
 ): CategoryEvaluation {
   const routeDecision = routeTask(fixture.input, retrievalResult);
 

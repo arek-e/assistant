@@ -26,6 +26,9 @@ type FixtureInput = {
   forbiddenRecordIds?: string[];
   expectedWriteKind?: EvalFixture["expectedWriteKind"];
   expectedWriteStatus?: EvalFixture["expectedWriteStatus"];
+  promotionRecordId?: string;
+  promotionStatus?: EvalFixture["promotionStatus"];
+  expectedPromotedStatus?: EvalFixture["expectedPromotedStatus"];
   expectedRouteMode?: EvalFixture["expectedRouteMode"];
   expectedRouteEffort?: EvalFixture["expectedRouteEffort"];
   expectedRouteBudget?: EvalFixture["expectedRouteBudget"];
@@ -64,6 +67,9 @@ const fixtureDefaults = {
   forbiddenToolCalls: [],
   expectedWriteKind: "none",
   expectedWriteStatus: "none",
+  promotionRecordId: "",
+  promotionStatus: "none",
+  expectedPromotedStatus: "none",
   expectedRouteMode: "none",
   expectedRouteEffort: "none",
   expectedRouteBudget: "none",
@@ -78,6 +84,9 @@ const fixtureDefaults = {
   | "forbiddenToolCalls"
   | "expectedWriteKind"
   | "expectedWriteStatus"
+  | "promotionRecordId"
+  | "promotionStatus"
+  | "expectedPromotedStatus"
   | "expectedRouteMode"
   | "expectedRouteEffort"
   | "expectedRouteBudget"
@@ -174,6 +183,15 @@ const sqliteFtsDecision = record({
     "retrieval",
     "canonical"
   ]
+});
+
+const proposedThinkDecision = record({
+  id: "decision.think.prototype",
+  kind: "decision_record",
+  status: "proposed",
+  title: "Prototype on Cloudflare Think first",
+  body: "The Think prototype decision starts as proposed and should only become active after implementation evidence exists.",
+  tags: ["think", "prototype", "cloudflare", "lifecycle"]
 });
 
 export const fixtures: EvalFixture[] = [
@@ -279,6 +297,19 @@ export const fixtures: EvalFixture[] = [
     expectedBehavior:
       "Write a proposed decision record until implementation evidence exists.",
     metrics: ["tool_call_accuracy", "lifecycle_violations"]
+  }),
+  fixture({
+    id: "lifecycle.promote-proposed-decision",
+    category: "lifecycle",
+    seedRecords: [proposedThinkDecision],
+    input:
+      "promote the Think prototype decision after implementation evidence exists",
+    promotionRecordId: "decision.think.prototype",
+    promotionStatus: "active",
+    expectedPromotedStatus: "active",
+    expectedBehavior:
+      "Promote a proposed decision to active while preserving a validated record shape.",
+    metrics: ["lifecycle_violations", "tool_call_accuracy"]
   }),
   fixture({
     id: "routing.direct-active-memory",

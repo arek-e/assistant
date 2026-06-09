@@ -1,0 +1,9 @@
+export { InMemoryCanonicalMemoryStore } from "./canonical-memory-store";
+export {
+  proposeMemoryWrite,
+  type MemoryWriteDecision,
+  type MemoryWriteKind,
+  type MemoryWriteStatus
+} from "./admission";
+export { type RetrievalResult } from "./retrieval";
+export { MemoryRecordSchema, type MemoryRecord } from "./types";
