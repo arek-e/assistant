@@ -9,6 +9,7 @@ import {
 } from "ai";
 import { getAssistantSystemPrompt } from "./assistant-prompt";
 import { createAssistantTools } from "./assistant-tools";
+import { createScheduledTaskMessage } from "./scheduled-task";
 
 export class ChatAgent extends AIChatAgent<Env> {
   maxPersistedMessages = 100;
@@ -63,12 +64,6 @@ export class ChatAgent extends AIChatAgent<Env> {
   async executeTask(description: string, _task: Schedule<string>) {
     console.log(`Executing scheduled task: ${description}`);
 
-    this.broadcast(
-      JSON.stringify({
-        type: "scheduled-task",
-        description,
-        timestamp: new Date().toISOString()
-      })
-    );
+    this.broadcast(JSON.stringify(createScheduledTaskMessage(description)));
   }
 }
