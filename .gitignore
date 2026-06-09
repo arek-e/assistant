@@ -141,6 +141,8 @@ dist
 # Cloudflare
 .wrangler
 .dev.vars
+.evals/
+**/.vite/
 
 # Local CI/report artifacts
 .evals/

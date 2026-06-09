@@ -74,6 +74,17 @@ const PREFERENCE_MARKERS = ["i prefer", "my preference", "always use"];
 const DECISION_MARKERS = ["we chose", "we decided", "lets use", "let's use"];
 const IMPLEMENTATION_MARKERS = ["implemented", "shipped", "deployed"];
 
+type MemoryWriteRule = (
+  lowerInput: string,
+  originalInput: string
+) => MemoryWriteDecision | null;
+
+const MEMORY_WRITE_RULES: MemoryWriteRule[] = [
+  shortInputRule,
+  explicitPreferenceRule,
+  decisionIntentRule
+];
+
 function tokenize(value: string) {
   return value
     .toLowerCase()
@@ -174,12 +185,7 @@ export function retrieveRecords(
       };
     })
     .filter((hit) => hit.score > 0)
-    .filter((hit) => {
-      const blocked =
-        hit.record.status === "rejected" || hit.record.status === "superseded";
-
-      return !blocked;
-    })
+    .filter((hit) => !isBlockedLifecycle(hit.record))
     .sort((left, right) => {
       if (right.score !== left.score) return right.score - left.score;
       return left.record.id.localeCompare(right.record.id);
@@ -187,53 +193,64 @@ export function retrieveRecords(
     .slice(0, limit);
 
   const lifecycleViolations = hits
-    .filter(
-      (hit) =>
-        hit.record.status === "rejected" || hit.record.status === "superseded"
-    )
+    .filter((hit) => isBlockedLifecycle(hit.record))
     .map((hit) => hit.record.id);
 
   return { hits, lifecycleViolations };
 }
 
-export function proposeMemoryWrite(input: string): MemoryWriteDecision {
-  const lowerInput = input.toLowerCase();
-
-  if (input.trim().length < 24) {
-    return noWrite("input is too small to justify durable memory");
-  }
-
-  if (includesAny(lowerInput, PREFERENCE_MARKERS)) {
-    return writeDecision(
-      "preference_record",
-      "active",
-      "explicit user preference",
-      true
-    );
-  }
-
-  if (includesAny(lowerInput, DECISION_MARKERS)) {
-    return decisionRecordWrite(lowerInput);
-  }
-
-  return noWrite("no durable preference, decision, term, or lesson detected");
+function isBlockedLifecycle(record: MemoryRecord) {
+  return record.status === "rejected" || record.status === "superseded";
 }
 
-function decisionRecordWrite(input: string): MemoryWriteDecision {
-  const implemented = includesAny(input, IMPLEMENTATION_MARKERS);
-  if (implemented) {
-    return writeDecision(
-      "decision_record",
-      "active",
-      "decision includes implementation evidence",
-      true
-    );
-  }
+export function proposeMemoryWrite(input: string): MemoryWriteDecision {
+  const lowerInput = input.toLowerCase();
+  const rule = MEMORY_WRITE_RULES.find(
+    (candidate) => candidate(lowerInput, input) !== null
+  );
 
+  return (
+    rule?.(lowerInput, input) ??
+    noWrite("no durable preference, decision, term, or lesson detected")
+  );
+}
+
+function shortInputRule(
+  _lowerInput: string,
+  originalInput: string
+): MemoryWriteDecision | null {
+  if (originalInput.trim().length >= 24) return null;
+  return noWrite("input is too small to justify durable memory");
+}
+
+function explicitPreferenceRule(
+  lowerInput: string,
+  _originalInput: string
+): MemoryWriteDecision | null {
+  if (!includesAny(lowerInput, PREFERENCE_MARKERS)) return null;
+  return writeDecision(
+    "preference_record",
+    "active",
+    "explicit user preference",
+    true
+  );
+}
+
+function decisionIntentRule(
+  lowerInput: string,
+  _originalInput: string
+): MemoryWriteDecision | null {
+  if (!includesAny(lowerInput, DECISION_MARKERS)) return null;
+  return decisionRecordWrite(includesAny(lowerInput, IMPLEMENTATION_MARKERS));
+}
+
+function decisionRecordWrite(implemented: boolean): MemoryWriteDecision {
   return writeDecision(
     "decision_record",
-    "proposed",
-    "decision intent needs implementation evidence before active status",
+    implemented ? "active" : "proposed",
+    implemented
+      ? "decision includes implementation evidence"
+      : "decision intent needs implementation evidence before active status",
     true
   );
 }

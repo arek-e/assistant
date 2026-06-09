@@ -1,6 +1,6 @@
 # Assistant
 
-This context describes the personal Cloudflare-hosted assistant we are building. It keeps the shared language for memory, decision capture, and self-improvement work.
+This context describes the personal Cloudflare-hosted assistant we are building. It keeps the shared language for memory, decision capture, retrieval, evaluation, routing, and self-improvement work.
 
 ## Language
 

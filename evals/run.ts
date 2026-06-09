@@ -291,7 +291,6 @@ function printResults(results: EvalResult[]) {
 
 function printResult(result: EvalResult) {
   console.log(`${result.passed ? "PASS" : "FAIL"} ${result.id}`);
-
   result.checks.filter((item) => !item.passed).forEach(printFailedCheck);
 }
 
