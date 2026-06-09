@@ -16,28 +16,63 @@ import {
 import { Toasty, useKumoToastManager } from "@cloudflare/kumo/components/toast";
 import { Streamdown } from "streamdown";
 import { code } from "@streamdown/code";
+import { HugeiconsIcon, type IconSvgElement } from "@hugeicons/react";
 import {
-  PaperPlaneRightIcon,
-  StopIcon,
-  TrashIcon,
-  GearIcon,
-  ChatCircleDotsIcon,
-  CircleIcon,
-  MoonIcon,
-  SunIcon,
-  CheckCircleIcon,
-  XCircleIcon,
-  BrainIcon,
-  CaretDownIcon,
-  BugIcon,
-  PlugsConnectedIcon,
-  PlusIcon,
-  SignInIcon,
-  XIcon,
-  WrenchIcon,
-  PaperclipIcon,
-  ImageIcon
-} from "@phosphor-icons/react";
+  ArrowDown01Icon,
+  Attachment01Icon,
+  BrainIcon as BrainIconData,
+  Bug01Icon,
+  Cancel01Icon,
+  CancelCircleIcon,
+  ChatBotIcon,
+  CheckmarkCircle01Icon,
+  Delete02Icon,
+  Image01Icon,
+  Login01Icon,
+  McpServerIcon,
+  Moon02Icon,
+  Navigation03Icon,
+  Settings01Icon,
+  StopIcon as StopIconData,
+  Sun03Icon,
+  Wrench01Icon
+} from "@hugeicons-pro/core-bulk-rounded";
+import {
+  CircleIcon as SolidCircleIcon,
+  PlusSignIcon
+} from "@hugeicons-pro/core-solid-rounded";
+
+type IconProps = Omit<
+  React.ComponentProps<typeof HugeiconsIcon>,
+  "icon" | "altIcon"
+>;
+
+function createIcon(icon: IconSvgElement) {
+  return function Icon(props: IconProps) {
+    return <HugeiconsIcon icon={icon} {...props} />;
+  };
+}
+
+const PaperPlaneRightIcon = createIcon(Navigation03Icon);
+const StopIcon = createIcon(StopIconData);
+const TrashIcon = createIcon(Delete02Icon);
+const GearIcon = createIcon(Settings01Icon);
+const ChatCircleDotsIcon = createIcon(ChatBotIcon);
+const CircleIcon = createIcon(SolidCircleIcon);
+const MoonIcon = createIcon(Moon02Icon);
+const SunIcon = createIcon(Sun03Icon);
+const CheckCircleIcon = createIcon(CheckmarkCircle01Icon);
+const XCircleIcon = createIcon(CancelCircleIcon);
+const BrainIcon = createIcon(BrainIconData);
+const CaretDownIcon = createIcon(ArrowDown01Icon);
+const BugIcon = createIcon(Bug01Icon);
+const PlugsConnectedIcon = createIcon(McpServerIcon);
+const PlusIcon = createIcon(PlusSignIcon);
+const SignInIcon = createIcon(Login01Icon);
+const XIcon = createIcon(Cancel01Icon);
+const WrenchIcon = createIcon(Wrench01Icon);
+const PaperclipIcon = createIcon(Attachment01Icon);
+const ImageIcon = createIcon(Image01Icon);
 
 // ── Attachment helpers ────────────────────────────────────────────────
 
@@ -454,7 +489,7 @@ function Chat() {
               <span className="mr-2">⛅</span>Agent Starter
             </h1>
             <Badge variant="secondary">
-              <ChatCircleDotsIcon size={12} weight="bold" className="mr-1" />
+              <ChatCircleDotsIcon size={12} className="mr-1" />
               AI Chat
             </Badge>
           </div>
@@ -462,7 +497,6 @@ function Chat() {
             <div className="flex items-center gap-1.5">
               <CircleIcon
                 size={8}
-                weight="fill"
                 className={connected ? "text-kumo-success" : "text-kumo-danger"}
               />
               <Text size="xs" variant="secondary">
