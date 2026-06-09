@@ -14,7 +14,6 @@
       "name": "@teampitch/worker",
       "version": "1.0.0",
       "dependencies": {
-        "@base-ui/react": "^1.5.0",
         "@cloudflare/ai-chat": "^0.8.0",
         "@cloudflare/think": "^0.8.8",
         "@fontsource-variable/geist-mono": "^5.2.8",
@@ -23,17 +22,13 @@
         "@hugeicons-pro/core-solid-rounded": "^4.2.0",
         "@hugeicons/react": "^1.1.6",
         "@streamdown/code": "^1.1.1",
+        "@teampitch/ui": "workspace:*",
         "agents": "^0.15.0",
         "ai": "^6.0.194",
-        "class-variance-authority": "^0.7.1",
-        "clsx": "^2.1.1",
         "effect": "^3.21.3",
-        "lucide-react": "^1.17.0",
         "react": "^19.2.7",
-        "react-day-picker": "^10.0.1",
         "react-dom": "^19.2.7",
         "streamdown": "^2.5.0",
-        "tailwind-merge": "^3.6.0",
         "workers-ai-provider": "^3.1.14",
       },
       "devDependencies": {
@@ -54,6 +49,29 @@
         "typescript": "^6.0.3",
         "vite": "^8.0.16",
         "wrangler": "^4.99.0",
+      },
+    },
+    "packages/ui": {
+      "name": "@teampitch/ui",
+      "version": "1.0.0",
+      "dependencies": {
+        "@base-ui/react": "^1.5.0",
+        "class-variance-authority": "^0.7.1",
+        "clsx": "^2.1.1",
+        "lucide-react": "^1.17.0",
+        "react-day-picker": "^10.0.1",
+        "tailwind-merge": "^3.6.0",
+      },
+      "devDependencies": {
+        "@types/react": "^19.2.16",
+        "@types/react-dom": "^19.2.3",
+        "oxfmt": "^0.54.0",
+        "oxlint": "^1.69.0",
+        "typescript": "^6.0.3",
+      },
+      "peerDependencies": {
+        "react": "^19.2.7",
+        "react-dom": "^19.2.7",
       },
     },
   },
@@ -515,6 +533,8 @@
     "@tailwindcss/oxide-win32-x64-msvc": ["@tailwindcss/oxide-win32-x64-msvc@4.3.0", "", { "os": "win32", "cpu": "x64" }, "sha512-Mvrf2kXW/yeW/OTezZlCGOirXRcUuLIBx/5Y12BaPM7wJoryG6dfS/NJL8aBPqtTEx/Vm4T4vKzFUcKDT+TKUA=="],
 
     "@tailwindcss/vite": ["@tailwindcss/vite@4.3.0", "", { "dependencies": { "@tailwindcss/node": "4.3.0", "@tailwindcss/oxide": "4.3.0", "tailwindcss": "4.3.0" }, "peerDependencies": { "vite": "^5.2.0 || ^6 || ^7 || ^8" } }, "sha512-t6J3OrB5Fc0ExuhohouH0fWUGMYL6PTLhW+E7zIk/pdbnJARZDCwjBznFnkh5ynRnIRSI4YjtTH0t6USjJISrw=="],
+
+    "@teampitch/ui": ["@teampitch/ui@workspace:packages/ui"],
 
     "@teampitch/worker": ["@teampitch/worker@workspace:apps/worker"],
 

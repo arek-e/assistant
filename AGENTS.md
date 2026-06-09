@@ -22,11 +22,12 @@ Run `bun run types` after changing bindings in `apps/worker/wrangler.jsonc`.
 
 ## Workspace Layout
 
-This repo follows Turborepo-style directory conventions with plain Bun workspaces. Do not add Turbo until task graph orchestration, caching, or multiple active packages make it worth the extra dependency.
+This repo follows Turborepo-style directory conventions with plain Bun workspaces. Do not add Turbo until task graph orchestration, caching, or more package/app orchestration make it worth the extra dependency.
 
 - `apps/worker`: Cloudflare Worker, React client, Cloudflare Agent classes, Wrangler config, and app-specific evals.
+- `packages/ui`: shared Coss UI primitives, shared UI hooks, and UI utilities.
 - `docs`: architecture notes, ADRs, brainstorms, and product context.
-- `packages/*`: reserved for future reusable contracts, memory, or agent-core packages. Create these only when code must be shared across apps or tested independently.
+- Future `packages/*`: reusable contracts, memory, or agent-core packages. Create these only when code must be shared across apps or tested independently.
 
 ## Source Ownership
 
@@ -38,9 +39,10 @@ This repo started from the Cloudflare Agents starter, but should now be treated 
 - `apps/worker/src/server/routing`: Effort Router logic and routing audit primitives.
 - `apps/worker/src/server/assistant-*.ts`: shared assistant prompt/tool runtime used by multiple agents.
 - `apps/worker/src/features`: user-facing React workflows.
-- `apps/worker/src/components/ui`: installed Coss UI primitives. Do not hand-roll replacements without a reason.
 - `apps/worker/src/components/app`: app-specific composition, icons, and wrappers.
 - `apps/worker/evals`: primitive behavior gates. Memory, retrieval, routing, and self-improvement changes should extend or preserve these evals.
+- `packages/ui/src/components/ui`: installed Coss UI primitives. Do not hand-roll replacements without a reason.
+- `packages/ui/components.json`: Coss UI registry config. Run future Coss UI component installs from `packages/ui` so primitives stay shared.
 
 Prefer moving code toward these boundaries over adding more template-style files at the root of `apps/worker/src/server`.
 
