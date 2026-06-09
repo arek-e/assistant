@@ -20,7 +20,7 @@ import {
   WrenchIcon
 } from "@/components/app/icons";
 import { Badge, Button, Switch, Text } from "@/components/app/ui";
-import { toastManager } from "@/components/ui/toast";
+import { toastManager } from "@teampitch/ui/components/toast";
 import {
   clipboardFiles,
   createAttachment,

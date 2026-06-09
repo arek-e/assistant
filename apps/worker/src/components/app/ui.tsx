@@ -1,17 +1,17 @@
 import { forwardRef, type ComponentProps, type ReactNode } from "react";
-import { Badge as CossBadge } from "@/components/ui/badge";
-import { Button as CossButton } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
+import { Badge as CossBadge } from "@teampitch/ui/components/badge";
+import { Button as CossButton } from "@teampitch/ui/components/button";
+import { Card } from "@teampitch/ui/components/card";
 import {
   Empty as CossEmpty,
   EmptyContent,
   EmptyHeader,
   EmptyMedia,
   EmptyTitle
-} from "@/components/ui/empty";
-import { Switch as CossSwitch } from "@/components/ui/switch";
-import { Textarea } from "@/components/ui/textarea";
-import { cn } from "@/lib/utils";
+} from "@teampitch/ui/components/empty";
+import { Switch as CossSwitch } from "@teampitch/ui/components/switch";
+import { Textarea } from "@teampitch/ui/components/textarea";
+import { cn } from "@teampitch/ui/lib/utils";
 
 type ButtonProps = ComponentProps<"button"> & {
   variant?: "primary" | "secondary" | "outline" | "ghost";

@@ -1,5 +1,8 @@
 import { Suspense } from "react";
-import { AnchoredToastProvider, ToastProvider } from "@/components/ui/toast";
+import {
+  AnchoredToastProvider,
+  ToastProvider
+} from "@teampitch/ui/components/toast";
 import { Chat } from "@/features/chat/chat";
 
 export default function App() {

@@ -80,6 +80,10 @@ _Avoid_: App package, dependency dumping ground
 The deployable Cloudflare Worker workspace containing Wrangler config, Worker entrypoint, Agent classes, React client, and app-specific evals. It is currently `apps/worker`.
 _Avoid_: Backend folder, server-only package
 
+**Shared UI Package**:
+The workspace package containing reusable Coss UI primitives, shared UI hooks, and UI utility helpers. It is currently `packages/ui` and is consumed by `apps/worker`; app-specific composition, product copy, and HugeIcons wrappers stay in the Worker app.
+_Avoid_: Design-system dumping ground, app-specific feature UI
+
 **Reference Repository**:
 An external codebase used for architecture comparison and implementation patterns, not as a dependency. OpenCode and T3 Code are reference repositories for package roles, agent runtime boundaries, session behavior, and operational safeguards.
 _Avoid_: Copied source, cargo-cult template

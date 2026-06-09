@@ -4,6 +4,12 @@
     "@babel/plugin-proposal-decorators",
     "@rolldown/plugin-babel"
   ],
+  "duplicates": {
+    "ignore": ["packages/ui/src/components/ui/**"]
+  },
+  "health": {
+    "ignore": ["packages/ui/src/components/ui/**"]
+  },
   "usedClassMembers": [
     {
       "extends": "AIChatAgent",
