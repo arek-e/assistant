@@ -3,9 +3,11 @@ name: Sanity Check
 on:
   push:
     branches:
+      - master
       - main
   pull_request:
     branches:
+      - master
       - main
 
 jobs:
@@ -22,9 +24,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          fetch-depth: 1
+          fetch-depth: 0
 
-      - uses: actions/setup-node@v3
+      - uses: oven-sh/setup-bun@v2
 
-      - run: npm install
-      - run: npm run check
+      - run: bun install --frozen-lockfile
+        env:
+          UNIVERSAL_LICENSE_KEY: ${{ secrets.UNIVERSAL_LICENSE_KEY }}
+      - run: bun run check:all
