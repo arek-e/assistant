@@ -24,7 +24,7 @@
     "health:score": "fallow health --score --hotspots --targets",
     "dead-code": "fallow dead-code",
     "dupes": "fallow dupes",
-    "audit": "fallow audit --format compact",
+    "audit": "fallow audit --format compact --base origin/master",
     "check": "bun run format:check && bun run lint && bun run typecheck",
     "check:all": "bun run check && bun run audit"
   },
