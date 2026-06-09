@@ -1,21 +1,38 @@
-import { Suspense, useCallback, useState, useEffect, useRef } from "react";
+import {
+  forwardRef,
+  Suspense,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type ComponentProps,
+  type ReactNode
+} from "react";
 import { useAgent } from "agents/react";
 import { useAgentChat } from "@cloudflare/ai-chat/react";
 import { getToolName, isToolUIPart, type UIMessage } from "ai";
 import type { MCPServersState } from "agents";
 import type { ChatAgent } from "./server";
-import {
-  Badge,
-  Button,
-  Empty,
-  InputArea,
-  Surface,
-  Switch,
-  Text
-} from "@cloudflare/kumo";
-import { Toasty, useKumoToastManager } from "@cloudflare/kumo/components/toast";
 import { Streamdown } from "streamdown";
 import { code } from "@streamdown/code";
+import { Badge as CossBadge } from "@/components/ui/badge";
+import { Button as CossButton } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import {
+  Empty as CossEmpty,
+  EmptyContent,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle
+} from "@/components/ui/empty";
+import { Switch as CossSwitch } from "@/components/ui/switch";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  AnchoredToastProvider,
+  ToastProvider,
+  toastManager
+} from "@/components/ui/toast";
+import { cn } from "@/lib/utils";
 import { HugeiconsIcon, type IconSvgElement } from "@hugeicons/react";
 import {
   ArrowDown01Icon,
@@ -73,6 +90,167 @@ const XIcon = createIcon(Cancel01Icon);
 const WrenchIcon = createIcon(Wrench01Icon);
 const PaperclipIcon = createIcon(Attachment01Icon);
 const ImageIcon = createIcon(Image01Icon);
+
+// ── Coss-style local primitives ───────────────────────────────────────
+
+type ButtonProps = ComponentProps<"button"> & {
+  variant?: "primary" | "secondary" | "outline" | "ghost";
+  size?: "sm" | "md";
+  shape?: "square";
+  icon?: ReactNode;
+};
+
+function Button({
+  variant = "secondary",
+  size = "md",
+  shape,
+  icon,
+  children,
+  className,
+  ...props
+}: ButtonProps) {
+  const cossVariant =
+    variant === "primary"
+      ? "default"
+      : variant === "outline"
+        ? "outline"
+        : variant;
+  const cossSize =
+    shape === "square"
+      ? size === "sm"
+        ? "icon-sm"
+        : "icon"
+      : size === "md"
+        ? "default"
+        : size;
+
+  return (
+    <CossButton
+      className={className}
+      size={cossSize}
+      variant={cossVariant}
+      {...props}
+    >
+      {icon}
+      {children}
+    </CossButton>
+  );
+}
+
+function Badge({
+  variant = "secondary",
+  className,
+  children
+}: {
+  variant?: "primary" | "secondary" | "destructive";
+  className?: string;
+  children: ReactNode;
+}) {
+  return (
+    <CossBadge
+      className={className}
+      variant={variant === "primary" ? "default" : variant}
+    >
+      {children}
+    </CossBadge>
+  );
+}
+
+function Surface({ className, ...props }: ComponentProps<"div">) {
+  return <Card className={cn("shadow-none", className)} {...props} />;
+}
+
+function Text({
+  size = "sm",
+  variant,
+  bold,
+  as,
+  className,
+  children
+}: {
+  size?: "xs" | "sm";
+  variant?: "secondary" | "heading3";
+  bold?: boolean;
+  as?: "span";
+  className?: string;
+  children: ReactNode;
+}) {
+  const Component = as ?? "span";
+  return (
+    <Component
+      className={cn(
+        size === "xs" ? "text-xs" : "text-sm",
+        variant === "secondary" && "text-muted-foreground",
+        variant === "heading3" && "text-lg font-semibold text-foreground",
+        bold && "font-semibold",
+        className
+      )}
+    >
+      {children}
+    </Component>
+  );
+}
+
+function Empty({
+  icon,
+  title,
+  contents
+}: {
+  icon: ReactNode;
+  title: string;
+  contents: ReactNode;
+}) {
+  return (
+    <CossEmpty className="min-h-[320px]">
+      <EmptyHeader>
+        <EmptyMedia variant="icon">{icon}</EmptyMedia>
+        <EmptyTitle>{title}</EmptyTitle>
+      </EmptyHeader>
+      <EmptyContent>{contents}</EmptyContent>
+    </CossEmpty>
+  );
+}
+
+type InputAreaProps = ComponentProps<"textarea"> & {
+  onValueChange?: (value: string) => void;
+};
+
+const InputArea = forwardRef<HTMLTextAreaElement, InputAreaProps>(
+  ({ className, onChange, onValueChange, ...props }, ref) => (
+    <Textarea
+      ref={ref}
+      className={cn(
+        "min-h-9 border-transparent bg-transparent shadow-none before:hidden has-focus-visible:ring-0",
+        className
+      )}
+      onChange={(event) => {
+        onChange?.(event);
+        onValueChange?.(event.currentTarget.value);
+      }}
+      {...props}
+    />
+  )
+);
+InputArea.displayName = "InputArea";
+
+function Switch({
+  checked,
+  onCheckedChange,
+  "aria-label": ariaLabel
+}: {
+  checked: boolean;
+  onCheckedChange: (checked: boolean) => void;
+  size?: "sm";
+  "aria-label": string;
+}) {
+  return (
+    <CossSwitch
+      aria-label={ariaLabel}
+      checked={checked}
+      onCheckedChange={onCheckedChange}
+    />
+  );
+}
 
 // ── Attachment helpers ────────────────────────────────────────────────
 
@@ -147,9 +325,9 @@ function ToolPartView({
   if (part.state === "output-available") {
     return (
       <div className="flex justify-start">
-        <Surface className="max-w-[85%] px-4 py-2.5 rounded-xl ring ring-kumo-line">
+        <Surface className="max-w-[85%] px-4 py-2.5 rounded-xl ring ring-border">
           <div className="flex items-center gap-2 mb-1">
-            <GearIcon size={14} className="text-kumo-inactive" />
+            <GearIcon size={14} className="text-muted-foreground" />
             <Text size="xs" variant="secondary" bold>
               {toolName}
             </Text>
@@ -170,9 +348,9 @@ function ToolPartView({
     const approvalId = (part.approval as { id?: string })?.id;
     return (
       <div className="flex justify-start">
-        <Surface className="max-w-[85%] px-4 py-3 rounded-xl ring-2 ring-kumo-warning">
+        <Surface className="max-w-[85%] px-4 py-3 rounded-xl ring-2 ring-warning">
           <div className="flex items-center gap-2 mb-2">
-            <GearIcon size={14} className="text-kumo-warning" />
+            <GearIcon size={14} className="text-warning" />
             <Text size="sm" bold>
               Approval needed: {toolName}
             </Text>
@@ -221,9 +399,9 @@ function ToolPartView({
   ) {
     return (
       <div className="flex justify-start">
-        <Surface className="max-w-[85%] px-4 py-2.5 rounded-xl ring ring-kumo-line">
+        <Surface className="max-w-[85%] px-4 py-2.5 rounded-xl ring ring-border">
           <div className="flex items-center gap-2">
-            <XCircleIcon size={14} className="text-kumo-danger" />
+            <XCircleIcon size={14} className="text-destructive" />
             <Text size="xs" variant="secondary" bold>
               {toolName}
             </Text>
@@ -238,9 +416,12 @@ function ToolPartView({
   if (part.state === "input-available" || part.state === "input-streaming") {
     return (
       <div className="flex justify-start">
-        <Surface className="max-w-[85%] px-4 py-2.5 rounded-xl ring ring-kumo-line">
+        <Surface className="max-w-[85%] px-4 py-2.5 rounded-xl ring ring-border">
           <div className="flex items-center gap-2">
-            <GearIcon size={14} className="text-kumo-inactive animate-spin" />
+            <GearIcon
+              size={14}
+              className="text-muted-foreground animate-spin"
+            />
             <Text size="xs" variant="secondary">
               Running {toolName}...
             </Text>
@@ -264,7 +445,6 @@ function Chat() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const toasts = useKumoToastManager();
   const [mcpState, setMcpState] = useState<MCPServersState>({
     prompts: [],
     resources: [],
@@ -288,23 +468,19 @@ function Chat() {
     onMcpUpdate: useCallback((state: MCPServersState) => {
       setMcpState(state);
     }, []),
-    onMessage: useCallback(
-      (message: MessageEvent) => {
-        try {
-          const data = JSON.parse(String(message.data));
-          if (data.type === "scheduled-task") {
-            toasts.add({
-              title: "Scheduled task completed",
-              description: data.description,
-              timeout: 0
-            });
-          }
-        } catch {
-          // Not JSON or not our event
+    onMessage: useCallback((message: MessageEvent) => {
+      try {
+        const data = JSON.parse(String(message.data));
+        if (data.type === "scheduled-task") {
+          toastManager.add({
+            title: "Scheduled task completed",
+            description: data.description
+          });
         }
-      },
-      [toasts]
-    )
+      } catch {
+        // Not JSON or not our event
+      }
+    }, [])
   });
 
   // Close MCP panel when clicking outside
@@ -465,14 +641,14 @@ function Chat() {
 
   return (
     <div
-      className="flex flex-col h-screen bg-kumo-elevated relative"
+      className="flex flex-col h-screen bg-background relative"
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
     >
       {isDragging && (
-        <div className="absolute inset-0 z-50 flex items-center justify-center bg-kumo-elevated/80 backdrop-blur-sm border-2 border-dashed border-kumo-brand rounded-xl m-2 pointer-events-none">
-          <div className="flex flex-col items-center gap-2 text-kumo-brand">
+        <div className="absolute inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm border-2 border-dashed border-primary rounded-xl m-2 pointer-events-none">
+          <div className="flex flex-col items-center gap-2 text-primary">
             <ImageIcon size={40} />
             <Text variant="heading3" as="span">
               Drop images here
@@ -482,10 +658,10 @@ function Chat() {
       )}
 
       {/* Header */}
-      <header className="px-5 py-4 bg-kumo-base border-b border-kumo-line">
+      <header className="px-5 py-4 bg-card border-b border-border">
         <div className="max-w-3xl mx-auto flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <h1 className="text-lg font-semibold text-kumo-default">
+            <h1 className="text-lg font-semibold text-foreground">
               <span className="mr-2">⛅</span>Agent Starter
             </h1>
             <Badge variant="secondary">
@@ -497,14 +673,14 @@ function Chat() {
             <div className="flex items-center gap-1.5">
               <CircleIcon
                 size={8}
-                className={connected ? "text-kumo-success" : "text-kumo-danger"}
+                className={connected ? "text-success" : "text-destructive"}
               />
               <Text size="xs" variant="secondary">
                 {connected ? "Connected" : "Disconnected"}
               </Text>
             </div>
             <div className="flex items-center gap-1.5">
-              <BugIcon size={14} className="text-kumo-inactive" />
+              <BugIcon size={14} className="text-muted-foreground" />
               <Switch
                 checked={showDebug}
                 onCheckedChange={setShowDebug}
@@ -531,13 +707,13 @@ function Chat() {
               {/* MCP Dropdown Panel */}
               {showMcpPanel && (
                 <div className="absolute right-0 top-full mt-2 w-96 z-50">
-                  <Surface className="rounded-xl ring ring-kumo-line shadow-lg p-4 space-y-4">
+                  <Surface className="rounded-xl ring ring-border shadow-lg p-4 space-y-4">
                     {/* Panel Header */}
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
                         <PlugsConnectedIcon
                           size={16}
-                          className="text-kumo-accent"
+                          className="text-primary"
                         />
                         <Text size="sm" bold>
                           MCP Servers
@@ -572,7 +748,7 @@ function Chat() {
                         onChange={(e) => setMcpName(e.target.value)}
                         aria-label="MCP server name"
                         placeholder="Server name"
-                        className="w-full px-3 py-1.5 text-sm rounded-lg border border-kumo-line bg-kumo-base text-kumo-default placeholder:text-kumo-inactive focus:outline-none focus:ring-1 focus:ring-kumo-accent"
+                        className="w-full px-3 py-1.5 text-sm rounded-lg border border-border bg-card text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
                       />
                       <div className="flex gap-2">
                         <input
@@ -581,7 +757,7 @@ function Chat() {
                           onChange={(e) => setMcpUrl(e.target.value)}
                           aria-label="MCP server URL"
                           placeholder="https://mcp.example.com"
-                          className="flex-1 px-3 py-1.5 text-sm rounded-lg border border-kumo-line bg-kumo-base text-kumo-default placeholder:text-kumo-inactive focus:outline-none focus:ring-1 focus:ring-kumo-accent font-mono"
+                          className="flex-1 px-3 py-1.5 text-sm rounded-lg border border-border bg-card text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring font-mono"
                         />
                         <Button
                           type="submit"
@@ -603,11 +779,11 @@ function Chat() {
                         {serverEntries.map(([id, server]) => (
                           <div
                             key={id}
-                            className="flex items-start justify-between p-2.5 rounded-lg border border-kumo-line"
+                            className="flex items-start justify-between p-2.5 rounded-lg border border-border"
                           >
                             <div className="min-w-0 flex-1">
                               <div className="flex items-center gap-2">
-                                <span className="text-sm font-medium text-kumo-default truncate">
+                                <span className="text-sm font-medium text-foreground truncate">
                                   {server.name}
                                 </span>
                                 <Badge
@@ -622,7 +798,7 @@ function Chat() {
                                   {server.state}
                                 </Badge>
                               </div>
-                              <span className="text-xs font-mono text-kumo-subtle truncate block mt-0.5">
+                              <span className="text-xs font-mono text-muted-foreground truncate block mt-0.5">
                                 {server.server_url}
                               </span>
                               {server.state === "failed" && server.error && (
@@ -665,10 +841,13 @@ function Chat() {
 
                     {/* Tool Summary */}
                     {mcpToolCount > 0 && (
-                      <div className="pt-2 border-t border-kumo-line">
+                      <div className="pt-2 border-t border-border">
                         <div className="flex items-center gap-2">
-                          <WrenchIcon size={14} className="text-kumo-subtle" />
-                          <span className="text-xs text-kumo-subtle">
+                          <WrenchIcon
+                            size={14}
+                            className="text-muted-foreground"
+                          />
+                          <span className="text-xs text-muted-foreground">
                             {mcpToolCount} tool
                             {mcpToolCount !== 1 ? "s" : ""} available from MCP
                             servers
@@ -734,7 +913,7 @@ function Chat() {
             return (
               <div key={message.id} className="space-y-2">
                 {showDebug && (
-                  <pre className="text-[11px] text-kumo-subtle bg-kumo-control rounded-lg p-3 overflow-auto max-h-64">
+                  <pre className="text-[11px] text-muted-foreground bg-muted rounded-lg p-3 overflow-auto max-h-64">
                     {JSON.stringify(message, null, 2)}
                   </pre>
                 )}
@@ -767,24 +946,24 @@ function Chat() {
                         <details className="max-w-[85%] w-full" open={!isDone}>
                           <summary className="flex items-center gap-2 cursor-pointer px-3 py-2 rounded-lg bg-purple-500/10 border border-purple-500/20 text-sm select-none">
                             <BrainIcon size={14} className="text-purple-400" />
-                            <span className="font-medium text-kumo-default">
+                            <span className="font-medium text-foreground">
                               Reasoning
                             </span>
                             {isDone ? (
-                              <span className="text-xs text-kumo-success">
+                              <span className="text-xs text-success">
                                 Complete
                               </span>
                             ) : (
-                              <span className="text-xs text-kumo-brand">
+                              <span className="text-xs text-primary">
                                 Thinking...
                               </span>
                             )}
                             <CaretDownIcon
                               size={14}
-                              className="ml-auto text-kumo-inactive"
+                              className="ml-auto text-muted-foreground"
                             />
                           </summary>
-                          <pre className="mt-2 px-3 py-2 rounded-lg bg-kumo-control text-xs text-kumo-default whitespace-pre-wrap overflow-auto max-h-64">
+                          <pre className="mt-2 px-3 py-2 rounded-lg bg-muted text-xs text-foreground whitespace-pre-wrap overflow-auto max-h-64">
                             {reasoning.text}
                           </pre>
                         </details>
@@ -809,7 +988,7 @@ function Chat() {
                       <img
                         src={part.url}
                         alt="Attachment"
-                        className="max-h-64 rounded-xl border border-kumo-line object-contain"
+                        className="max-h-64 rounded-xl border border-border object-contain"
                       />
                     </div>
                   ))}
@@ -824,7 +1003,7 @@ function Chat() {
                     if (isUser) {
                       return (
                         <div key={i} className="flex justify-end">
-                          <div className="max-w-[85%] px-4 py-2.5 rounded-2xl rounded-br-md bg-kumo-contrast text-kumo-inverse leading-relaxed">
+                          <div className="max-w-[85%] px-4 py-2.5 rounded-2xl rounded-br-md bg-primary text-primary-foreground leading-relaxed">
                             {text}
                           </div>
                         </div>
@@ -833,7 +1012,7 @@ function Chat() {
 
                     return (
                       <div key={i} className="flex justify-start">
-                        <div className="max-w-[85%] rounded-2xl rounded-bl-md bg-kumo-base text-kumo-default leading-relaxed">
+                        <div className="max-w-[85%] rounded-2xl rounded-bl-md bg-card text-foreground leading-relaxed">
                           <Streamdown
                             className="sd-theme rounded-2xl rounded-bl-md p-3"
                             plugins={{ code }}
@@ -855,7 +1034,7 @@ function Chat() {
       </div>
 
       {/* Input */}
-      <div className="border-t border-kumo-line bg-kumo-base">
+      <div className="border-t border-border bg-card">
         <form
           onSubmit={(e) => {
             e.preventDefault();
@@ -881,7 +1060,7 @@ function Chat() {
               {attachments.map((att) => (
                 <div
                   key={att.id}
-                  className="relative group rounded-lg border border-kumo-line bg-kumo-control overflow-hidden"
+                  className="relative group rounded-lg border border-border bg-muted overflow-hidden"
                 >
                   <img
                     src={att.preview}
@@ -891,7 +1070,7 @@ function Chat() {
                   <button
                     type="button"
                     onClick={() => removeAttachment(att.id)}
-                    className="absolute top-0.5 right-0.5 rounded-full bg-kumo-contrast/80 text-kumo-inverse p-0.5 opacity-0 group-hover:opacity-100 transition-opacity"
+                    className="absolute top-0.5 right-0.5 rounded-full bg-primary/80 text-primary-foreground p-0.5 opacity-0 group-hover:opacity-100 transition-opacity"
                     aria-label={`Remove ${att.file.name}`}
                   >
                     <XIcon size={10} />
@@ -901,7 +1080,7 @@ function Chat() {
             </div>
           )}
 
-          <div className="flex items-end gap-3 rounded-xl border border-kumo-line bg-kumo-base p-3 shadow-sm focus-within:ring-2 focus-within:ring-kumo-ring focus-within:border-transparent transition-shadow">
+          <div className="flex items-end gap-3 rounded-xl border border-border bg-card p-3 shadow-sm focus-within:ring-2 focus-within:ring-ring focus-within:border-transparent transition-shadow">
             <Button
               type="button"
               variant="ghost"
@@ -969,16 +1148,18 @@ function Chat() {
 
 export default function App() {
   return (
-    <Toasty>
-      <Suspense
-        fallback={
-          <div className="flex items-center justify-center h-screen text-kumo-inactive">
-            Loading...
-          </div>
-        }
-      >
-        <Chat />
-      </Suspense>
-    </Toasty>
+    <ToastProvider>
+      <AnchoredToastProvider>
+        <Suspense
+          fallback={
+            <div className="flex items-center justify-center h-screen text-muted-foreground">
+              Loading...
+            </div>
+          }
+        >
+          <Chat />
+        </Suspense>
+      </AnchoredToastProvider>
+    </ToastProvider>
   );
 }

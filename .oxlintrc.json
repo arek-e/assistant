@@ -17,5 +17,5 @@
       }
     ]
   },
-  "ignorePatterns": ["**/env.d.ts"]
+  "ignorePatterns": ["**/env.d.ts", "src/components/ui/**"]
 }
