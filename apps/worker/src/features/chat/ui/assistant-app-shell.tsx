@@ -9,7 +9,10 @@ import {
 import { motion } from "motion/react";
 import { cn } from "@teampitch/ui/lib/utils";
 import {
+  BrainIcon,
   ChatCircleDotsIcon,
+  GearIcon,
+  PlugsConnectedIcon,
   PlusIcon,
   WrenchIcon
 } from "@/components/app/icons";
@@ -61,14 +64,9 @@ export function AssistantAppShell({
       <div className="flex h-full min-h-0 overflow-visible">
         <DesktopAssistantNav
           connected={connected}
-          isStreaming={isStreaming}
           messageCount={messageCount}
           panelOpen={panelOpen}
-          serverCount={serverCount}
           showDebug={showDebug}
-          statusLabel={statusLabel}
-          toolCount={toolCount}
-          integrationControls={integrationControls}
           onNewChat={onNewChat}
           onPanelOpenChange={setPanelOpen}
           onShowDebugChange={onShowDebugChange}
@@ -81,18 +79,33 @@ export function AssistantAppShell({
             statusLabel={statusLabel}
             themeToggle={themeToggle}
           />
-          <motion.div
-            className="min-h-0 flex-1 overflow-y-auto"
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.2, ease: [0.22, 1, 0.36, 1] }}
-          >
-            <div className="mx-auto w-full max-w-3xl px-5 pb-10 pt-10 sm:px-8 lg:pt-16">
-              {children}
-            </div>
-          </motion.div>
-          <div className="shrink-0 bg-gradient-to-t from-background via-background to-background/0 px-4 pb-5 pt-3 sm:px-8">
-            {composer}
+          <div className="flex min-h-0 flex-1 overflow-hidden">
+            <section className="flex min-w-0 flex-1 flex-col">
+              <motion.div
+                className="min-h-0 flex-1 overflow-y-auto"
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.2, ease: [0.22, 1, 0.36, 1] }}
+              >
+                <div className="mx-auto w-full max-w-3xl px-5 pb-10 pt-10 sm:px-8 lg:pt-16">
+                  {children}
+                </div>
+              </motion.div>
+              <div className="shrink-0 bg-gradient-to-t from-background via-background to-background/0 px-4 pb-5 pt-3 sm:px-8">
+                {composer}
+              </div>
+            </section>
+            <AssistantDetailsPanel
+              connected={connected}
+              isStreaming={isStreaming}
+              messageCount={messageCount}
+              serverCount={serverCount}
+              showDebug={showDebug}
+              statusLabel={statusLabel}
+              toolCount={toolCount}
+              integrationControls={integrationControls}
+              onShowDebugChange={onShowDebugChange}
+            />
           </div>
         </main>
       </div>
@@ -100,29 +113,151 @@ export function AssistantAppShell({
   );
 }
 
-function DesktopAssistantNav({
+function AssistantDetailsPanel({
   connected,
   isStreaming,
   messageCount,
-  panelOpen,
   serverCount,
   showDebug,
   statusLabel,
   toolCount,
   integrationControls,
-  onNewChat,
-  onPanelOpenChange,
   onShowDebugChange
 }: {
   connected: boolean;
   isStreaming: boolean;
   messageCount: number;
-  panelOpen: boolean;
   serverCount: number;
   showDebug: boolean;
   statusLabel: string;
   toolCount: number;
   integrationControls: ReactNode;
+  onShowDebugChange: (checked: boolean) => void;
+}) {
+  return (
+    <aside className="hidden w-72 shrink-0 flex-col bg-[#f7f7f4] px-5 py-5 lg:flex">
+      <div className="flex items-center justify-between gap-3">
+        <h2 className="truncate text-sm font-medium text-neutral-950">
+          Assistant details
+        </h2>
+        <span className="shrink-0 rounded-full bg-black/[0.04] px-2 py-0.5 text-xs text-muted-foreground">
+          {statusLabel}
+        </span>
+      </div>
+
+      <div className="mt-7 min-h-0 flex-1 space-y-7 overflow-y-auto pr-1">
+        <DetailsSection title="Runtime">
+          <DetailsRow
+            label="Connection"
+            value={getConnectionLabel(connected)}
+            dotClassName={getConnectionDotClass(connected)}
+          />
+          <DetailsRow
+            label="Agent"
+            value={getAgentLabel(isStreaming)}
+            dotClassName={getAgentDotClass(isStreaming)}
+          />
+          <DetailsRow
+            icon={<ChatCircleDotsIcon size={15} />}
+            label="Messages"
+            value={`${messageCount}`}
+          />
+        </DetailsSection>
+
+        <DetailsSection title="Integrations">
+          <DetailsRow
+            icon={<WrenchIcon size={15} />}
+            label="MCP tools"
+            value={`${toolCount}`}
+          />
+          <DetailsRow
+            icon={<PlugsConnectedIcon size={15} />}
+            label="MCP servers"
+            value={`${serverCount}`}
+          />
+          <div className="pt-2">{integrationControls}</div>
+        </DetailsSection>
+
+        <DetailsSection title="Memory">
+          <div className="flex min-h-8 items-center gap-2 text-sm">
+            <span className="grid size-4 shrink-0 place-items-center text-neutral-400">
+              <BrainIcon size={15} />
+            </span>
+            <span className="min-w-0 flex-1 truncate text-muted-foreground">
+              Debugger
+            </span>
+            <Switch
+              checked={showDebug}
+              onCheckedChange={onShowDebugChange}
+              size="sm"
+              aria-label="Toggle debug mode"
+            />
+          </div>
+        </DetailsSection>
+      </div>
+    </aside>
+  );
+}
+
+function DetailsSection({
+  title,
+  children
+}: {
+  title: string;
+  children: ReactNode;
+}) {
+  return (
+    <section>
+      <h2 className="mb-2 text-xs font-medium text-muted-foreground">
+        {title}
+      </h2>
+      <div className="space-y-1">{children}</div>
+    </section>
+  );
+}
+
+function DetailsRow({
+  icon,
+  label,
+  value,
+  dotClassName
+}: {
+  icon?: ReactNode;
+  label: string;
+  value: string;
+  dotClassName?: string;
+}) {
+  return (
+    <div className="flex min-h-8 items-center gap-2 text-sm">
+      <span className="grid size-4 shrink-0 place-items-center text-neutral-400">
+        {icon ??
+          (dotClassName && (
+            <span className={cn("size-2 rounded-full", dotClassName)} />
+          ))}
+      </span>
+      <span className="min-w-0 flex-1 truncate text-muted-foreground">
+        {label}
+      </span>
+      <span className="shrink-0 text-right text-neutral-900 tabular-nums">
+        {value}
+      </span>
+    </div>
+  );
+}
+
+function DesktopAssistantNav({
+  connected,
+  messageCount,
+  panelOpen,
+  showDebug,
+  onNewChat,
+  onPanelOpenChange,
+  onShowDebugChange
+}: {
+  connected: boolean;
+  messageCount: number;
+  panelOpen: boolean;
+  showDebug: boolean;
   onNewChat: () => void;
   onPanelOpenChange: (open: boolean) => void;
   onShowDebugChange: (checked: boolean) => void;
@@ -138,10 +273,8 @@ function DesktopAssistantNav({
       <PrimaryRail
         connected={connected}
         panelOpen={panelOpen}
-        showDebug={showDebug}
         onNewChat={onNewChat}
         onPanelOpenChange={onPanelOpenChange}
-        onShowDebugChange={onShowDebugChange}
       />
       <motion.aside
         aria-hidden={!panelOpen}
@@ -161,64 +294,43 @@ function DesktopAssistantNav({
           <div className="mb-4 flex h-9 items-center px-1">
             <div className="flex min-w-0 items-center gap-2">
               <AgentAvatar state={avatarState} size="sm" />
-              <div className="min-w-0">
-                <div className="truncate text-sm font-medium text-neutral-900">
-                  Teampitch
-                </div>
-                <div className="text-xs text-muted-foreground">
-                  {statusLabel}
-                </div>
+              <div className="min-w-0 truncate text-sm font-medium text-neutral-900">
+                Teampitch
               </div>
             </div>
           </div>
 
           <div className="space-y-5 overflow-y-auto pr-1">
-            <NavSection title="Chat">
+            <NavSection title="Chats">
+              <PanelNavLabel
+                active
+                icon={<ChatCircleDotsIcon size={16} />}
+                label="Current chat"
+                value={formatMessageCount(messageCount)}
+              />
               <PanelAction
                 icon={<PlusIcon size={16} />}
                 label="New chat"
                 onClick={onNewChat}
               />
-              <PanelMetric
-                icon={<ChatCircleDotsIcon size={16} />}
-                label="Current conversation"
-                value={formatMessageCount(messageCount)}
+            </NavSection>
+
+            <NavSection title="Workspace">
+              <PanelNavLabel
+                icon={<PlugsConnectedIcon size={16} />}
+                label="Integrations"
+              />
+              <PanelNavLabel icon={<WrenchIcon size={16} />} label="Tools" />
+              <PanelNavButton
+                active={showDebug}
+                icon={<BrainIcon size={16} />}
+                label="Memory"
+                onClick={() => onShowDebugChange(!showDebug)}
               />
             </NavSection>
 
-            <NavSection title="Runtime">
-              <PanelMetric
-                label="Connection"
-                value={getConnectionLabel(connected)}
-                dotClassName={getConnectionDotClass(connected)}
-              />
-              <PanelMetric
-                label="Agent"
-                value={getAgentLabel(isStreaming)}
-                dotClassName={getAgentDotClass(isStreaming)}
-              />
-            </NavSection>
-
-            <NavSection title="Tools">
-              <PanelMetric
-                icon={<WrenchIcon size={16} />}
-                label="MCP tools"
-                value={`${toolCount}`}
-              />
-              <PanelMetric label="MCP servers" value={`${serverCount}`} />
-              <div className="pt-1">{integrationControls}</div>
-            </NavSection>
-
-            <NavSection title="Debug">
-              <div className="flex h-8 items-center justify-between rounded-md px-2 text-sm text-neutral-700">
-                <span>Memory debugger</span>
-                <Switch
-                  checked={showDebug}
-                  onCheckedChange={onShowDebugChange}
-                  size="sm"
-                  aria-label="Toggle debug mode"
-                />
-              </div>
+            <NavSection title="System">
+              <PanelNavLabel icon={<GearIcon size={16} />} label="Settings" />
             </NavSection>
           </div>
         </motion.div>
@@ -253,17 +365,13 @@ function DesktopAssistantNav({
 function PrimaryRail({
   connected,
   panelOpen,
-  showDebug,
   onNewChat,
-  onPanelOpenChange,
-  onShowDebugChange
+  onPanelOpenChange
 }: {
   connected: boolean;
   panelOpen: boolean;
-  showDebug: boolean;
   onNewChat: () => void;
   onPanelOpenChange: (open: boolean) => void;
-  onShowDebugChange: (checked: boolean) => void;
 }) {
   const connectionDotClass = getConnectionDotClass(connected);
 
@@ -291,10 +399,9 @@ function PrimaryRail({
           onClick={onNewChat}
         />
         <RailButton
-          active={showDebug}
-          label="Memory debugger"
+          label="Assistant tools"
           icon={<WrenchIcon size={17} />}
-          onClick={() => onShowDebugChange(!showDebug)}
+          onClick={() => onPanelOpenChange(true)}
         />
       </nav>
 
@@ -626,28 +733,73 @@ function PanelAction({
   );
 }
 
-function PanelMetric({
+function PanelNavLabel({
+  active = false,
   icon,
   label,
-  value,
-  dotClassName
+  value
 }: {
-  icon?: ReactNode;
+  active?: boolean;
+  icon: ReactNode;
   label: string;
-  value: string;
-  dotClassName?: string;
+  value?: string;
 }) {
   return (
-    <div className="flex h-8 items-center gap-2 rounded-md px-2 text-sm text-neutral-700">
+    <div className={getPanelNavClassName(active)}>
+      <PanelNavContent icon={icon} label={label} value={value} />
+    </div>
+  );
+}
+
+function PanelNavButton({
+  active = false,
+  icon,
+  label,
+  onClick
+}: {
+  active?: boolean;
+  icon: ReactNode;
+  label: string;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      className={getPanelNavClassName(active, true)}
+      onClick={onClick}
+    >
+      <PanelNavContent icon={icon} label={label} />
+    </button>
+  );
+}
+
+function PanelNavContent({
+  icon,
+  label,
+  value
+}: {
+  icon: ReactNode;
+  label: string;
+  value?: string;
+}) {
+  return (
+    <>
       <span className="grid size-4 shrink-0 place-items-center text-neutral-500">
-        {icon ??
-          (dotClassName && (
-            <span className={cn("size-2 rounded-full", dotClassName)} />
-          ))}
+        {icon}
       </span>
       <span className="min-w-0 flex-1 truncate">{label}</span>
-      <span className="text-xs text-muted-foreground">{value}</span>
-    </div>
+      {value ? (
+        <span className="text-xs text-muted-foreground">{value}</span>
+      ) : null}
+    </>
+  );
+}
+
+function getPanelNavClassName(active: boolean, interactive = false) {
+  return cn(
+    "flex h-8 w-full items-center gap-2 rounded-md px-2 text-left text-sm text-neutral-700",
+    active ? "bg-black/5 text-neutral-950" : "",
+    interactive ? "transition-colors hover:bg-black/5" : ""
   );
 }
 
@@ -665,17 +817,20 @@ function ChatTopbar({
   onNewChat: () => void;
 }) {
   return (
-    <header className="flex h-12 shrink-0 items-center justify-between border-b border-border/70 px-4 sm:px-5">
+    <header className="flex h-12 shrink-0 items-center justify-between px-4 sm:px-5">
       <div className="flex min-w-0 items-center gap-2">
-        <ChatCircleDotsIcon size={18} className="shrink-0 text-neutral-700" />
-        <div className="min-w-0">
-          <h1 className="truncate text-sm font-medium text-neutral-900">
-            {messageCount > 0 ? "Current chat" : "New chat"}
-          </h1>
-          <div className="hidden text-xs text-muted-foreground sm:block">
-            {statusLabel}
-          </div>
-        </div>
+        <ChatCircleDotsIcon size={17} className="shrink-0 text-neutral-700" />
+        <h1 className="min-w-0 truncate text-sm font-medium text-neutral-900">
+          {messageCount > 0 ? "Current chat" : "New chat"}
+        </h1>
+        <span
+          className={cn(
+            "hidden rounded-full px-2 py-0.5 text-xs text-muted-foreground sm:inline-flex",
+            isStreaming && "bg-warning/15 text-warning"
+          )}
+        >
+          {statusLabel}
+        </span>
       </div>
       <div className="flex shrink-0 items-center gap-2">
         {themeToggle}
