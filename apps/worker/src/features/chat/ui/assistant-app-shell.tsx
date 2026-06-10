@@ -35,7 +35,6 @@ const hiddenProfilePanelMotion = { opacity: 0, scale: 0.98, y: 4 };
 
 type AssistantShellSlots = {
   primaryAndSecondaryNavigation: ReactNode;
-  workspacePreview: ReactNode;
   mainContent: ReactNode;
   rightDetails: ReactNode;
 };
@@ -77,9 +76,7 @@ export function AssistantAppShell({
 }) {
   const [panelOpen, setPanelOpen] = useState(true);
   const hasWorkspacePreview = Boolean(workspacePreview);
-  const [detailsPanelOpen, setDetailsPanelOpen] = useState(
-    () => !hasWorkspacePreview
-  );
+  const [detailsPanelOpen, setDetailsPanelOpen] = useState(true);
   const statusLabel = getStatusLabel(isStreaming, connected);
   const shellSlots: AssistantShellSlots = {
     primaryAndSecondaryNavigation: (
@@ -94,11 +91,6 @@ export function AssistantAppShell({
         themeToggle={themeToggle}
       />
     ),
-    workspacePreview: (
-      <WorkspacePreviewSlot open={hasWorkspacePreview}>
-        {workspacePreview}
-      </WorkspacePreviewSlot>
-    ),
     mainContent: (
       <AssistantMainContentSlot
         composer={composer}
@@ -108,6 +100,7 @@ export function AssistantAppShell({
         messageCount={messageCount}
         onDetailsPanelOpenChange={setDetailsPanelOpen}
         onNewChat={onNewChat}
+        workspacePreview={workspacePreview}
       >
         {children}
       </AssistantMainContentSlot>
@@ -142,7 +135,6 @@ function AssistantShellFrame({ slots }: { slots: AssistantShellSlots }) {
         {slots.primaryAndSecondaryNavigation}
         <main className="relative z-10 flex min-w-0 flex-1 overflow-hidden rounded-[1.125rem] border border-white/80 bg-background shadow-[0_0_0_1px_rgba(16,16,15,0.1),0_1px_2px_-1px_rgba(16,16,15,0.1),0_2px_4px_rgba(16,16,15,0.05)] md:ml-[3px]">
           <div className="flex min-h-0 flex-1 overflow-hidden">
-            {slots.workspacePreview}
             {slots.mainContent}
             {slots.rightDetails}
           </div>
@@ -160,7 +152,8 @@ function AssistantMainContentSlot({
   isStreaming,
   messageCount,
   onDetailsPanelOpenChange,
-  onNewChat
+  onNewChat,
+  workspacePreview
 }: {
   children: ReactNode;
   composer: ReactNode;
@@ -170,11 +163,12 @@ function AssistantMainContentSlot({
   messageCount: number;
   onDetailsPanelOpenChange: (open: boolean) => void;
   onNewChat: () => void;
+  workspacePreview?: ReactNode;
 }) {
   return (
     <section
       data-shell-slot="main-content"
-      className={getMainContentSlotClassName(hasWorkspacePreview)}
+      className={getMainContentSlotClassName()}
     >
       <ChatTopbar
         detailsPanelOpen={detailsPanelOpen}
@@ -183,16 +177,21 @@ function AssistantMainContentSlot({
         onDetailsPanelOpenChange={onDetailsPanelOpenChange}
         onNewChat={onNewChat}
       />
-      <motion.div
-        className="min-h-0 flex-1 overflow-y-auto"
-        initial={{ opacity: 0, y: 8 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.2, ease: [0.22, 1, 0.36, 1] }}
-      >
-        <div className="mx-auto w-full max-w-3xl px-5 pb-10 pt-10 sm:px-8 lg:pt-16">
-          {children}
-        </div>
-      </motion.div>
+      <div className="relative min-h-0 flex-1 overflow-hidden">
+        <motion.div
+          className="h-full overflow-y-auto"
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.2, ease: [0.22, 1, 0.36, 1] }}
+        >
+          <div className="mx-auto w-full max-w-3xl px-5 pb-10 pt-10 sm:px-8 lg:pt-16">
+            {children}
+          </div>
+        </motion.div>
+        <WorkspacePreviewSlot open={hasWorkspacePreview}>
+          {workspacePreview}
+        </WorkspacePreviewSlot>
+      </div>
       <div className="shrink-0 bg-gradient-to-t from-background via-background to-background/0 px-4 pb-5 pt-3 sm:px-8">
         {composer}
       </div>
@@ -213,8 +212,12 @@ function WorkspacePreviewSlot({
       aria-hidden={!open}
       inert={!open}
       className={getWorkspacePreviewSlotClassName(open)}
-      initial={{ opacity: 0, x: -8 }}
-      animate={{ opacity: open ? 1 : 0, x: open ? 0 : -8 }}
+      initial={{ opacity: 0, scale: 0.985, y: 10 }}
+      animate={{
+        opacity: open ? 1 : 0,
+        scale: open ? 1 : 0.985,
+        y: open ? 0 : 10
+      }}
       transition={{ duration: 0.2, ease: [0.22, 1, 0.36, 1] }}
     >
       {children}
@@ -886,17 +889,13 @@ function getDetailsPanelInert(open: boolean) {
   return !open;
 }
 
-function getMainContentSlotClassName(hasWorkspacePreview: boolean) {
-  return cn(
-    "flex min-w-0 flex-1 flex-col bg-background",
-    hasWorkspacePreview &&
-      "xl:w-[min(32rem,38vw)] xl:flex-none xl:border-l xl:border-black/10"
-  );
+function getMainContentSlotClassName() {
+  return "relative flex min-w-0 flex-1 flex-col bg-background";
 }
 
 function getWorkspacePreviewSlotClassName(open: boolean) {
   return cn(
-    "hidden min-w-0 flex-1 flex-col overflow-hidden border-r border-black/10 bg-background",
+    "pointer-events-auto absolute inset-x-4 bottom-4 top-4 z-30 mx-auto hidden max-w-3xl flex-col overflow-hidden rounded-xl border border-black/10 bg-[#fbfbfa] shadow-[0_18px_50px_-24px_rgba(16,16,15,0.5),0_0_0_1px_rgba(255,255,255,0.78)] sm:inset-x-6 sm:bottom-6 sm:top-6",
     open && "xl:flex"
   );
 }
