@@ -13,6 +13,8 @@
     "dev": "bun run --filter @teampitch/worker dev",
     "start": "bun run dev",
     "build": "bun run --filter @teampitch/worker build",
+    "storybook": "bun run --filter @teampitch/worker storybook",
+    "storybook:build": "bun run --filter @teampitch/worker storybook:build",
     "deploy": "bun run --filter @teampitch/worker deploy",
     "types": "bun run --filter @teampitch/worker types",
     "hooks:install": "lefthook install",
