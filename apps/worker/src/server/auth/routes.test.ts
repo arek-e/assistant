@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+
 import { handleAuthRequest, requireAuthenticatedAgentRequest } from "./routes";
 
 const configuredWorkOSEnv = {
@@ -10,10 +11,7 @@ const configuredWorkOSEnv = {
 
 describe("auth routes", () => {
   test("auth/me returns local identity when WorkOS mode is not enabled", async () => {
-    const response = await handleAuthRequest(
-      new Request("https://assistant.test/auth/me"),
-      {}
-    );
+    const response = await handleAuthRequest(new Request("https://assistant.test/auth/me"), {});
 
     expect(response).not.toBeNull();
     expect(response?.status).toBe(200);
@@ -33,10 +31,9 @@ describe("auth routes", () => {
   });
 
   test("auth/login reports missing WorkOS configuration", async () => {
-    const response = await handleAuthRequest(
-      new Request("https://assistant.test/auth/login"),
-      { AUTH_IDENTITY_ADAPTER: "workos" }
-    );
+    const response = await handleAuthRequest(new Request("https://assistant.test/auth/login"), {
+      AUTH_IDENTITY_ADAPTER: "workos"
+    });
 
     expect(response).not.toBeNull();
     expect(response?.status).toBe(503);

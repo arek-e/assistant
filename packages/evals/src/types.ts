@@ -1,14 +1,15 @@
 import { Schema } from "effect";
+
 import {
   MemoryRecordSchema,
   type MemoryRecord,
   type MemoryWriteDecision,
   type MemoryWriteKind,
   type MemoryWriteStatus,
-  RouteBudget,
-  RouteDecision,
-  RouteEffort,
-  RouteMode
+  type RouteBudget,
+  type RouteDecision,
+  type RouteEffort,
+  type RouteMode
 } from "@teampitch/worker/server/assistant-primitives";
 
 const EvalCategorySchema = Schema.Literal(
@@ -61,16 +62,15 @@ const ExpectedWriteKindSchema: Schema.Schema<MemoryWriteKind> = Schema.Literal(
   "route_record"
 );
 
-const ExpectedWriteStatusSchema: Schema.Schema<MemoryWriteStatus> =
-  Schema.Literal(
-    "none",
-    "draft",
-    "proposed",
-    "active",
-    "superseded",
-    "rejected",
-    "redacted"
-  );
+const ExpectedWriteStatusSchema: Schema.Schema<MemoryWriteStatus> = Schema.Literal(
+  "none",
+  "draft",
+  "proposed",
+  "active",
+  "superseded",
+  "rejected",
+  "redacted"
+);
 
 export const EvalFixtureSchema = Schema.Struct({
   id: Schema.String,

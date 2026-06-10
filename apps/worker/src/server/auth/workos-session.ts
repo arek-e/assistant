@@ -1,10 +1,4 @@
-import { WorkOS } from "@workos-inc/node";
-import type {
-  AuthenticateWithSessionCookieSuccessResponse,
-  RefreshSessionResponse,
-  User,
-  WorkOSOptions
-} from "@workos-inc/node";
+import { WorkOS, type User, type WorkOSOptions } from "@workos-inc/node";
 
 export interface WorkOSSessionEnv {
   AUTH_IDENTITY_ADAPTER?: string;
@@ -48,6 +42,21 @@ interface LoginState {
   returnTo: string;
 }
 
+interface AuthenticatedWorkOSResponse {
+  authenticated: true;
+  accessToken?: string;
+  session?: { accessToken?: string };
+  sessionId: string;
+  organizationId?: string;
+  role?: string;
+  roles?: string[];
+  permissions?: string[];
+  entitlements?: string[];
+  featureFlags?: string[];
+  user: User;
+  sealedSession?: string;
+}
+
 const defaultSessionCookieName = "wos-session";
 const defaultStateCookieName = "wos-login-state";
 const defaultLoginReturnTo = "/";
@@ -57,9 +66,7 @@ export function isWorkOSMode(env: WorkOSSessionEnv): boolean {
 }
 
 export function isWorkOSAuthConfigured(env: WorkOSSessionEnv): boolean {
-  return Boolean(
-    env.WORKOS_API_KEY && env.WORKOS_CLIENT_ID && env.WORKOS_COOKIE_PASSWORD
-  );
+  return Boolean(env.WORKOS_API_KEY && env.WORKOS_CLIENT_ID && env.WORKOS_COOKIE_PASSWORD);
 }
 
 export function getWorkOSSessionCookieName(env: WorkOSSessionEnv): string {
@@ -148,10 +155,7 @@ export async function authenticateWorkOSSession(
   }
 }
 
-export function getCookieValue(
-  request: Request | undefined,
-  name: string
-): string | null {
+export function getCookieValue(request: Request | undefined, name: string): string | null {
   const cookie = request?.headers.get("cookie");
   if (!cookie) return null;
 
@@ -177,17 +181,12 @@ export function createCookieHeader(
 
   if (options.httpOnly ?? true) parts.push("HttpOnly");
   if (isSecureRequest(request)) parts.push("Secure");
-  if (typeof options.maxAge === "number")
-    parts.push(`Max-Age=${options.maxAge}`);
+  if (typeof options.maxAge === "number") parts.push(`Max-Age=${options.maxAge}`);
 
   return parts.join("; ");
 }
 
-export function createClearCookieHeader(
-  request: Request,
-  name: string,
-  path = "/"
-): string {
+export function createClearCookieHeader(request: Request, name: string, path = "/"): string {
   return createCookieHeader(request, name, "", {
     path,
     maxAge: 0,
@@ -195,18 +194,12 @@ export function createClearCookieHeader(
   });
 }
 
-export function getAuthRedirectUri(
-  request: Request,
-  env: WorkOSSessionEnv
-): string {
+export function getAuthRedirectUri(request: Request, env: WorkOSSessionEnv): string {
   if (env.WORKOS_REDIRECT_URI) return env.WORKOS_REDIRECT_URI;
   return new URL("/auth/callback", request.url).toString();
 }
 
-export function getLogoutReturnTo(
-  request: Request,
-  env: WorkOSSessionEnv
-): string {
+export function getLogoutReturnTo(request: Request, env: WorkOSSessionEnv): string {
   if (env.WORKOS_RETURN_TO) return env.WORKOS_RETURN_TO;
   return new URL(defaultLoginReturnTo, request.url).toString();
 }
@@ -258,11 +251,7 @@ export function isSameOriginPost(request: Request): boolean {
   return origin === new URL(request.url).origin;
 }
 
-function toAuthenticatedSession(
-  response:
-    | AuthenticateWithSessionCookieSuccessResponse
-    | RefreshSessionResponse
-): WorkOSAuthenticatedSession {
+function toAuthenticatedSession(response: AuthenticatedWorkOSResponse): WorkOSAuthenticatedSession {
   if (!response.authenticated) {
     throw new Error("Cannot map unauthenticated WorkOS session");
   }
@@ -287,8 +276,7 @@ function toAuthenticatedSession(
     entitlements: response.entitlements,
     featureFlags: response.featureFlags,
     user: response.user,
-    sealedSession:
-      "sealedSession" in response ? response.sealedSession : undefined
+    sealedSession: "sealedSession" in response ? response.sealedSession : undefined
   };
 }
 

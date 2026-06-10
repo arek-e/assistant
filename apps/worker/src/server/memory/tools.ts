@@ -1,7 +1,9 @@
-import { Schema } from "effect";
 import { tool, type ToolSet } from "ai";
+import { Schema } from "effect";
+
 import { effectInputSchema } from "@/server/effect-schema";
 import { routeTask, type RouteDecision } from "@/server/routing/effort-router";
+
 import {
   canAccessMemoryRecord,
   canUseMemoryScope,
@@ -110,11 +112,7 @@ export function createMemoryPrimitiveTools(
       inputSchema: recordMemoryInputSchema,
       execute: async (input) => {
         const accessContext = await resolveAccessContext(accessContextProvider);
-        const denied = denyInaccessibleWrite(
-          input.scope,
-          input.scopeId,
-          accessContext
-        );
+        const denied = denyInaccessibleWrite(input.scope, input.scopeId, accessContext);
         if (denied) return denied;
 
         const record = store.upsert(toMemoryRecord(input, accessContext));
@@ -198,14 +196,9 @@ export function createMemoryPrimitiveTools(
       inputSchema: promoteRecordInputSchema,
       execute: async ({ recordId, status }) => {
         const accessContext = await resolveAccessContext(accessContextProvider);
-        const existingRecord = store
-          .list()
-          .find((candidate) => candidate.id === recordId);
+        const existingRecord = store.list().find((candidate) => candidate.id === recordId);
 
-        if (
-          existingRecord &&
-          !canAccessMemoryRecord(existingRecord, accessContext)
-        ) {
+        if (existingRecord && !canAccessMemoryRecord(existingRecord, accessContext)) {
           return {
             promoted: false,
             error: `Access denied for memory record ${recordId}`,
@@ -298,8 +291,7 @@ function toRouteRecord(
     rationale: route.reason,
     createdAt: now,
     updatedAt: now,
-    reEvalTrigger:
-      "when a user corrects the route, cost, latency, or required effort",
+    reEvalTrigger: "when a user corrects the route, cost, latency, or required effort",
     consumerRules: [
       "Use for debugging and route evaluation only",
       "Do not present route records as durable product decisions"
@@ -330,10 +322,7 @@ function denyInaccessibleWrite(
   };
 }
 
-function denyMissingScope(
-  scope: MemoryRecordDraft["scope"],
-  accessContext: MemoryAccessContext
-) {
+function denyMissingScope(scope: MemoryRecordDraft["scope"], accessContext: MemoryAccessContext) {
   return {
     saved: false,
     error: `No ${scope} memory grant is available for this actor`,
@@ -351,9 +340,7 @@ function summarizeIdentity(accessContext: MemoryAccessContext) {
 }
 
 function truncate(value: string, maxLength: number) {
-  return value.length <= maxLength
-    ? value
-    : `${value.slice(0, Math.max(0, maxLength - 3))}...`;
+  return value.length <= maxLength ? value : `${value.slice(0, Math.max(0, maxLength - 3))}...`;
 }
 
 function hashString(value: string) {

@@ -1,18 +1,11 @@
+import { AnimatePresence, useReducedMotion } from "motion/react";
+import * as m from "motion/react-m";
 import { useState, type ReactNode } from "react";
-import { cn } from "@teampitch/ui/lib/utils";
-import { AnimatePresence, motion, useReducedMotion } from "motion/react";
-import {
-  AgentAvatar,
-  type AgentVisualState
-} from "@/features/avatar/agent-avatar";
 
-type TimelineVariant =
-  | "idle"
-  | "thinking"
-  | "speaking"
-  | "tool"
-  | "success"
-  | "error";
+import { AgentAvatar, type AgentVisualState } from "@/features/avatar/agent-avatar";
+import { cn } from "@teampitch/ui/lib/utils";
+
+type TimelineVariant = "idle" | "thinking" | "speaking" | "tool" | "success" | "error";
 
 const dotClassByVariant: Record<TimelineVariant, string> = {
   idle: "border-border bg-background",
@@ -32,7 +25,7 @@ export function AssistantTimeline({
 }) {
   return (
     <div className="relative grid max-w-[92%] grid-cols-[2.65rem_minmax(0,1fr)] gap-x-[0.85rem]">
-      <div className="absolute bottom-[0.85rem] left-[1.325rem] top-12 w-px bg-gradient-to-b from-border to-border/45" />
+      <div className="absolute top-12 bottom-[0.85rem] left-[1.325rem] w-px bg-gradient-to-b from-border to-border/45" />
       <div className="sticky top-3 z-1 grid min-h-[2.65rem] place-items-center self-start bg-background">
         <AgentAvatar state={avatarState} size="sm" />
       </div>
@@ -51,7 +44,7 @@ export function TimelineNode({
   showDot?: boolean;
 }) {
   return (
-    <motion.div
+    <m.div
       className="relative min-w-0"
       initial={{
         opacity: 0,
@@ -65,13 +58,13 @@ export function TimelineNode({
         <span
           aria-hidden
           className={cn(
-            "absolute left-[-2.425rem] top-4 z-2 size-2 rounded-full border shadow-[0_0_0_3px_var(--background)]",
+            "absolute top-4 left-[-2.425rem] z-2 size-2 rounded-full border shadow-[0_0_0_3px_var(--background)]",
             dotClassByVariant[variant]
           )}
         />
       )}
       {children}
-    </motion.div>
+    </m.div>
   );
 }
 
@@ -109,7 +102,7 @@ export function ActivityDisclosure({
   return (
     <ActivityCard>
       <button
-        className="flex min-h-9 w-fit max-w-full cursor-pointer appearance-none items-center justify-start gap-[0.55rem] border-0 bg-transparent px-0 py-[0.2rem] text-left text-xs text-foreground outline-none transition-transform duration-150 ease-out active:scale-[0.992] focus-visible:[&_.activity-title]:underline focus-visible:[&_.activity-title]:decoration-foreground/35 focus-visible:[&_.activity-title]:decoration-1 focus-visible:[&_.activity-title]:underline-offset-[0.22rem]"
+        className="flex min-h-9 w-fit max-w-full cursor-pointer appearance-none items-center justify-start gap-[0.55rem] border-0 bg-transparent px-0 py-[0.2rem] text-left text-xs text-foreground transition-transform duration-150 ease-out outline-none active:scale-[0.992] focus-visible:[&_.activity-title]:underline focus-visible:[&_.activity-title]:decoration-foreground/35 focus-visible:[&_.activity-title]:decoration-1 focus-visible:[&_.activity-title]:underline-offset-[0.22rem]"
         type="button"
         onClick={() => setOpen((current) => !current)}
       >
@@ -117,7 +110,7 @@ export function ActivityDisclosure({
       </button>
       <AnimatePresence initial={false}>
         {open && (
-          <motion.div
+          <m.div
             initial={
               shouldReduceMotion
                 ? { height: "auto", opacity: 1 }
@@ -148,7 +141,7 @@ export function ActivityDisclosure({
             style={{ overflow: "hidden" }}
           >
             {children}
-          </motion.div>
+          </m.div>
         )}
       </AnimatePresence>
     </ActivityCard>
@@ -156,26 +149,14 @@ export function ActivityDisclosure({
 }
 
 export function ActivityTitle({ children }: { children: ReactNode }) {
-  return (
-    <span className="activity-title flex min-w-0 items-center gap-2">
-      {children}
-    </span>
-  );
+  return <span className="activity-title flex min-w-0 items-center gap-2">{children}</span>;
 }
 
 export function ActivityMeta({ children }: { children: ReactNode }) {
-  return (
-    <span className="flex shrink-0 items-center gap-[0.45rem]">{children}</span>
-  );
+  return <span className="flex shrink-0 items-center gap-[0.45rem]">{children}</span>;
 }
 
-export function DisclosureCaret({
-  open,
-  children
-}: {
-  open: boolean;
-  children: ReactNode;
-}) {
+export function DisclosureCaret({ open, children }: { open: boolean; children: ReactNode }) {
   return (
     <span
       className={cn(
@@ -190,15 +171,13 @@ export function DisclosureCaret({
 
 export function ActivityTray({ children }: { children: ReactNode }) {
   return (
-    <div className="my-[0.35rem] ml-5 border-l border-border py-[0.15rem] pl-3">
-      {children}
-    </div>
+    <div className="my-[0.35rem] ml-5 border-l border-border py-[0.15rem] pl-3">{children}</div>
   );
 }
 
 export function ActivityCodeBlock({ children }: { children: ReactNode }) {
   return (
-    <pre className="m-0 max-h-56 overflow-auto whitespace-pre-wrap font-mono text-[0.72rem] leading-[1.45] text-muted-foreground">
+    <pre className="m-0 max-h-56 overflow-auto font-mono text-[0.72rem] leading-[1.45] whitespace-pre-wrap text-muted-foreground">
       {children}
     </pre>
   );

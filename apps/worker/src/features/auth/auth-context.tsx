@@ -1,12 +1,13 @@
 import {
   createContext,
+  use,
   useCallback,
-  useContext,
   useEffect,
   useMemo,
   useState,
   type ReactNode
 } from "react";
+
 import type { AuthMeResponse } from "@/server/auth";
 
 export type AuthSession = AuthMeResponse & { authenticated: true };
@@ -22,6 +23,7 @@ interface AuthContextValue {
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
+AuthContext.displayName = "AuthContext";
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
@@ -43,15 +45,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [refresh]);
 
   const signIn = useCallback(() => {
-    window.location.assign(
-      `/auth/login?returnTo=${encodeURIComponent(currentReturnTo())}`
-    );
+    window.location.assign(`/auth/login?returnTo=${encodeURIComponent(currentReturnTo())}`);
   }, []);
 
   const signUp = useCallback(() => {
-    window.location.assign(
-      `/auth/signup?returnTo=${encodeURIComponent(currentReturnTo())}`
-    );
+    window.location.assign(`/auth/signup?returnTo=${encodeURIComponent(currentReturnTo())}`);
   }, []);
 
   const signOut = useCallback(() => {
@@ -80,7 +78,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 }
 
 export function useAuth(): AuthContextValue {
-  const value = useContext(AuthContext);
+  const value = use(AuthContext);
   if (!value) throw new Error("useAuth must be used within AuthProvider");
   return value;
 }

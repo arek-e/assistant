@@ -58,9 +58,7 @@ export function canUseMemoryScope(
   scopeId: string,
   accessContext: MemoryAccessContext
 ): boolean {
-  return accessContext.grants.some(
-    (grant) => grant.scope === scope && grant.scopeId === scopeId
-  );
+  return accessContext.grants.some((grant) => grant.scope === scope && grant.scopeId === scopeId);
 }
 
 export function findMemoryScopeGrant(
@@ -70,19 +68,11 @@ export function findMemoryScopeGrant(
   return accessContext.grants.find((grant) => grant.scope === scope);
 }
 
-export function findMemoryScopeId(
-  accessContext: MemoryAccessContext,
-  scope: MemoryScope
-): string {
-  return (
-    findMemoryScopeGrant(accessContext, scope)?.scopeId ??
-    localMemoryScopeIds[scope]
-  );
+export function findMemoryScopeId(accessContext: MemoryAccessContext, scope: MemoryScope): string {
+  return findMemoryScopeGrant(accessContext, scope)?.scopeId ?? localMemoryScopeIds[scope];
 }
 
-export function toMemoryRecordActor(
-  accessContext: MemoryAccessContext
-): MemoryRecordActor {
+export function toMemoryRecordActor(accessContext: MemoryAccessContext): MemoryRecordActor {
   return {
     subjectId: accessContext.subjectId,
     subjectType: accessContext.subjectType,

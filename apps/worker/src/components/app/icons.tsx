@@ -1,4 +1,3 @@
-import { HugeiconsIcon, type IconSvgElement } from "@hugeicons/react";
 import {
   ArrowDown01Icon,
   Attachment01Icon,
@@ -21,11 +20,9 @@ import {
   Wrench01Icon
 } from "@hugeicons-pro/core-bulk-rounded";
 import { PlusSignIcon } from "@hugeicons-pro/core-solid-rounded";
+import { HugeiconsIcon, type IconSvgElement } from "@hugeicons/react";
 
-type IconProps = Omit<
-  React.ComponentProps<typeof HugeiconsIcon>,
-  "icon" | "altIcon"
->;
+type IconProps = Omit<React.ComponentProps<typeof HugeiconsIcon>, "icon" | "altIcon">;
 
 function createIcon(icon: IconSvgElement) {
   return function Icon(props: IconProps) {

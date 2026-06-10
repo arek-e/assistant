@@ -1,4 +1,6 @@
+import * as m from "motion/react-m";
 import {
+  useCallback,
   useEffect,
   useRef,
   useState,
@@ -7,8 +9,7 @@ import {
   type PointerEvent as ReactPointerEvent,
   type ReactNode
 } from "react";
-import { motion } from "motion/react";
-import { cn } from "@teampitch/ui/lib/utils";
+
 import {
   BrainIcon,
   ChatCircleDotsIcon,
@@ -19,10 +20,8 @@ import {
   WrenchIcon
 } from "@/components/app/icons";
 import { Button, Switch } from "@/components/app/ui";
-import {
-  AgentAvatar,
-  type AgentVisualState
-} from "@/features/avatar/agent-avatar";
+import { AgentAvatar, type AgentVisualState } from "@/features/avatar/agent-avatar";
+import { cn } from "@teampitch/ui/lib/utils";
 
 const expandedPanelWidth = 304;
 const collapsedPanelWidth = 0;
@@ -37,17 +36,17 @@ const maxPreviewChatColumnWidth = 520;
 const visibleProfilePanelMotion = { opacity: 1, scale: 1, y: 0 };
 const hiddenProfilePanelMotion = { opacity: 0, scale: 0.98, y: 4 };
 
-type AssistantShellSlots = {
+interface AssistantShellSlots {
   primaryAndSecondaryNavigation: ReactNode;
   mainContent: ReactNode;
   rightDetails: ReactNode;
-};
+}
 
-type DesktopNavigationSlots = {
+interface DesktopNavigationSlots {
   primaryRail: ReactNode;
   secondaryNav: ReactNode;
   resizeBoundary: ReactNode;
-};
+}
 
 export function AssistantAppShell({
   children,
@@ -82,9 +81,7 @@ export function AssistantAppShell({
 }) {
   const [panelOpen, setPanelOpen] = useState(true);
   const hasWorkspacePreview = Boolean(workspacePreview);
-  const [detailsPanelOpen, setDetailsPanelOpen] = useState(
-    () => !hasWorkspacePreview
-  );
+  const [detailsPanelOpen, setDetailsPanelOpen] = useState(() => !hasWorkspacePreview);
   const statusLabel = getStatusLabel(isStreaming, connected);
   const shellSlots: AssistantShellSlots = {
     primaryAndSecondaryNavigation: (
@@ -181,10 +178,7 @@ function AssistantMainContentSlot({
   const previewChatDragStartWidthRef = useRef(defaultPreviewChatColumnWidth);
 
   return (
-    <section
-      data-shell-slot="main-content"
-      className={getMainContentSlotClassName()}
-    >
+    <section data-shell-slot="main-content" className={getMainContentSlotClassName()}>
       <ChatTopbar
         detailsPanelOpen={detailsPanelOpen}
         isStreaming={isStreaming}
@@ -194,9 +188,7 @@ function AssistantMainContentSlot({
       />
       <div className={getMainContentBodyClassName(hasWorkspacePreview)}>
         {hasWorkspacePreview && (
-          <WorkspacePreviewSlot open={hasWorkspacePreview}>
-            {workspacePreview}
-          </WorkspacePreviewSlot>
+          <WorkspacePreviewSlot open={hasWorkspacePreview}>{workspacePreview}</WorkspacePreviewSlot>
         )}
         {hasWorkspacePreview && (
           <PreviewChatResizeHandle
@@ -207,52 +199,34 @@ function AssistantMainContentSlot({
             }}
             onResize={(offsetX) => {
               setPreviewChatColumnWidth(
-                clampPreviewChatColumnWidth(
-                  previewChatDragStartWidthRef.current - offsetX
-                )
+                clampPreviewChatColumnWidth(previewChatDragStartWidthRef.current - offsetX)
               );
             }}
             onResizeEnd={() => setIsPreviewChatResizing(false)}
           />
         )}
         <div
-          className={getChatColumnClassName(
-            hasWorkspacePreview,
-            isPreviewChatResizing
-          )}
-          style={getChatColumnStyle(
-            hasWorkspacePreview,
-            previewChatColumnWidth
-          )}
+          className={getChatColumnClassName(hasWorkspacePreview, isPreviewChatResizing)}
+          style={getChatColumnStyle(hasWorkspacePreview, previewChatColumnWidth)}
         >
-          <motion.div
+          <m.div
             className="min-h-0 flex-1 overflow-y-auto"
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.2, ease: [0.22, 1, 0.36, 1] }}
           >
-            <div className={getChatStreamClassName(hasWorkspacePreview)}>
-              {children}
-            </div>
-          </motion.div>
-          <div className={getComposerDockClassName(hasWorkspacePreview)}>
-            {composer}
-          </div>
+            <div className={getChatStreamClassName(hasWorkspacePreview)}>{children}</div>
+          </m.div>
+          <div className={getComposerDockClassName(hasWorkspacePreview)}>{composer}</div>
         </div>
       </div>
     </section>
   );
 }
 
-function WorkspacePreviewSlot({
-  children,
-  open
-}: {
-  children: ReactNode;
-  open: boolean;
-}) {
+function WorkspacePreviewSlot({ children, open }: { children: ReactNode; open: boolean }) {
   return (
-    <motion.section
+    <m.section
       data-shell-slot="workspace-preview"
       aria-hidden={!open}
       inert={!open}
@@ -265,7 +239,7 @@ function WorkspacePreviewSlot({
       transition={{ duration: 0.2, ease: [0.22, 1, 0.36, 1] }}
     >
       {children}
-    </motion.section>
+    </m.section>
   );
 }
 
@@ -315,12 +289,13 @@ function ResizeBoundaryHandle({
   const lastDragSampleRef = useRef({ time: 0, x: 0 });
   const dragVelocityXRef = useRef(0);
   const dragCleanupRef = useRef<null | (() => void)>(null);
+  const cleanupResizeDrag = useCallback(() => {
+    dragCleanupRef.current?.();
+  }, []);
 
   useEffect(() => {
-    return () => {
-      dragCleanupRef.current?.();
-    };
-  }, []);
+    return cleanupResizeDrag;
+  }, [cleanupResizeDrag]);
 
   function handlePointerDown(event: ReactPointerEvent<HTMLButtonElement>) {
     if (event.button !== 0) return;
@@ -408,11 +383,7 @@ function ResizeBoundaryHandle({
     onDrag(offsetX);
   }
 
-  function finishResizeDrag(
-    clientX: number,
-    target: HTMLButtonElement,
-    pointerId?: number
-  ) {
+  function finishResizeDrag(clientX: number, target: HTMLButtonElement, pointerId?: number) {
     if (!draggingRef.current) return;
 
     updateResizeDrag(clientX);
@@ -441,7 +412,7 @@ function ResizeBoundaryHandle({
       <button
         type="button"
         aria-label={ariaLabel}
-        className="group absolute left-0 top-0 h-full w-8 -translate-x-1/2 cursor-col-resize touch-none select-none outline-none"
+        className="group absolute top-0 left-0 h-full w-8 -translate-x-1/2 cursor-col-resize touch-none outline-none select-none"
         onClick={handleClick}
         onMouseDown={handleMouseDown}
         onPointerDown={handlePointerDown}
@@ -478,7 +449,7 @@ function AssistantDetailsPanel({
   onShowDebugChange: (checked: boolean) => void;
 }) {
   return (
-    <motion.aside
+    <m.aside
       data-shell-slot="right-details"
       aria-hidden={!open}
       className="hidden h-full shrink-0 overflow-hidden bg-background lg:block"
@@ -489,7 +460,7 @@ function AssistantDetailsPanel({
       }}
       transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
     >
-      <motion.div
+      <m.div
         inert={getDetailsPanelInert(open)}
         className="flex h-full w-80 flex-col"
         initial={false}
@@ -497,13 +468,11 @@ function AssistantDetailsPanel({
         transition={{ duration: getDetailsPanelContentFadeDuration(open) }}
       >
         <div className="flex h-12 shrink-0 items-center justify-between gap-3 px-5">
-          <h2 className="truncate text-sm font-medium text-neutral-950">
-            Agent details
-          </h2>
+          <h2 className="truncate text-sm font-medium text-neutral-950">Agent details</h2>
           <button
             type="button"
             aria-label="Collapse details panel"
-            className="relative grid size-8 shrink-0 place-items-center rounded-md text-neutral-700 transition-[background-color,scale] hover:bg-black/5 active:scale-[0.96] before:absolute before:-inset-1 before:content-['']"
+            className="relative grid size-8 shrink-0 place-items-center rounded-md text-neutral-700 transition-[background-color,scale] before:absolute before:-inset-1 before:content-[''] hover:bg-black/5 active:scale-[0.96]"
             onClick={() => onOpenChange(false)}
           >
             <PanelLeftClose size={15} />
@@ -535,11 +504,7 @@ function AssistantDetailsPanel({
           </DetailsSection>
 
           <DetailsSection title="Integrations">
-            <DetailsRow
-              icon={<WrenchIcon size={15} />}
-              label="MCP tools"
-              value={`${toolCount}`}
-            />
+            <DetailsRow icon={<WrenchIcon size={15} />} label="MCP tools" value={`${toolCount}`} />
             <DetailsRow
               icon={<PlugsConnectedIcon size={15} />}
               label="MCP servers"
@@ -557,18 +522,12 @@ function AssistantDetailsPanel({
             />
           </DetailsSection>
         </div>
-      </motion.div>
-    </motion.aside>
+      </m.div>
+    </m.aside>
   );
 }
 
-function DetailsSection({
-  title,
-  children
-}: {
-  title: string;
-  children: ReactNode;
-}) {
+function DetailsSection({ title, children }: { title: string; children: ReactNode }) {
   return (
     <section className="px-5 py-5 shadow-[0_-1px_0_rgba(16,16,15,0.08)] first:shadow-none">
       <h2 className="mb-3 text-sm font-medium text-neutral-950">{title}</h2>
@@ -591,15 +550,10 @@ function DetailsRow({
   return (
     <div className="grid min-h-9 grid-cols-[1rem_minmax(5.25rem,1fr)_minmax(4.5rem,auto)] items-center gap-x-2 text-sm">
       <span className="grid size-4 shrink-0 place-items-center text-neutral-400">
-        {icon ??
-          (dotClassName && (
-            <span className={cn("size-2 rounded-full", dotClassName)} />
-          ))}
+        {icon ?? (dotClassName && <span className={cn("size-2 rounded-full", dotClassName)} />)}
       </span>
       <span className="min-w-0 truncate text-neutral-500">{label}</span>
-      <span className="min-w-0 truncate text-right text-neutral-950 tabular-nums">
-        {value}
-      </span>
+      <span className="min-w-0 truncate text-right text-neutral-950 tabular-nums">{value}</span>
     </div>
   );
 }
@@ -617,9 +571,7 @@ function DetailsSwitchRow({
 }) {
   return (
     <div className="grid min-h-9 grid-cols-[1rem_minmax(5.25rem,1fr)_auto] items-center gap-x-2 text-sm">
-      <span className="grid size-4 shrink-0 place-items-center text-neutral-400">
-        {icon}
-      </span>
+      <span className="grid size-4 shrink-0 place-items-center text-neutral-400">{icon}</span>
       <span className="min-w-0 truncate text-neutral-500">{label}</span>
       <Switch
         checked={checked}
@@ -654,7 +606,7 @@ function DesktopAssistantNav({
 }) {
   const avatarState = getAvatarState(connected);
   const [dragPanelWidth, setDragPanelWidth] = useState<number | null>(null);
-  const dragStartPanelWidthRef = useRef(getPanelWidth(panelOpen));
+  const dragStartPanelWidthRef = useRef(0);
   const renderedPanelWidth = dragPanelWidth ?? getPanelWidth(panelOpen);
   const isPanelDragging = dragPanelWidth !== null;
   const navigationSlots: DesktopNavigationSlots = {
@@ -684,16 +636,10 @@ function DesktopAssistantNav({
         panelOpen={panelOpen}
         onPanelOpenChange={onPanelOpenChange}
         onPanelDrag={(offsetX) => {
-          setDragPanelWidth(
-            clampPanelWidth(dragStartPanelWidthRef.current + offsetX)
-          );
+          setDragPanelWidth(clampPanelWidth(dragStartPanelWidthRef.current + offsetX));
         }}
         onPanelDragEnd={(offsetX, velocityX) => {
-          const nextPanelOpen = getNextPanelOpenState(
-            panelOpen,
-            offsetX,
-            velocityX
-          );
+          const nextPanelOpen = getNextPanelOpenState(panelOpen, offsetX, velocityX);
           setDragPanelWidth(null);
           onPanelOpenChange(nextPanelOpen);
         }}
@@ -736,18 +682,14 @@ function SecondaryNavigationSlot({
   onShowDebugChange: (checked: boolean) => void;
 }) {
   return (
-    <motion.aside
+    <m.aside
       data-shell-slot="secondary-nav"
       aria-hidden={renderedPanelWidth === collapsedPanelWidth}
       className="h-full overflow-hidden bg-transparent"
       animate={{ width: renderedPanelWidth }}
-      transition={
-        isPanelDragging
-          ? { duration: 0 }
-          : { duration: 0.22, ease: [0.22, 1, 0.36, 1] }
-      }
+      transition={isPanelDragging ? { duration: 0 } : { duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
     >
-      <motion.div
+      <m.div
         className="flex h-full w-[19rem] flex-col p-3"
         animate={{ opacity: getPanelContentOpacity(renderedPanelWidth) }}
         transition={isPanelDragging ? { duration: 0 } : { duration: 0.12 }}
@@ -755,9 +697,7 @@ function SecondaryNavigationSlot({
         <div className="mb-4 flex h-9 items-center px-1">
           <div className="flex min-w-0 items-center gap-2">
             <AgentAvatar state={avatarState} size="sm" />
-            <div className="min-w-0 truncate text-sm font-medium text-neutral-900">
-              Teampitch
-            </div>
+            <div className="min-w-0 truncate text-sm font-medium text-neutral-900">Teampitch</div>
           </div>
         </div>
 
@@ -769,18 +709,11 @@ function SecondaryNavigationSlot({
               label="Current chat"
               value={formatMessageCount(messageCount)}
             />
-            <PanelAction
-              icon={<PlusIcon size={16} />}
-              label="New chat"
-              onClick={onNewChat}
-            />
+            <PanelAction icon={<PlusIcon size={16} />} label="New chat" onClick={onNewChat} />
           </NavSection>
 
           <NavSection title="Workspace">
-            <PanelNavLabel
-              icon={<PlugsConnectedIcon size={16} />}
-              label="Integrations"
-            />
+            <PanelNavLabel icon={<PlugsConnectedIcon size={16} />} label="Integrations" />
             <PanelNavLabel icon={<WrenchIcon size={16} />} label="Tools" />
             <PanelNavButton
               active={showDebug}
@@ -794,8 +727,8 @@ function SecondaryNavigationSlot({
             <PanelNavLabel icon={<GearIcon size={16} />} label="Settings" />
           </NavSection>
         </div>
-      </motion.div>
-    </motion.aside>
+      </m.div>
+    </m.aside>
   );
 }
 
@@ -837,11 +770,7 @@ function PrimaryRail({
           icon={<ChatCircleDotsIcon size={17} />}
           onClick={() => onPanelOpenChange(true)}
         />
-        <RailButton
-          label="New chat"
-          icon={<PlusIcon size={17} />}
-          onClick={onNewChat}
-        />
+        <RailButton label="New chat" icon={<PlusIcon size={17} />} onClick={onNewChat} />
         <RailButton
           label="Assistant tools"
           icon={<WrenchIcon size={17} />}
@@ -889,7 +818,7 @@ function PrimaryRailBottomActions({
           TP
           <span
             className={cn(
-              "absolute bottom-0 right-0 size-2.5 rounded-full ring-2 ring-[#10100f]",
+              "absolute right-0 bottom-0 size-2.5 rounded-full ring-2 ring-[#10100f]",
               connectionDotClass
             )}
             title={getConnectionLabel(connected)}
@@ -897,7 +826,7 @@ function PrimaryRailBottomActions({
         </button>
       </div>
 
-      <motion.div
+      <m.div
         id="primary-rail-profile-panel"
         aria-hidden={getProfilePanelHidden(profileOpen)}
         className={getProfilePanelClassName(profileOpen)}
@@ -910,18 +839,14 @@ function PrimaryRailBottomActions({
             TP
           </span>
           <span className="min-w-0">
-            <span className="block truncate text-sm font-medium">
-              Teampitch
-            </span>
-            <span className="block truncate text-xs text-muted-foreground">
-              Local workspace
-            </span>
+            <span className="block truncate text-sm font-medium">Teampitch</span>
+            <span className="block truncate text-xs text-muted-foreground">Local workspace</span>
           </span>
         </div>
         <div className="mt-3 border-t border-border/70 pt-3 [&>div]:w-full [&>div]:justify-between">
           {accountControls}
         </div>
-      </motion.div>
+      </m.div>
     </>
   );
 }
@@ -1006,27 +931,19 @@ function getMainContentBodyClassName(hasWorkspacePreview: boolean) {
   );
 }
 
-function getChatColumnClassName(
-  hasWorkspacePreview: boolean,
-  isResizing = false
-) {
+function getChatColumnClassName(hasWorkspacePreview: boolean, isResizing = false) {
   return cn(
     "flex min-h-0 flex-col bg-background",
     hasWorkspacePreview
       ? [
           "min-w-0 flex-1 overflow-hidden xl:w-[var(--preview-chat-width)] xl:min-w-[22.5rem] xl:flex-none xl:overflow-visible xl:pl-3",
-          isResizing
-            ? "xl:transition-none"
-            : "xl:transition-[width] xl:duration-200 xl:ease-out"
+          isResizing ? "xl:transition-none" : "xl:transition-[width] xl:duration-200 xl:ease-out"
         ]
       : "min-w-0 flex-1"
   );
 }
 
-function getChatColumnStyle(
-  hasWorkspacePreview: boolean,
-  previewChatColumnWidth: number
-) {
+function getChatColumnStyle(hasWorkspacePreview: boolean, previewChatColumnWidth: number) {
   if (!hasWorkspacePreview) return undefined;
 
   return {
@@ -1038,8 +955,8 @@ function getChatStreamClassName(hasWorkspacePreview: boolean) {
   return cn(
     "mx-auto w-full",
     hasWorkspacePreview
-      ? "max-w-3xl px-5 pb-10 pt-10 sm:px-8 lg:pt-16 xl:max-w-none xl:px-1 xl:pb-4 xl:pt-3"
-      : "max-w-3xl px-5 pb-10 pt-10 sm:px-8 lg:pt-16"
+      ? "max-w-3xl px-5 pt-10 pb-10 sm:px-8 lg:pt-16 xl:max-w-none xl:px-1 xl:pt-3 xl:pb-4"
+      : "max-w-3xl px-5 pt-10 pb-10 sm:px-8 lg:pt-16"
   );
 }
 
@@ -1047,8 +964,8 @@ function getComposerDockClassName(hasWorkspacePreview: boolean) {
   return cn(
     "shrink-0 bg-gradient-to-t from-background via-background to-background/0",
     hasWorkspacePreview
-      ? "px-4 pb-5 pt-3 sm:px-8 xl:-mx-1 xl:px-1 xl:pb-3 xl:pt-2"
-      : "px-4 pb-5 pt-3 sm:px-8"
+      ? "px-4 pt-3 pb-5 sm:px-8 xl:-mx-1 xl:px-1 xl:pt-2 xl:pb-3"
+      : "px-4 pt-3 pb-5 sm:px-8"
   );
 }
 
@@ -1061,9 +978,8 @@ function getWorkspacePreviewSlotClassName(open: boolean) {
 
 function getPreviewChatResizeHandleClassName(resizing: boolean) {
   return cn(
-    "absolute left-1/2 top-1/2 h-7 w-1 -translate-y-1/2 rounded-full bg-neutral-400/70 opacity-0 shadow-[0_1px_3px_rgba(16,16,15,0.16)] transition-[height,background-color,opacity,box-shadow] duration-150 group-hover:h-8 group-hover:bg-neutral-500/75 group-hover:opacity-100 group-hover:shadow-[0_1px_5px_rgba(16,16,15,0.18)] group-focus-visible:opacity-100 group-focus-visible:ring-2 group-focus-visible:ring-ring/35",
-    resizing &&
-      "h-8 bg-neutral-500/75 opacity-100 shadow-[0_1px_5px_rgba(16,16,15,0.18)]"
+    "absolute top-1/2 left-1/2 h-7 w-1 -translate-y-1/2 rounded-full bg-neutral-400/70 opacity-0 shadow-[0_1px_3px_rgba(16,16,15,0.16)] transition-[height,background-color,opacity,box-shadow] duration-150 group-hover:h-8 group-hover:bg-neutral-500/75 group-hover:opacity-100 group-hover:shadow-[0_1px_5px_rgba(16,16,15,0.18)] group-focus-visible:opacity-100 group-focus-visible:ring-2 group-focus-visible:ring-ring/35",
+    resizing && "h-8 bg-neutral-500/75 opacity-100 shadow-[0_1px_5px_rgba(16,16,15,0.18)]"
   );
 }
 
@@ -1072,31 +988,19 @@ function clampPanelWidth(width: number) {
 }
 
 function clampPreviewChatColumnWidth(width: number) {
-  return Math.min(
-    maxPreviewChatColumnWidth,
-    Math.max(minPreviewChatColumnWidth, width)
-  );
+  return Math.min(maxPreviewChatColumnWidth, Math.max(minPreviewChatColumnWidth, width));
 }
 
 function getPanelContentOpacity(width: number) {
   return Math.min(1, Math.max(0, (width - 64) / 96));
 }
 
-function getNextPanelOpenState(
-  panelOpen: boolean,
-  offsetX: number,
-  velocityX: number
-) {
+function getNextPanelOpenState(panelOpen: boolean, offsetX: number, velocityX: number) {
   if (panelOpen) {
-    return !(
-      offsetX <= -panelDragCloseThreshold ||
-      velocityX <= -panelDragVelocityThreshold
-    );
+    return !(offsetX <= -panelDragCloseThreshold || velocityX <= -panelDragVelocityThreshold);
   }
 
-  return (
-    offsetX >= panelDragOpenThreshold || velocityX >= panelDragVelocityThreshold
-  );
+  return offsetX >= panelDragOpenThreshold || velocityX >= panelDragVelocityThreshold;
 }
 
 function getAvatarState(connected: boolean): AgentVisualState {
@@ -1150,10 +1054,7 @@ function safelySetPointerCapture(target: HTMLButtonElement, pointerId: number) {
   }
 }
 
-function safelyReleasePointerCapture(
-  target: HTMLButtonElement,
-  pointerId: number
-) {
+function safelyReleasePointerCapture(target: HTMLButtonElement, pointerId: number) {
   try {
     if (target.hasPointerCapture(pointerId)) {
       target.releasePointerCapture(pointerId);
@@ -1190,18 +1091,10 @@ function RailButton({
   );
 }
 
-function NavSection({
-  title,
-  children
-}: {
-  title: string;
-  children: ReactNode;
-}) {
+function NavSection({ title, children }: { title: string; children: ReactNode }) {
   return (
     <section>
-      <h2 className="mb-1 px-2 text-xs font-medium text-muted-foreground">
-        {title}
-      </h2>
+      <h2 className="mb-1 px-2 text-xs font-medium text-muted-foreground">{title}</h2>
       <div className="space-y-0.5">{children}</div>
     </section>
   );
@@ -1258,11 +1151,7 @@ function PanelNavButton({
   onClick: () => void;
 }) {
   return (
-    <button
-      type="button"
-      className={getPanelNavClassName(active, true)}
-      onClick={onClick}
-    >
+    <button type="button" className={getPanelNavClassName(active, true)} onClick={onClick}>
       <PanelNavContent icon={icon} label={label} />
     </button>
   );
@@ -1279,13 +1168,9 @@ function PanelNavContent({
 }) {
   return (
     <>
-      <span className="grid size-4 shrink-0 place-items-center text-neutral-500">
-        {icon}
-      </span>
+      <span className="grid size-4 shrink-0 place-items-center text-neutral-500">{icon}</span>
       <span className="min-w-0 flex-1 truncate">{label}</span>
-      {value ? (
-        <span className="text-xs text-muted-foreground">{value}</span>
-      ) : null}
+      {value ? <span className="text-xs text-muted-foreground">{value}</span> : null}
     </>
   );
 }
@@ -1333,7 +1218,7 @@ function ChatTopbar({
           <button
             type="button"
             aria-label="Open details panel"
-            className="relative grid size-8 shrink-0 place-items-center rounded-md text-neutral-700 transition-[background-color,scale] hover:bg-black/5 active:scale-[0.96] before:absolute before:-inset-1 before:content-['']"
+            className="relative grid size-8 shrink-0 place-items-center rounded-md text-neutral-700 transition-[background-color,scale] before:absolute before:-inset-1 before:content-[''] hover:bg-black/5 active:scale-[0.96]"
             onClick={() => onDetailsPanelOpenChange(true)}
           >
             <PanelLeftClose size={15} className="scale-x-[-1]" />

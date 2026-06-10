@@ -1,5 +1,6 @@
 import { BrainIcon, SignInIcon } from "@/components/app/icons";
 import { Badge, Button, Text } from "@/components/app/ui";
+
 import type { AuthSession } from "./auth-context";
 
 export function AuthLoading() {
@@ -40,9 +41,7 @@ export function LoginScreen({
           <div className="w-full max-w-sm space-y-5">
             <div className="space-y-2">
               <h2 className="text-2xl font-semibold">Sign in</h2>
-              <Text variant="secondary">
-                Use your WorkOS account to open the assistant.
-              </Text>
+              <Text variant="secondary">Use your WorkOS account to open the assistant.</Text>
             </div>
 
             {error && (
@@ -52,11 +51,7 @@ export function LoginScreen({
             )}
 
             <div className="flex flex-wrap gap-2">
-              <Button
-                variant="primary"
-                icon={<SignInIcon size={16} />}
-                onClick={onSignIn}
-              >
+              <Button variant="primary" icon={<SignInIcon size={16} />} onClick={onSignIn}>
                 Sign in
               </Button>
               <Button variant="outline" onClick={onSignUp}>
@@ -109,10 +104,7 @@ function accountLabel(session: AuthSession): string {
 }
 
 function accountDetail(session: AuthSession): string {
-  return (
-    [accountIdentityRole(session), session.provider].find(isNonEmptyString) ??
-    ""
-  );
+  return [accountIdentityRole(session), session.provider].find(isNonEmptyString) ?? "";
 }
 
 function accountUserName(session: AuthSession): string | undefined {

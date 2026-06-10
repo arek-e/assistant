@@ -1,5 +1,5 @@
-import { createAuthIdentityAdapter } from "./identity";
 import type { MemoryAccessContext } from "../memory/access";
+import { createAuthIdentityAdapter } from "./identity";
 import {
   authenticateWorkOSSession,
   createClearCookieHeader,
@@ -110,23 +110,15 @@ async function handleLogin(
   });
 
   return redirect(authorizationUrl, 302, [
-    createCookieHeader(
-      request,
-      getWorkOSStateCookieName(env),
-      encodeLoginState(state),
-      {
-        path: "/auth/callback",
-        maxAge: 10 * 60,
-        httpOnly: true
-      }
-    )
+    createCookieHeader(request, getWorkOSStateCookieName(env), encodeLoginState(state), {
+      path: "/auth/callback",
+      maxAge: 10 * 60,
+      httpOnly: true
+    })
   ]);
 }
 
-async function handleCallback(
-  request: Request,
-  env: WorkOSSessionEnv
-): Promise<Response> {
+async function handleCallback(request: Request, env: WorkOSSessionEnv): Promise<Response> {
   if (!isWorkOSAuthConfigured(env)) {
     return json({ error: "workos_not_configured" }, 503);
   }
@@ -134,21 +126,14 @@ async function handleCallback(
   const url = new URL(request.url);
   const code = url.searchParams.get("code");
   const returnedState = url.searchParams.get("state");
-  const cookieState = decodeLoginState(
-    getCookieValue(request, getWorkOSStateCookieName(env))
-  );
+  const cookieState = decodeLoginState(getCookieValue(request, getWorkOSStateCookieName(env)));
   const stateCookieClear = createClearCookieHeader(
     request,
     getWorkOSStateCookieName(env),
     "/auth/callback"
   );
 
-  if (
-    !code ||
-    !returnedState ||
-    !cookieState ||
-    returnedState !== cookieState.nonce
-  ) {
+  if (!code || !returnedState || !cookieState || returnedState !== cookieState.nonce) {
     return redirect("/auth/login", 303, [stateCookieClear]);
   }
 
@@ -169,33 +154,22 @@ async function handleCallback(
 
     return redirect(cookieState.returnTo, 303, [
       stateCookieClear,
-      createCookieHeader(
-        request,
-        getWorkOSSessionCookieName(env),
-        authResponse.sealedSession,
-        {
-          path: "/",
-          httpOnly: true
-        }
-      )
+      createCookieHeader(request, getWorkOSSessionCookieName(env), authResponse.sealedSession, {
+        path: "/",
+        httpOnly: true
+      })
     ]);
   } catch {
     return redirect("/auth/login", 303, [stateCookieClear]);
   }
 }
 
-async function handleLogout(
-  request: Request,
-  env: WorkOSSessionEnv
-): Promise<Response> {
+async function handleLogout(request: Request, env: WorkOSSessionEnv): Promise<Response> {
   if (!isSameOriginPost(request)) {
     return json({ error: "method_not_allowed" }, 405);
   }
 
-  const sessionCookieClear = createClearCookieHeader(
-    request,
-    getWorkOSSessionCookieName(env)
-  );
+  const sessionCookieClear = createClearCookieHeader(request, getWorkOSSessionCookieName(env));
 
   if (!isWorkOSAuthConfigured(env)) {
     return redirect("/", 303, [sessionCookieClear]);
@@ -223,10 +197,7 @@ async function handleLogout(
   }
 }
 
-async function handleMe(
-  request: Request,
-  env: WorkOSSessionEnv
-): Promise<Response> {
+async function handleMe(request: Request, env: WorkOSSessionEnv): Promise<Response> {
   if (!isWorkOSMode(env)) {
     const identity = await createAuthIdentityAdapter(env).resolve({
       env,
@@ -285,12 +256,10 @@ async function handleMe(
   if (sessionResult.sealedSession) {
     headers.append(
       "set-cookie",
-      createCookieHeader(
-        request,
-        getWorkOSSessionCookieName(env),
-        sessionResult.sealedSession,
-        { path: "/", httpOnly: true }
-      )
+      createCookieHeader(request, getWorkOSSessionCookieName(env), sessionResult.sealedSession, {
+        path: "/",
+        httpOnly: true
+      })
     );
   }
 
@@ -310,9 +279,7 @@ async function handleMe(
   );
 }
 
-function serializeIdentity(
-  identity: MemoryAccessContext
-): AuthMeResponse["identity"] {
+function serializeIdentity(identity: MemoryAccessContext): AuthMeResponse["identity"] {
   return {
     subjectId: identity.subjectId,
     subjectType: identity.subjectType,
@@ -334,11 +301,7 @@ function userDisplayName(user: {
   return name || user.email;
 }
 
-function redirect(
-  location: string,
-  status: 302 | 303,
-  cookies: string[] = []
-): Response {
+function redirect(location: string, status: 302 | 303, cookies: string[] = []): Response {
   const headers = new Headers({ location: sanitizeReturnTo(location) });
 
   if (location.startsWith("http://") || location.startsWith("https://")) {

@@ -1,5 +1,9 @@
+import {
+  createLocalMemoryAccessContext,
+  toMemoryRecordActor,
+  type MemoryAccessContext
+} from "./access";
 import { hashStableValue } from "./hash";
-import { createLocalMemoryAccessContext, toMemoryRecordActor } from "./access";
 import {
   decodeLifecycleStatus,
   type LifecycleStatus,
@@ -7,7 +11,6 @@ import {
   type MemoryRecord,
   type MemoryRecordDraft
 } from "./types";
-import type { MemoryAccessContext } from "./access";
 
 export function createMemoryRecord(input: MemoryRecordDraft): MemoryRecord {
   const record = {
@@ -51,9 +54,7 @@ function hashMemoryContent(record: MemoryRecordDraft): string {
   });
 }
 
-function hashMemoryRecord(
-  record: MemoryRecordDraft & { contentHash: string }
-): string {
+function hashMemoryRecord(record: MemoryRecordDraft & { contentHash: string }): string {
   return hashStableValue({
     id: record.id,
     kind: record.kind,

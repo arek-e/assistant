@@ -1,7 +1,6 @@
 {
   "extends": "agents/tsconfig",
   "compilerOptions": {
-    "baseUrl": ".",
     "ignoreDeprecations": "6.0",
     "types": ["node", "@cloudflare/workers-types", "vite/client", "bun"],
     "paths": {

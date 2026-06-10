@@ -12,9 +12,7 @@ const MemoryRecordKindSchema = Schema.Literal(
   "route_record"
 );
 
-export type MemoryRecordKind = Schema.Schema.Type<
-  typeof MemoryRecordKindSchema
->;
+export type MemoryRecordKind = Schema.Schema.Type<typeof MemoryRecordKindSchema>;
 
 const MemoryScopeSchema = Schema.Literal("private", "team", "org", "session");
 
@@ -29,9 +27,7 @@ const MemoryScopeGrantSchema = Schema.Struct({
   scopeId: Schema.String
 });
 
-export type MemoryScopeGrant = Schema.Schema.Type<
-  typeof MemoryScopeGrantSchema
->;
+export type MemoryScopeGrant = Schema.Schema.Type<typeof MemoryScopeGrantSchema>;
 
 const MemoryRecordActorSchema = Schema.Struct({
   subjectId: Schema.String,
@@ -45,9 +41,7 @@ const MemoryRecordActorSchema = Schema.Struct({
   grants: Schema.Array(MemoryScopeGrantSchema)
 });
 
-export type MemoryRecordActor = Schema.Schema.Type<
-  typeof MemoryRecordActorSchema
->;
+export type MemoryRecordActor = Schema.Schema.Type<typeof MemoryRecordActorSchema>;
 
 const LifecycleStatusSchema = Schema.Literal(
   "draft",
@@ -83,10 +77,7 @@ export const MemoryRecordSchema = Schema.Struct({
 
 export type MemoryRecord = Schema.Schema.Type<typeof MemoryRecordSchema>;
 
-export type MemoryRecordDraft = Omit<
-  MemoryRecord,
-  "actor" | "contentHash" | "recordHash"
-> & {
+export type MemoryRecordDraft = Omit<MemoryRecord, "actor" | "contentHash" | "recordHash"> & {
   actor?: MemoryRecordActor;
   contentHash?: string;
   recordHash?: string;

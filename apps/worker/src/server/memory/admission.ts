@@ -15,10 +15,7 @@ const PREFERENCE_MARKERS = ["i prefer", "my preference", "always use"];
 const DECISION_MARKERS = ["we chose", "we decided", "lets use", "let's use"];
 const IMPLEMENTATION_MARKERS = ["implemented", "shipped", "deployed"];
 
-type MemoryWriteRule = (
-  lowerInput: string,
-  originalInput: string
-) => MemoryWriteDecision | null;
+type MemoryWriteRule = (lowerInput: string, originalInput: string) => MemoryWriteDecision | null;
 
 const MEMORY_WRITE_RULES: MemoryWriteRule[] = [
   shortInputRule,
@@ -28,9 +25,7 @@ const MEMORY_WRITE_RULES: MemoryWriteRule[] = [
 
 export function proposeMemoryWrite(input: string): MemoryWriteDecision {
   const lowerInput = input.toLowerCase();
-  const rule = MEMORY_WRITE_RULES.find(
-    (candidate) => candidate(lowerInput, input) !== null
-  );
+  const rule = MEMORY_WRITE_RULES.find((candidate) => candidate(lowerInput, input) !== null);
 
   return (
     rule?.(lowerInput, input) ??
@@ -38,10 +33,7 @@ export function proposeMemoryWrite(input: string): MemoryWriteDecision {
   );
 }
 
-function shortInputRule(
-  _lowerInput: string,
-  originalInput: string
-): MemoryWriteDecision | null {
+function shortInputRule(_lowerInput: string, originalInput: string): MemoryWriteDecision | null {
   if (originalInput.trim().length >= 24) return null;
   return noWrite("input is too small to justify durable memory");
 }
@@ -51,12 +43,7 @@ function explicitPreferenceRule(
   _originalInput: string
 ): MemoryWriteDecision | null {
   if (!includesAny(lowerInput, PREFERENCE_MARKERS)) return null;
-  return writeDecision(
-    "preference_record",
-    "active",
-    "explicit user preference",
-    true
-  );
+  return writeDecision("preference_record", "active", "explicit user preference", true);
 }
 
 function decisionIntentRule(

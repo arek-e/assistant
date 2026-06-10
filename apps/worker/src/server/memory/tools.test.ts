@@ -1,12 +1,11 @@
 import { describe, expect, test } from "bun:test";
+
+import type { MemoryAccessContext } from "./access";
 import { InMemoryCanonicalMemoryStore } from "./canonical-memory-store";
 import { createMemoryPrimitiveTools } from "./tools";
-import type { MemoryAccessContext } from "./access";
 import type { MemoryRecordDraft } from "./types";
 
-function toolOptions<T extends (...args: never[]) => unknown>(
-  _tool: T
-): Parameters<T>[1] {
+function toolOptions<T extends (...args: never[]) => unknown>(_tool: T): Parameters<T>[1] {
   return {} as Parameters<T>[1];
 }
 
@@ -82,10 +81,7 @@ describe("memory primitive tools", () => {
       provider: "workos"
     });
 
-    const result = await searchMemory(
-      { query: "WorkOS Auth Slice" },
-      toolOptions(searchMemory)
-    );
+    const result = await searchMemory({ query: "WorkOS Auth Slice" }, toolOptions(searchMemory));
 
     expect(result.provenance).toMatchObject({
       subjectId: "user-123",

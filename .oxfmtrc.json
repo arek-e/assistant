@@ -1,5 +1,32 @@
 {
   "$schema": "./node_modules/oxfmt/configuration_schema.json",
+  "endOfLine": "lf",
+  "insertFinalNewline": true,
+  "printWidth": 100,
+  "semi": true,
+  "singleQuote": false,
+  "tabWidth": 2,
   "trailingComma": "none",
-  "printWidth": 80
+  "sortImports": {
+    "groups": [
+      "side_effect_style",
+      "side_effect",
+      "builtin",
+      "external",
+      ["internal", "subpath"],
+      ["parent", "sibling", "index"],
+      "style",
+      "unknown"
+    ],
+    "internalPattern": ["@/", "@teampitch/", "#"],
+    "newlinesBetween": true,
+    "sortSideEffects": false
+  },
+  "sortPackageJson": {
+    "sortScripts": false
+  },
+  "sortTailwindcss": {
+    "functions": ["cn", "cva"],
+    "stylesheet": "apps/worker/src/styles.css"
+  }
 }

@@ -1,26 +1,22 @@
 import { Think, type Session } from "@cloudflare/think";
-import { createWorkersAI } from "workers-ai-provider";
 import { callable, getCurrentAgent, type Schedule } from "agents";
 import type { ToolSet } from "ai";
+import { createWorkersAI } from "workers-ai-provider";
+
+import { getAssistantSystemPrompt } from "@/server/assistant-prompt";
+import { createAssistantTools, type AssistantToolContext } from "@/server/assistant-tools";
 import {
   createAuthIdentityAdapter,
   type AuthIdentityAdapter,
   type AuthIdentityEnv
 } from "@/server/auth/identity";
-import { getAssistantSystemPrompt } from "@/server/assistant-prompt";
 import {
-  createAssistantTools,
-  type AssistantToolContext
-} from "@/server/assistant-tools";
-import { createScheduledTaskMessage } from "@/server/scheduled-task";
-import {
+  type CanonicalMemoryStore,
+  type MemoryAccessContext,
   createMemoryPrimitiveTools,
   SqliteCanonicalMemoryStore
 } from "@/server/memory";
-import type {
-  CanonicalMemoryStore,
-  MemoryAccessContext
-} from "@/server/memory";
+import { createScheduledTaskMessage } from "@/server/scheduled-task";
 
 export class ThinkAgent extends Think<Env> {
   maxSteps = 6;
@@ -28,9 +24,7 @@ export class ThinkAgent extends Think<Env> {
   private authIdentityAdapter?: AuthIdentityAdapter;
 
   getModel() {
-    return createWorkersAI({ binding: this.env.AI })(
-      "@cf/moonshotai/kimi-k2.6"
-    );
+    return createWorkersAI({ binding: this.env.AI })("@cf/moonshotai/kimi-k2.6");
   }
 
   getSystemPrompt() {
@@ -63,9 +57,7 @@ Memory rules:
   getTools(): ToolSet {
     return {
       ...createAssistantTools(this.getAssistantToolContext(), {}),
-      ...createMemoryPrimitiveTools(this.getMemoryStore(), () =>
-        this.getAuthIdentity()
-      )
+      ...createMemoryPrimitiveTools(this.getMemoryStore(), () => this.getAuthIdentity())
     };
   }
 
@@ -81,10 +73,7 @@ Memory rules:
 
   @callable()
   async getMemoryDebugSnapshot() {
-    return this.getMemoryStore().debugSnapshot(
-      50,
-      await this.getAuthIdentity()
-    );
+    return this.getMemoryStore().debugSnapshot(50, await this.getAuthIdentity());
   }
 
   async executeTask(description: string, _task: Schedule<string>) {
@@ -100,17 +89,19 @@ Memory rules:
 
   private getAssistantToolContext(): AssistantToolContext {
     return {
-      schedule: this.schedule.bind(this),
+      schedule: (...args) => {
+        void this.schedule(...args);
+      },
       getSchedules: this.getSchedules.bind(this),
-      cancelSchedule: this.cancelSchedule.bind(this),
+      cancelSchedule: (taskId) => {
+        void this.cancelSchedule(taskId);
+      },
       getIdentity: () => this.getAuthIdentity()
     };
   }
 
   private getAuthIdentityAdapter(): AuthIdentityAdapter {
-    this.authIdentityAdapter ??= createAuthIdentityAdapter(
-      this.env as Env & AuthIdentityEnv
-    );
+    this.authIdentityAdapter ??= createAuthIdentityAdapter(this.env as Env & AuthIdentityEnv);
     return this.authIdentityAdapter;
   }
 

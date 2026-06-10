@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+
 import { createLocalMemoryAccessContext } from "./access";
 import { InMemoryCanonicalMemoryStore } from "./canonical-memory-store";
 import type { MemoryRecord, MemoryRecordDraft } from "./types";
@@ -20,14 +21,9 @@ describe("InMemoryCanonicalMemoryStore", () => {
       })
     ]);
 
-    const result = store.search(
-      "which icon system should the app use?",
-      accessContext
-    );
+    const result = store.search("which icon system should the app use?", accessContext);
 
-    expect(result.hits.map((hit) => hit.record.id)).toEqual([
-      "decision.icons.hugeicons"
-    ]);
+    expect(result.hits.map((hit) => hit.record.id)).toEqual(["decision.icons.hugeicons"]);
     expect(result.blockedRecordIds).toEqual(["decision.icons.lucide"]);
     expect(result.blockedRecords[0]?.reason).toBe("lifecycle");
     expect(result.provenance.records[0]?.recordHash).toMatch(/^h_/);
@@ -45,15 +41,11 @@ describe("InMemoryCanonicalMemoryStore", () => {
     const promoted = store.promote("decision.memory.sqlite", "active");
 
     expect(promoted?.status).toBe("active");
-    expect(
-      store.search("SQLite memory", accessContext).hits[0]?.record.status
-    ).toBe("active");
+    expect(store.search("SQLite memory", accessContext).hits[0]?.record.status).toBe("active");
   });
 });
 
-function createRecord(
-  overrides: Pick<MemoryRecord, "id" | "status" | "title">
-): MemoryRecordDraft {
+function createRecord(overrides: Pick<MemoryRecord, "id" | "status" | "title">): MemoryRecordDraft {
   const now = new Date("2026-06-10T00:00:00.000Z").toISOString();
 
   return {

@@ -1,17 +1,9 @@
 import { mkdirSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+
 import { Schema } from "effect";
-import { fixtures } from "./fixtures";
-import { createEvalMemorySqlStorage } from "./bun-sqlite-memory";
-import {
-  EvalFixtureSchema,
-  type EvalCheck,
-  type EvalFixture,
-  type EvalResult,
-  type MemoryWriteDecision,
-  type RouteDecision
-} from "./types";
+
 import {
   type CanonicalMemoryStore,
   createLocalMemoryAccessContext,
@@ -21,6 +13,17 @@ import {
   type MemoryRecord,
   type RetrievalResult
 } from "@teampitch/worker/server/assistant-primitives";
+
+import { createEvalMemorySqlStorage } from "./bun-sqlite-memory";
+import { fixtures } from "./fixtures";
+import {
+  EvalFixtureSchema,
+  type EvalCheck,
+  type EvalFixture,
+  type EvalResult,
+  type MemoryWriteDecision,
+  type RouteDecision
+} from "./types";
 
 const emptyWriteDecision: MemoryWriteDecision = {
   shouldWrite: false,
@@ -57,10 +60,8 @@ const CATEGORY_EVALUATORS = {
   retrieval: ({ fixture, retrievalResult, retrievedRecordIds }) =>
     evaluateRetrievalFixture(fixture, retrievalResult, retrievedRecordIds),
   memory_write: ({ fixture }) => evaluateMemoryWriteFixture(fixture),
-  lifecycle: ({ fixture, memoryStore }) =>
-    evaluateLifecycleFixture(fixture, memoryStore),
-  routing: ({ fixture, retrievalResult }) =>
-    evaluateRoutingFixture(fixture, retrievalResult),
+  lifecycle: ({ fixture, memoryStore }) => evaluateLifecycleFixture(fixture, memoryStore),
+  routing: ({ fixture, retrievalResult }) => evaluateRoutingFixture(fixture, retrievalResult),
   integration: () => noCategoryEvaluation()
 } satisfies Record<EvalFixture["category"], CategoryEvaluator>;
 
@@ -102,9 +103,7 @@ function evaluateFixture(fixture: EvalFixture): EvalResult {
 }
 
 function createMemoryStore(fixture: EvalFixture): CanonicalMemoryStore {
-  const memoryStore = new SqliteCanonicalMemoryStore(
-    createEvalMemorySqlStorage()
-  );
+  const memoryStore = new SqliteCanonicalMemoryStore(createEvalMemorySqlStorage());
   memoryStore.seed(fixture.seedRecords);
   return memoryStore;
 }
@@ -139,21 +138,12 @@ function evaluateLifecycleFixture(
   };
 }
 
-function promoteFixtureRecord(
-  fixture: EvalFixture,
-  memoryStore: CanonicalMemoryStore
-) {
+function promoteFixtureRecord(fixture: EvalFixture, memoryStore: CanonicalMemoryStore) {
   if (fixture.promotionStatus === "none") return null;
-  return memoryStore.promote(
-    fixture.promotionRecordId,
-    fixture.promotionStatus
-  );
+  return memoryStore.promote(fixture.promotionRecordId, fixture.promotionStatus);
 }
 
-function recordPromotedCheck(
-  fixture: EvalFixture,
-  promotedRecord: MemoryRecord | null
-): EvalCheck {
+function recordPromotedCheck(fixture: EvalFixture, promotedRecord: MemoryRecord | null): EvalCheck {
   return {
     name: "record promoted",
     passed: promotedRecord !== null,
@@ -163,16 +153,11 @@ function recordPromotedCheck(
   };
 }
 
-function promotedStatusCheck(
-  fixture: EvalFixture,
-  promotedRecord: MemoryRecord | null
-): EvalCheck {
+function promotedStatusCheck(fixture: EvalFixture, promotedRecord: MemoryRecord | null): EvalCheck {
   return {
     name: "expected promoted status",
     passed: promotedRecord?.status === fixture.expectedPromotedStatus,
-    detail: `expected ${fixture.expectedPromotedStatus}, got ${
-      promotedRecord?.status ?? "none"
-    }`
+    detail: `expected ${fixture.expectedPromotedStatus}, got ${promotedRecord?.status ?? "none"}`
   };
 }
 
@@ -182,16 +167,8 @@ function evaluateRetrievalFixture(
   retrievedRecordIds: readonly string[]
 ): CategoryEvaluation {
   const checks = [
-    expectEveryRecord(
-      "expected records retrieved",
-      fixture.expectedRecordIds,
-      retrievedRecordIds
-    ),
-    expectNoRecords(
-      "forbidden records absent",
-      fixture.forbiddenRecordIds,
-      retrievedRecordIds
-    ),
+    expectEveryRecord("expected records retrieved", fixture.expectedRecordIds, retrievedRecordIds),
+    expectNoRecords("forbidden records absent", fixture.forbiddenRecordIds, retrievedRecordIds),
     expectEveryRecord(
       "expected records blocked",
       fixture.expectedBlockedRecordIds,
@@ -281,9 +258,7 @@ function lifecycleCheck(lifecycleViolations: readonly string[]): EvalCheck {
   };
 }
 
-function negativeRetrievalCheck(
-  retrievedRecordIds: readonly string[]
-): EvalCheck {
+function negativeRetrievalCheck(retrievedRecordIds: readonly string[]): EvalCheck {
   return {
     name: "negative retrieval stays empty",
     passed: retrievedRecordIds.length === 0,
@@ -294,10 +269,7 @@ function negativeRetrievalCheck(
   };
 }
 
-function writeAdmissionCheck(
-  fixture: EvalFixture,
-  writeDecision: MemoryWriteDecision
-): EvalCheck {
+function writeAdmissionCheck(fixture: EvalFixture, writeDecision: MemoryWriteDecision): EvalCheck {
   if (fixture.expectedWriteKind === "none") {
     return {
       name: "admission rejects low-value input",
@@ -320,9 +292,7 @@ function expectEveryRecord(
   expectedRecordIds: readonly string[],
   actualRecordIds: readonly string[]
 ): EvalCheck {
-  const missing = expectedRecordIds.filter(
-    (recordId) => !actualRecordIds.includes(recordId)
-  );
+  const missing = expectedRecordIds.filter((recordId) => !actualRecordIds.includes(recordId));
 
   return {
     name,
@@ -339,9 +309,7 @@ function expectNoRecords(
   forbiddenRecordIds: readonly string[],
   actualRecordIds: readonly string[]
 ): EvalCheck {
-  const found = forbiddenRecordIds.filter((recordId) =>
-    actualRecordIds.includes(recordId)
-  );
+  const found = forbiddenRecordIds.filter((recordId) => actualRecordIds.includes(recordId));
 
   return {
     name,
@@ -367,9 +335,7 @@ function printResults(results: EvalResult[]) {
   const passedCount = results.filter((result) => result.passed).length;
   const failedResults = results.filter((result) => !result.passed);
 
-  console.log(
-    `Assistant primitive evals: ${passedCount}/${results.length} passed`
-  );
+  console.log(`Assistant primitive evals: ${passedCount}/${results.length} passed`);
 
   results.forEach(printResult);
 

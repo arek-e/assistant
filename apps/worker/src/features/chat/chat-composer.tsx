@@ -1,16 +1,6 @@
-import type {
-  ChangeEvent,
-  ClipboardEvent,
-  FormEvent,
-  KeyboardEvent,
-  RefObject
-} from "react";
-import {
-  PaperclipIcon,
-  PaperPlaneRightIcon,
-  StopIcon,
-  XIcon
-} from "@/components/app/icons";
+import type { ChangeEvent, ClipboardEvent, FormEvent, KeyboardEvent, RefObject } from "react";
+
+import { PaperclipIcon, PaperPlaneRightIcon, StopIcon, XIcon } from "@/components/app/icons";
 import { Button, InputArea } from "@/components/app/ui";
 import type { Attachment } from "@/features/attachments/attachments";
 
@@ -46,22 +36,13 @@ export function ChatComposer({
 
   return (
     <div className="mx-auto w-full max-w-3xl">
-      <form
-        onSubmit={(event) => handleComposerSubmit(event, onSend)}
-        className="w-full"
-      >
+      <form onSubmit={(event) => handleComposerSubmit(event, onSend)} className="w-full">
         <HiddenImageInput fileInputRef={fileInputRef} onAddFiles={onAddFiles} />
 
-        <AttachmentPreviewList
-          attachments={attachments}
-          onRemoveAttachment={onRemoveAttachment}
-        />
+        <AttachmentPreviewList attachments={attachments} onRemoveAttachment={onRemoveAttachment} />
 
         <div className="flex items-end gap-2 rounded-xl border border-border/90 bg-background p-2 shadow-[0_18px_55px_rgba(0,0,0,0.10),0_1px_0_rgba(0,0,0,0.03)] transition-shadow focus-within:border-neutral-300 focus-within:shadow-[0_22px_70px_rgba(0,0,0,0.14),0_0_0_1px_rgba(0,0,0,0.04)]">
-          <AttachmentButton
-            disabled={controlsDisabled}
-            fileInputRef={fileInputRef}
-          />
+          <AttachmentButton disabled={controlsDisabled} fileInputRef={fileInputRef} />
           <InputArea
             ref={textareaRef}
             value={input}
@@ -72,13 +53,9 @@ export function ChatComposer({
             placeholder={getComposerPlaceholder(attachments.length)}
             disabled={controlsDisabled}
             rows={1}
-            className="max-h-40 min-h-10 flex-1 resize-none bg-transparent! text-base leading-6 shadow-none! outline-none! ring-0! placeholder:text-neutral-300 focus:ring-0!"
+            className="max-h-40 min-h-10 flex-1 resize-none bg-transparent! text-base leading-6 shadow-none! ring-0! outline-none! placeholder:text-neutral-300 focus:ring-0!"
           />
-          <ComposerAction
-            isStreaming={isStreaming}
-            sendDisabled={sendDisabled}
-            onStop={onStop}
-          />
+          <ComposerAction isStreaming={isStreaming} sendDisabled={sendDisabled} onStop={onStop} />
         </div>
       </form>
     </div>
@@ -136,15 +113,11 @@ function AttachmentPreview({
 }) {
   return (
     <div className="group relative overflow-hidden rounded-lg border border-border bg-muted">
-      <img
-        src={attachment.preview}
-        alt={attachment.file.name}
-        className="h-16 w-16 object-cover"
-      />
+      <img src={attachment.preview} alt={attachment.file.name} className="h-16 w-16 object-cover" />
       <button
         type="button"
         onClick={() => onRemoveAttachment(attachment.id)}
-        className="absolute right-0.5 top-0.5 rounded-full bg-primary/80 p-0.5 text-primary-foreground opacity-0 transition-opacity group-hover:opacity-100"
+        className="absolute top-0.5 right-0.5 rounded-full bg-primary/80 p-0.5 text-primary-foreground opacity-0 transition-opacity group-hover:opacity-100"
         aria-label={`Remove ${attachment.file.name}`}
       >
         <XIcon size={10} />
@@ -210,10 +183,7 @@ function ComposerAction({
   );
 }
 
-function handleComposerSubmit(
-  event: FormEvent<HTMLFormElement>,
-  onSend: () => void
-) {
+function handleComposerSubmit(event: FormEvent<HTMLFormElement>, onSend: () => void) {
   event.preventDefault();
   onSend();
 }
@@ -227,10 +197,7 @@ function handleFileInputChange(
   event.target.value = "";
 }
 
-function handleComposerKeyDown(
-  event: KeyboardEvent<HTMLTextAreaElement>,
-  onSend: () => void
-) {
+function handleComposerKeyDown(event: KeyboardEvent<HTMLTextAreaElement>, onSend: () => void) {
   if (event.key !== "Enter" || event.shiftKey) return;
   event.preventDefault();
   onSend();
@@ -243,15 +210,9 @@ function handleComposerInput(event: FormEvent<HTMLTextAreaElement>) {
 }
 
 function getComposerPlaceholder(attachmentCount: number) {
-  return attachmentCount > 0
-    ? "Add a message or send images..."
-    : "Ask Teampitch";
+  return attachmentCount > 0 ? "Add a message or send images..." : "Ask Teampitch";
 }
 
-function getSendDisabled(
-  input: string,
-  attachmentCount: number,
-  connected: boolean
-) {
+function getSendDisabled(input: string, attachmentCount: number, connected: boolean) {
   return (!input.trim() && attachmentCount === 0) || !connected;
 }

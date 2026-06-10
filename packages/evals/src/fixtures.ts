@@ -1,9 +1,10 @@
-import type { EvalFixture, MemoryRecord } from "./types";
 import { createMemoryRecord } from "@teampitch/worker/server/assistant-primitives";
+
+import type { EvalFixture, MemoryRecord } from "./types";
 
 const NOW = "2026-06-10T00:00:00.000Z";
 
-type RecordInput = {
+interface RecordInput {
   id: string;
   kind: MemoryRecord["kind"];
   title: string;
@@ -17,9 +18,9 @@ type RecordInput = {
   consumerRules?: string[];
   tags?: string[];
   supersedes?: string[];
-};
+}
 
-type FixtureInput = {
+interface FixtureInput {
   id: string;
   category: EvalFixture["category"];
   seedRecords?: MemoryRecord[];
@@ -38,7 +39,7 @@ type FixtureInput = {
   expectedBehavior: string;
   metrics: string[];
   notes?: string;
-};
+}
 
 const recordDefaults = {
   scope: "team",
@@ -181,15 +182,7 @@ const sqliteFtsDecision = record({
   kind: "decision_record",
   title: "Start with SQLite and FTS5 retrieval",
   body: "The Canonical Memory Store starts with Durable Object SQLite and FTS5. Vectorize is deferred until retrieval evals prove semantic recall is missing.",
-  tags: [
-    "sqlite",
-    "fts5",
-    "vector",
-    "vectorize",
-    "memory",
-    "retrieval",
-    "canonical"
-  ]
+  tags: ["sqlite", "fts5", "vector", "vectorize", "memory", "retrieval", "canonical"]
 });
 
 const proposedThinkDecision = record({
@@ -276,23 +269,15 @@ export const fixtures: EvalFixture[] = [
     expectedBlockedRecordIds: ["decision.package-manager.npm"],
     expectedBehavior:
       "Retrieve the active Bun decision and do not expose the rejected npm alternative as current truth.",
-    metrics: [
-      "retrieval_recall_at_5",
-      "retrieval_precision_at_5",
-      "forbidden_record_hits"
-    ]
+    metrics: ["retrieval_recall_at_5", "retrieval_precision_at_5", "forbidden_record_hits"]
   }),
   fixture({
     id: "retrieval.hidden-router-ui",
     category: "retrieval",
     seedRecords: [routingDebugDrawer, routingAuditTrail],
     input: "what did we mean by the hidden router UI?",
-    expectedRecordIds: [
-      "term.routing-debug-drawer",
-      "term.routing-audit-trail"
-    ],
-    expectedBehavior:
-      "Retrieve the debug drawer and audit trail terms for the hidden routing UI.",
+    expectedRecordIds: ["term.routing-debug-drawer", "term.routing-audit-trail"],
+    expectedBehavior: "Retrieve the debug drawer and audit trail terms for the hidden routing UI.",
     metrics: ["retrieval_recall_at_5", "retrieval_precision_at_5"]
   }),
   fixture({
@@ -305,11 +290,7 @@ export const fixtures: EvalFixture[] = [
     expectedBlockedRecordIds: ["preference.icons.lucide"],
     expectedBehavior:
       "Prefer the active HugeIcons preference and keep the superseded lucide preference out of returned evidence.",
-    metrics: [
-      "retrieval_recall_at_5",
-      "forbidden_record_hits",
-      "lifecycle_violations"
-    ]
+    metrics: ["retrieval_recall_at_5", "forbidden_record_hits", "lifecycle_violations"]
   }),
   fixture({
     id: "retrieval.rejected-vector-first",
@@ -321,11 +302,7 @@ export const fixtures: EvalFixture[] = [
     expectedBlockedRecordIds: ["decision.memory.vector-first"],
     expectedBehavior:
       "Retrieve the SQLite + FTS5 decision and do not treat vector-first memory as accepted.",
-    metrics: [
-      "retrieval_recall_at_5",
-      "forbidden_record_hits",
-      "lifecycle_violations"
-    ]
+    metrics: ["retrieval_recall_at_5", "forbidden_record_hits", "lifecycle_violations"]
   }),
   fixture({
     id: "retrieval.evals-package-boundary",
@@ -347,11 +324,7 @@ export const fixtures: EvalFixture[] = [
     expectedBlockedRecordIds: ["preference.private.other-user.editor"],
     expectedBehavior:
       "Block another user's private memory even when it lexically matches the request, and return accessible team guidance instead.",
-    metrics: [
-      "retrieval_recall_at_5",
-      "forbidden_record_hits",
-      "unauthorized_memory_blocked"
-    ]
+    metrics: ["retrieval_recall_at_5", "forbidden_record_hits", "unauthorized_memory_blocked"]
   }),
   fixture({
     id: "retrieval.redacted-memory-never-evidence",
@@ -363,11 +336,7 @@ export const fixtures: EvalFixture[] = [
     expectedBlockedRecordIds: ["resource.secret.cloudflare-token"],
     expectedBehavior:
       "Redacted memory must never become answer evidence; the active credential storage decision should be used instead.",
-    metrics: [
-      "retrieval_recall_at_5",
-      "forbidden_record_hits",
-      "lifecycle_violations"
-    ]
+    metrics: ["retrieval_recall_at_5", "forbidden_record_hits", "lifecycle_violations"]
   }),
   fixture({
     id: "retrieval.org-precedence-over-private",
@@ -379,11 +348,7 @@ export const fixtures: EvalFixture[] = [
     expectedBlockedRecordIds: ["decision.memory.private-vector-first"],
     expectedBehavior:
       "When org memory explicitly supersedes private memory, retrieve the org policy and block the lower-scope conflicting candidate.",
-    metrics: [
-      "retrieval_recall_at_5",
-      "forbidden_record_hits",
-      "conflict_misses"
-    ]
+    metrics: ["retrieval_recall_at_5", "forbidden_record_hits", "conflict_misses"]
   }),
   fixture({
     id: "retrieval.negative-no-memory",
@@ -391,12 +356,8 @@ export const fixtures: EvalFixture[] = [
     seedRecords: [routingDebugDrawer, sqliteFtsDecision],
     input: "what is my preferred coffee grinder?",
     expectedRecordIds: [],
-    forbiddenRecordIds: [
-      "term.routing-debug-drawer",
-      "decision.memory.sqlite-fts5"
-    ],
-    expectedBehavior:
-      "Return no memory evidence when no durable record exists for the request.",
+    forbiddenRecordIds: ["term.routing-debug-drawer", "decision.memory.sqlite-fts5"],
+    expectedBehavior: "Return no memory evidence when no durable record exists for the request.",
     metrics: ["retrieval_precision_at_5", "unsupported_answer_count"]
   }),
   fixture({
@@ -405,8 +366,7 @@ export const fixtures: EvalFixture[] = [
     input: "nice thanks",
     expectedWriteKind: "none",
     expectedWriteStatus: "none",
-    expectedBehavior:
-      "Do not save a durable record for a transient low-value chat fragment.",
+    expectedBehavior: "Do not save a durable record for a transient low-value chat fragment.",
     metrics: ["admission_false_positive_count"]
   }),
   fixture({
@@ -422,20 +382,17 @@ export const fixtures: EvalFixture[] = [
   fixture({
     id: "memory-write.proposed-decision",
     category: "memory_write",
-    input:
-      "We chose SQLite and FTS5 first because we need lifecycle-safe memory before Vectorize.",
+    input: "We chose SQLite and FTS5 first because we need lifecycle-safe memory before Vectorize.",
     expectedWriteKind: "decision_record",
     expectedWriteStatus: "proposed",
-    expectedBehavior:
-      "Write a proposed decision record until implementation evidence exists.",
+    expectedBehavior: "Write a proposed decision record until implementation evidence exists.",
     metrics: ["tool_call_accuracy", "lifecycle_violations"]
   }),
   fixture({
     id: "lifecycle.promote-proposed-decision",
     category: "lifecycle",
     seedRecords: [proposedThinkDecision],
-    input:
-      "promote the Think prototype decision after implementation evidence exists",
+    input: "promote the Think prototype decision after implementation evidence exists",
     promotionRecordId: "decision.think.prototype",
     promotionStatus: "active",
     expectedPromotedStatus: "active",
@@ -451,8 +408,7 @@ export const fixtures: EvalFixture[] = [
     expectedRouteMode: "direct",
     expectedRouteEffort: "low",
     expectedRouteBudget: "small",
-    expectedBehavior:
-      "Use a cheap direct route when active memory contains enough evidence.",
+    expectedBehavior: "Use a cheap direct route when active memory contains enough evidence.",
     metrics: ["route_regret_rate", "cost_per_success"]
   }),
   fixture({

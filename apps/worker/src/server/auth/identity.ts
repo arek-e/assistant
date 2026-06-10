@@ -69,9 +69,7 @@ const localMemoryScopeIds = {
 
 const anonymousSessionId = "anonymous-session";
 
-export function createAuthIdentityAdapter(
-  env: AuthIdentityEnv
-): AuthIdentityAdapter {
+export function createAuthIdentityAdapter(env: AuthIdentityEnv): AuthIdentityAdapter {
   if (env.AUTH_IDENTITY_ADAPTER === "workos") {
     return new WorkOSAuthIdentityAdapter();
   }
@@ -80,10 +78,7 @@ export function createAuthIdentityAdapter(
 }
 
 export class LocalAuthIdentityAdapter implements AuthIdentityAdapter {
-  async resolve({
-    env,
-    sessionId
-  }: AuthIdentityResolutionInput): Promise<MemoryAccessContext> {
+  async resolve({ env, sessionId }: AuthIdentityResolutionInput): Promise<MemoryAccessContext> {
     const localIdentity = createLocalIdentityConfig(env, sessionId);
 
     return createMemoryAccessContext({
@@ -101,13 +96,9 @@ export class LocalAuthIdentityAdapter implements AuthIdentityAdapter {
 }
 
 export class WorkOSAuthIdentityAdapter implements AuthIdentityAdapter {
-  constructor(
-    private readonly verifyAccessToken: WorkOSTokenVerifier = verifyWorkOSToken
-  ) {}
+  constructor(private readonly verifyAccessToken: WorkOSTokenVerifier = verifyWorkOSToken) {}
 
-  async resolve(
-    input: AuthIdentityResolutionInput
-  ): Promise<MemoryAccessContext> {
+  async resolve(input: AuthIdentityResolutionInput): Promise<MemoryAccessContext> {
     const token = getRequestToken(input);
     const clientId = input.env.WORKOS_CLIENT_ID;
     if (token && clientId) {
@@ -134,20 +125,14 @@ export class WorkOSAuthIdentityAdapter implements AuthIdentityAdapter {
     }
   }
 
-  private async resolveSession(
-    input: AuthIdentityResolutionInput
-  ): Promise<MemoryAccessContext> {
+  private async resolveSession(input: AuthIdentityResolutionInput): Promise<MemoryAccessContext> {
     if (!hasWorkOSSessionCookie(input)) {
       return createAnonymousMemoryAccessContext(input.sessionId);
     }
 
     try {
-      const sessionResult = await authenticateWorkOSSession(
-        input.request!,
-        input.env
-      );
-      if (!sessionResult.authenticated)
-        return createAnonymousMemoryAccessContext(input.sessionId);
+      const sessionResult = await authenticateWorkOSSession(input.request!, input.env);
+      if (!sessionResult.authenticated) return createAnonymousMemoryAccessContext(input.sessionId);
 
       return createWorkOSMemoryAccessContext({
         ...claimsFromSession(sessionResult.session),
@@ -171,15 +156,10 @@ function createLocalIdentityConfig(
   sessionId: string | undefined
 ): LocalIdentityConfig {
   return {
-    subjectId: withDefault(
-      env.AUTH_LOCAL_SUBJECT_ID,
-      localMemoryScopeIds.private
-    ),
+    subjectId: withDefault(env.AUTH_LOCAL_SUBJECT_ID, localMemoryScopeIds.private),
     teamId: withDefault(env.AUTH_LOCAL_TEAM_ID, localMemoryScopeIds.team),
     organizationId: withDefault(env.AUTH_LOCAL_ORG_ID, localMemoryScopeIds.org),
-    sessionId:
-      firstString(env.AUTH_LOCAL_SESSION_ID, sessionId) ??
-      localMemoryScopeIds.session
+    sessionId: firstString(env.AUTH_LOCAL_SESSION_ID, sessionId) ?? localMemoryScopeIds.session
   };
 }
 
@@ -204,10 +184,8 @@ export function createWorkOSMemoryAccessContext(
   const subjectId = firstString(claims.sub, claims.user_id, claims.id);
   if (!subjectId) return createAnonymousMemoryAccessContext(fallbackSessionId);
 
-  const sessionId =
-    firstString(claims.sid, claims.session_id) ?? fallbackSessionId;
-  const organizationId =
-    firstString(claims.org_id, claims.organization_id) ?? "";
+  const sessionId = firstString(claims.sid, claims.session_id) ?? fallbackSessionId;
+  const organizationId = firstString(claims.org_id, claims.organization_id) ?? "";
   const teamIds = uniqueStrings(
     toStringArray(claims.team_ids),
     toStringArray(claims.group_ids),
@@ -253,9 +231,7 @@ export function createAnonymousMemoryAccessContext(
   });
 }
 
-function createMemoryAccessContext(
-  input: MemoryAccessContext
-): MemoryAccessContext {
+function createMemoryAccessContext(input: MemoryAccessContext): MemoryAccessContext {
   return {
     ...input,
     permissions: [...new Set(input.permissions)],
@@ -263,25 +239,15 @@ function createMemoryAccessContext(
   };
 }
 
-function getRequestToken({
-  env,
-  request
-}: AuthIdentityResolutionInput): string | null {
-  return (
-    getBearerToken(request) ??
-    getQueryToken(request, env) ??
-    getCookieToken(request, env)
-  );
+function getRequestToken({ env, request }: AuthIdentityResolutionInput): string | null {
+  return getBearerToken(request) ?? getQueryToken(request, env) ?? getCookieToken(request, env);
 }
 
 function workOSJwksUrl(env: AuthIdentityEnv, clientId: string): string {
   return env.WORKOS_JWKS_URL ?? `https://api.workos.com/sso/jwks/${clientId}`;
 }
 
-function hasWorkOSSessionCookie({
-  env,
-  request
-}: AuthIdentityResolutionInput): boolean {
+function hasWorkOSSessionCookie({ env, request }: AuthIdentityResolutionInput): boolean {
   return Boolean(getCookieValue(request, getWorkOSSessionCookieName(env)));
 }
 
@@ -307,18 +273,12 @@ function getBearerToken(request: Request | undefined): string | null {
   return scheme.toLowerCase() === "bearer" && token ? token : null;
 }
 
-function getCookieToken(
-  request: Request | undefined,
-  env: AuthIdentityEnv
-): string | null {
+function getCookieToken(request: Request | undefined, env: AuthIdentityEnv): string | null {
   const cookieName = env.WORKOS_ACCESS_TOKEN_COOKIE ?? "workos_access_token";
   return getCookieValue(request, cookieName);
 }
 
-function getQueryToken(
-  request: Request | undefined,
-  env: AuthIdentityEnv
-): string | null {
+function getQueryToken(request: Request | undefined, env: AuthIdentityEnv): string | null {
   if (!request) return null;
 
   const url = new URL(request.url);
@@ -327,9 +287,7 @@ function getQueryToken(
 }
 
 function claimsFromSession(session: WorkOSAuthenticatedSession): WorkOSClaims {
-  const displayName = [session.user.firstName, session.user.lastName]
-    .filter(Boolean)
-    .join(" ");
+  const displayName = [session.user.firstName, session.user.lastName].filter(Boolean).join(" ");
 
   return {
     sub: session.user.id,
@@ -346,16 +304,12 @@ function claimsFromSession(session: WorkOSAuthenticatedSession): WorkOSClaims {
 }
 
 function firstString(...values: unknown[]): string | undefined {
-  return values.find(
-    (value): value is string => typeof value === "string" && value.length > 0
-  );
+  return values.find((value): value is string => typeof value === "string" && value.length > 0);
 }
 
 function toStringArray(value: unknown): string[] {
   if (Array.isArray(value)) {
-    return value.filter(
-      (item): item is string => typeof item === "string" && item.length > 0
-    );
+    return value.filter((item): item is string => typeof item === "string" && item.length > 0);
   }
 
   if (typeof value === "string" && value.length > 0) return [value];
@@ -371,9 +325,5 @@ function toSubjectType(value: unknown): AuthSubjectType {
 }
 
 function dedupeGrants(grants: readonly MemoryScopeGrant[]): MemoryScopeGrant[] {
-  return [
-    ...new Map(
-      grants.map((grant) => [`${grant.scope}:${grant.scopeId}`, grant])
-    ).values()
-  ];
+  return [...new Map(grants.map((grant) => [`${grant.scope}:${grant.scopeId}`, grant])).values()];
 }

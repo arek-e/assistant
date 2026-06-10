@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+
 import {
   createAuthIdentityAdapter,
   createWorkOSMemoryAccessContext,
@@ -75,9 +76,7 @@ describe("auth identity adapters", () => {
     });
 
     expect(identity.provider).toBe("anonymous");
-    expect(identity.grants).toEqual([
-      { scope: "session", scopeId: "session-anonymous" }
-    ]);
+    expect(identity.grants).toEqual([{ scope: "session", scopeId: "session-anonymous" }]);
   });
 
   test("can verify a real WorkOS token when E2E env vars are present", async () => {

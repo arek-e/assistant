@@ -12,9 +12,7 @@ export function createMemoryDebugSnapshot(
   limit = 50,
   accessContext: MemoryAccessContext = createLocalMemoryAccessContext()
 ): MemoryDebugSnapshot {
-  const visibleRecords = records.filter((record) =>
-    canAccessMemoryRecord(record, accessContext)
-  );
+  const visibleRecords = records.filter((record) => canAccessMemoryRecord(record, accessContext));
 
   return {
     generatedAt: new Date().toISOString(),
@@ -24,9 +22,7 @@ export function createMemoryDebugSnapshot(
     countsByStatus: countBy(visibleRecords, "status"),
     countsByScope: countBy(visibleRecords, "scope"),
     records: visibleRecords.slice(0, limit),
-    recentRoutes: visibleRecords
-      .filter((record) => record.kind === "route_record")
-      .slice(0, 10)
+    recentRoutes: visibleRecords.filter((record) => record.kind === "route_record").slice(0, 10)
   };
 }
 

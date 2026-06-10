@@ -1,5 +1,9 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
 import { getToolName, isToolUIPart, type UIMessage } from "ai";
+import { useCallback, useEffect, useMemo, useState } from "react";
+
+import { BrainIcon, BugIcon, GearIcon, WrenchIcon } from "@/components/app/icons";
+import { Badge, Button, Surface, Text } from "@/components/app/ui";
+import type { ThinkAgent } from "@/server";
 import {
   Drawer,
   DrawerDescription,
@@ -8,24 +12,9 @@ import {
   DrawerPopup,
   DrawerTitle
 } from "@teampitch/ui/components/drawer";
-import {
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger
-} from "@teampitch/ui/components/tabs";
-import {
-  BrainIcon,
-  BugIcon,
-  GearIcon,
-  WrenchIcon
-} from "@/components/app/icons";
-import { Badge, Button, Surface, Text } from "@/components/app/ui";
-import type { ThinkAgent } from "@/server";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@teampitch/ui/components/tabs";
 
-type MemoryDebugSnapshot = Awaited<
-  ReturnType<ThinkAgent["getMemoryDebugSnapshot"]>
->;
+type MemoryDebugSnapshot = Awaited<ReturnType<ThinkAgent["getMemoryDebugSnapshot"]>>;
 
 interface ToolTrace {
   id: string;
@@ -65,12 +54,8 @@ export function MemoryDebugDrawer({
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const toolTraces = useMemo(() => collectToolTraces(messages), [messages]);
-  const memoryTraces = toolTraces.filter((trace) =>
-    memoryToolNames.has(trace.name)
-  );
-  const routingTraces = toolTraces.filter(
-    (trace) => trace.name === "routeTask"
-  );
+  const memoryTraces = toolTraces.filter((trace) => memoryToolNames.has(trace.name));
+  const routingTraces = toolTraces.filter((trace) => trace.name === "routeTask");
 
   const refresh = useCallback(async () => {
     setIsRefreshing(true);
@@ -79,9 +64,7 @@ export function MemoryDebugDrawer({
       setSnapshot(await loadSnapshot());
     } catch (refreshError) {
       setError(
-        refreshError instanceof Error
-          ? refreshError.message
-          : "Failed to load debug snapshot"
+        refreshError instanceof Error ? refreshError.message : "Failed to load debug snapshot"
       );
     } finally {
       setIsRefreshing(false);
@@ -94,12 +77,7 @@ export function MemoryDebugDrawer({
 
   return (
     <Drawer open={open} onOpenChange={onOpenChange} position="right">
-      <DrawerPopup
-        className="max-w-2xl"
-        position="right"
-        showCloseButton
-        variant="straight"
-      >
+      <DrawerPopup className="max-w-2xl" position="right" showCloseButton variant="straight">
         <DrawerHeader>
           <div className="flex items-start justify-between gap-4 pe-8">
             <div className="space-y-2">
@@ -188,17 +166,10 @@ function MemoryPanel({
                 <Badge variant="secondary">{record.scopeId}</Badge>
                 <Badge variant="secondary">{record.status}</Badge>
               </div>
-              <Text
-                className="mt-1 block font-mono break-all"
-                size="xs"
-                variant="secondary"
-              >
+              <Text className="mt-1 block font-mono break-all" size="xs" variant="secondary">
                 {record.id}
               </Text>
-              <RecordHashLine
-                contentHash={record.contentHash}
-                recordHash={record.recordHash}
-              />
+              <RecordHashLine contentHash={record.contentHash} recordHash={record.recordHash} />
               <Text className="mt-2 block" size="xs" variant="secondary">
                 {record.body}
               </Text>
@@ -258,9 +229,7 @@ function IdentityDetails({ identity }: { identity: SnapshotIdentity | null }) {
 function identityBadgeLabels(identity: SnapshotIdentity | null): string[] {
   if (!identity) return ["not loaded"];
 
-  return [identity.provider, identity.subjectType, identity.role].filter(
-    isNonEmptyString
-  );
+  return [identity.provider, identity.subjectType, identity.role].filter(isNonEmptyString);
 }
 
 function RoutingPanel({
@@ -284,10 +253,7 @@ function RoutingPanel({
                 <Badge variant="secondary">{record.scopeId}</Badge>
                 <Badge variant="secondary">{record.status}</Badge>
               </div>
-              <RecordHashLine
-                contentHash={record.contentHash}
-                recordHash={record.recordHash}
-              />
+              <RecordHashLine contentHash={record.contentHash} recordHash={record.recordHash} />
               <pre className="mt-2 max-h-48 overflow-auto rounded-md bg-muted p-2 text-xs">
                 {record.body}
               </pre>
@@ -318,11 +284,7 @@ function RawPanel({
   );
 }
 
-function SnapshotSummary({
-  snapshot
-}: {
-  snapshot: MemoryDebugSnapshot | null;
-}) {
+function SnapshotSummary({ snapshot }: { snapshot: MemoryDebugSnapshot | null }) {
   const summary = toSnapshotSummary(snapshot);
 
   return (
@@ -336,9 +298,7 @@ function SnapshotSummary({
   );
 }
 
-function toSnapshotSummary(
-  snapshot: MemoryDebugSnapshot | null
-): SnapshotSummaryData {
+function toSnapshotSummary(snapshot: MemoryDebugSnapshot | null): SnapshotSummaryData {
   if (!snapshot) {
     return {
       records: 0,
@@ -358,13 +318,7 @@ function toSnapshotSummary(
   };
 }
 
-function RecordHashLine({
-  contentHash,
-  recordHash
-}: {
-  contentHash: string;
-  recordHash: string;
-}) {
+function RecordHashLine({ contentHash, recordHash }: { contentHash: string; recordHash: string }) {
   return (
     <div className="mt-2 grid gap-1 text-xs text-muted-foreground">
       <span className="font-mono break-all">content: {contentHash}</span>
@@ -379,20 +333,12 @@ function SummaryTile({ label, value }: { label: string; value: number }) {
       <Text className="block" size="xs" variant="secondary">
         {label}
       </Text>
-      <span className="mt-1 block text-2xl font-semibold text-foreground">
-        {value}
-      </span>
+      <span className="mt-1 block text-2xl font-semibold text-foreground">{value}</span>
     </Surface>
   );
 }
 
-function SummaryMap({
-  title,
-  values
-}: {
-  title: string;
-  values: Record<string, number>;
-}) {
+function SummaryMap({ title, values }: { title: string; values: Record<string, number> }) {
   const entries = Object.entries(values);
 
   return (
@@ -429,9 +375,7 @@ function TraceList({ title, traces }: { title: string; traces: ToolTrace[] }) {
               <Text bold>{trace.name}</Text>
               <Badge variant="secondary">{trace.state}</Badge>
             </div>
-            {trace.input !== undefined && (
-              <JsonBlock compact label="input" value={trace.input} />
-            )}
+            {trace.input !== undefined && <JsonBlock compact label="input" value={trace.input} />}
             {trace.output !== undefined && (
               <JsonBlock compact label="output" value={trace.output} />
             )}
@@ -487,13 +431,19 @@ function EmptyDebugState({ label }: { label: string }) {
 
 function collectToolTraces(messages: UIMessage[]): ToolTrace[] {
   return messages.flatMap((message) =>
-    message.parts.filter(isToolUIPart).map((part) => ({
-      id: part.toolCallId,
-      name: getToolName(part),
-      state: part.state,
-      input: "input" in part ? part.input : undefined,
-      output: "output" in part ? part.output : undefined
-    }))
+    message.parts.flatMap((part) =>
+      isToolUIPart(part)
+        ? [
+            {
+              id: part.toolCallId,
+              name: getToolName(part),
+              state: part.state,
+              input: "input" in part ? part.input : undefined,
+              output: "output" in part ? part.output : undefined
+            }
+          ]
+        : []
+    )
   );
 }
 

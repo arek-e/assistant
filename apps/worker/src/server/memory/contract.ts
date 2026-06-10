@@ -1,7 +1,6 @@
 import type { MemoryAccessContext } from "./access";
 import type { RetrievalResult, SearchMemoryOptions } from "./retrieval";
-import type { MemoryRecordActor } from "./types";
-import type { LifecycleStatus, MemoryRecord, MemoryRecordDraft } from "./types";
+import type { LifecycleStatus, MemoryRecord, MemoryRecordActor, MemoryRecordDraft } from "./types";
 
 export interface MemoryDebugSnapshot {
   generatedAt: string;
@@ -28,8 +27,5 @@ export interface CanonicalMemoryStore {
     status: LifecycleStatus,
     accessContext?: MemoryAccessContext
   ): MemoryRecord | null;
-  debugSnapshot(
-    limit?: number,
-    accessContext?: MemoryAccessContext
-  ): MemoryDebugSnapshot;
+  debugSnapshot(limit?: number, accessContext?: MemoryAccessContext): MemoryDebugSnapshot;
 }

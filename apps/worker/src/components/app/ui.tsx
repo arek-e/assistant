@@ -1,14 +1,8 @@
 import { forwardRef, type ComponentProps, type ReactNode } from "react";
+
 import { Badge as CossBadge } from "@teampitch/ui/components/badge";
 import { Button as CossButton } from "@teampitch/ui/components/button";
 import { Card } from "@teampitch/ui/components/card";
-import {
-  Empty as CossEmpty,
-  EmptyContent,
-  EmptyHeader,
-  EmptyMedia,
-  EmptyTitle
-} from "@teampitch/ui/components/empty";
 import { Switch as CossSwitch } from "@teampitch/ui/components/switch";
 import { Textarea } from "@teampitch/ui/components/textarea";
 import { cn } from "@teampitch/ui/lib/utils";
@@ -30,27 +24,12 @@ export function Button({
   ...props
 }: ButtonProps) {
   const cossVariant =
-    variant === "primary"
-      ? "default"
-      : variant === "outline"
-        ? "outline"
-        : variant;
+    variant === "primary" ? "default" : variant === "outline" ? "outline" : variant;
   const cossSize =
-    shape === "square"
-      ? size === "sm"
-        ? "icon-sm"
-        : "icon"
-      : size === "md"
-        ? "default"
-        : size;
+    shape === "square" ? (size === "sm" ? "icon-sm" : "icon") : size === "md" ? "default" : size;
 
   return (
-    <CossButton
-      className={className}
-      size={cossSize}
-      variant={cossVariant}
-      {...props}
-    >
+    <CossButton className={className} size={cossSize} variant={cossVariant} {...props}>
       {icon}
       {children}
     </CossButton>
@@ -67,10 +46,7 @@ export function Badge({
   children: ReactNode;
 }) {
   return (
-    <CossBadge
-      className={className}
-      variant={variant === "primary" ? "default" : variant}
-    >
+    <CossBadge className={className} variant={variant === "primary" ? "default" : variant}>
       {children}
     </CossBadge>
   );
@@ -111,26 +87,6 @@ export function Text({
   );
 }
 
-export function Empty({
-  icon,
-  title,
-  contents
-}: {
-  icon: ReactNode;
-  title: string;
-  contents: ReactNode;
-}) {
-  return (
-    <CossEmpty className="min-h-[320px]">
-      <EmptyHeader>
-        <EmptyMedia variant="icon">{icon}</EmptyMedia>
-        <EmptyTitle>{title}</EmptyTitle>
-      </EmptyHeader>
-      <EmptyContent>{contents}</EmptyContent>
-    </CossEmpty>
-  );
-}
-
 type InputAreaProps = ComponentProps<"textarea"> & {
   onValueChange?: (value: string) => void;
 };
@@ -163,11 +119,5 @@ export function Switch({
   size?: "sm";
   "aria-label": string;
 }) {
-  return (
-    <CossSwitch
-      aria-label={ariaLabel}
-      checked={checked}
-      onCheckedChange={onCheckedChange}
-    />
-  );
+  return <CossSwitch aria-label={ariaLabel} checked={checked} onCheckedChange={onCheckedChange} />;
 }

@@ -1,4 +1,12 @@
 import {
+  createLocalMemoryAccessContext,
+  toMemoryRecordActor,
+  type MemoryAccessContext
+} from "./access";
+import type { CanonicalMemoryStore, MemoryDebugSnapshot } from "./contract";
+import { createMemoryDebugSnapshot } from "./debug-snapshot";
+import { createMemoryRecord, promoteMemoryRecord } from "./record";
+import {
   finalizeMemorySearch,
   memorySearchTokens,
   scoreMemoryRecord,
@@ -7,20 +15,12 @@ import {
   type SearchMemoryOptions
 } from "./retrieval";
 import {
-  createLocalMemoryAccessContext,
-  toMemoryRecordActor,
-  type MemoryAccessContext
-} from "./access";
-import { createMemoryRecord, promoteMemoryRecord } from "./record";
-import {
   decodeMemoryRecord,
   type LifecycleStatus,
   type MemoryRecord,
   type MemoryRecordDraft,
   type MemoryScope
 } from "./types";
-import type { CanonicalMemoryStore, MemoryDebugSnapshot } from "./contract";
-import { createMemoryDebugSnapshot } from "./debug-snapshot";
 
 export type MemorySqlValue = string | number | bigint | ArrayBuffer | null;
 
@@ -52,9 +52,7 @@ export class SqliteCanonicalMemoryStore implements CanonicalMemoryStore {
   upsert(record: MemoryRecordDraft): MemoryRecord {
     const existingRecord = this.get(record.id);
     const recordToSave = createMemoryRecord(
-      existingRecord
-        ? { ...record, createdAt: existingRecord.createdAt }
-        : record
+      existingRecord ? { ...record, createdAt: existingRecord.createdAt } : record
     );
 
     this.sql.exec(
@@ -130,9 +128,7 @@ export class SqliteCanonicalMemoryStore implements CanonicalMemoryStore {
 
   private listRows(): MemoryRecordRow[] {
     return this.sql
-      .exec(
-        "SELECT record FROM assistant_memory_records ORDER BY updated_at DESC"
-      )
+      .exec("SELECT record FROM assistant_memory_records ORDER BY updated_at DESC")
       .toArray() as MemoryRecordRow[];
   }
 
@@ -175,18 +171,12 @@ export class SqliteCanonicalMemoryStore implements CanonicalMemoryStore {
 
   private get(recordId: string): MemoryRecord | null {
     const rows = this.sql
-      .exec(
-        "SELECT record FROM assistant_memory_records WHERE id = ?",
-        recordId
-      )
+      .exec("SELECT record FROM assistant_memory_records WHERE id = ?", recordId)
       .toArray() as MemoryRecordRow[];
     return rows[0] ? decodeStoredMemoryRecord(rows[0].record) : null;
   }
 
-  debugSnapshot(
-    limit = 50,
-    accessContext?: MemoryAccessContext
-  ): MemoryDebugSnapshot {
+  debugSnapshot(limit = 50, accessContext?: MemoryAccessContext): MemoryDebugSnapshot {
     return createMemoryDebugSnapshot(this.list(), limit, accessContext);
   }
 
@@ -218,16 +208,8 @@ export class SqliteCanonicalMemoryStore implements CanonicalMemoryStore {
       "scope_id",
       "TEXT NOT NULL DEFAULT 'default-team'"
     );
-    this.ensureColumn(
-      "assistant_memory_records",
-      "content_hash",
-      "TEXT NOT NULL DEFAULT ''"
-    );
-    this.ensureColumn(
-      "assistant_memory_records",
-      "record_hash",
-      "TEXT NOT NULL DEFAULT ''"
-    );
+    this.ensureColumn("assistant_memory_records", "content_hash", "TEXT NOT NULL DEFAULT ''");
+    this.ensureColumn("assistant_memory_records", "record_hash", "TEXT NOT NULL DEFAULT ''");
     this.sql.exec(
       "CREATE INDEX IF NOT EXISTS assistant_memory_status_idx ON assistant_memory_records(status)"
     );
@@ -254,11 +236,7 @@ export class SqliteCanonicalMemoryStore implements CanonicalMemoryStore {
     this.rebuildFtsIndex();
   }
 
-  private ensureColumn(
-    table: string,
-    column: string,
-    definition: string
-  ): void {
+  private ensureColumn(table: string, column: string, definition: string): void {
     const rows = this.sql.exec(`PRAGMA table_info(${table})`).toArray();
     const hasColumn = rows.some((row) => row.name === column);
 
@@ -290,10 +268,7 @@ export class SqliteCanonicalMemoryStore implements CanonicalMemoryStore {
   }
 
   private upsertFtsRecord(record: MemoryRecord): void {
-    this.sql.exec(
-      "DELETE FROM assistant_memory_records_fts WHERE record_id = ?",
-      record.id
-    );
+    this.sql.exec("DELETE FROM assistant_memory_records_fts WHERE record_id = ?", record.id);
     this.sql.exec(
       `
         INSERT INTO assistant_memory_records_fts (
@@ -314,11 +289,7 @@ export class SqliteCanonicalMemoryStore implements CanonicalMemoryStore {
     );
   }
 
-  private searchSqlCandidates(
-    input: string,
-    tokens: string[],
-    limit: number
-  ): RankedCandidate[] {
+  private searchSqlCandidates(input: string, tokens: string[], limit: number): RankedCandidate[] {
     const normalizedInput = input.trim().toLowerCase();
     const exactRows = this.sql
       .exec(
@@ -334,9 +305,7 @@ export class SqliteCanonicalMemoryStore implements CanonicalMemoryStore {
         limit
       )
       .toArray() as MemoryRecordRow[];
-    const candidates = exactRows.map((row) =>
-      this.toCandidate(row, tokens, 8, "sql:exact")
-    );
+    const candidates = exactRows.map((row) => this.toCandidate(row, tokens, 8, "sql:exact"));
 
     tokens.forEach((token) => {
       const pattern = `%${token}%`;
@@ -372,19 +341,13 @@ export class SqliteCanonicalMemoryStore implements CanonicalMemoryStore {
           limit
         )
         .toArray() as MemoryRecordRow[];
-      tokenRows.forEach((row) =>
-        candidates.push(this.toCandidate(row, tokens, 2, `sql:${token}`))
-      );
+      tokenRows.forEach((row) => candidates.push(this.toCandidate(row, tokens, 2, `sql:${token}`)));
     });
 
     return candidates;
   }
 
-  private searchFtsCandidates(
-    input: string,
-    tokens: string[],
-    limit: number
-  ): RankedCandidate[] {
+  private searchFtsCandidates(input: string, tokens: string[], limit: number): RankedCandidate[] {
     const ftsQuery = toFtsQuery(input);
     if (!ftsQuery) return [];
 
@@ -407,12 +370,7 @@ export class SqliteCanonicalMemoryStore implements CanonicalMemoryStore {
       .toArray() as MemorySearchRow[];
 
     return rows.map((row) =>
-      this.toCandidate(
-        row,
-        tokens,
-        4,
-        `fts:${ftsQuery}${row.rank == null ? "" : `:${row.rank}`}`
-      )
+      this.toCandidate(row, tokens, 4, `fts:${ftsQuery}${row.rank == null ? "" : `:${row.rank}`}`)
     );
   }
 
@@ -506,10 +464,7 @@ function normalizeLegacyScope(scope: string | undefined): MemoryScope {
   return scope ? (legacyScopeAliases[scope] ?? "team") : "team";
 }
 
-function normalizeLegacyScopeId(
-  scope: MemoryScope,
-  scopeId: string | undefined
-): string {
+function normalizeLegacyScopeId(scope: MemoryScope, scopeId: string | undefined): string {
   return scopeId ?? defaultScopeIds[scope];
 }
 
@@ -524,20 +479,19 @@ function combineCandidates(candidates: RankedCandidate[]): RankedCandidate[] {
     }
 
     existing.hit.score += candidate.hit.score;
-    existing.hit.reasons = [
-      ...new Set([...existing.hit.reasons, ...candidate.hit.reasons])
-    ];
+    existing.hit.reasons = [...new Set([...existing.hit.reasons, ...candidate.hit.reasons])];
   });
 
   return [...byId.values()];
 }
 
 function toFtsQuery(input: string): string | null {
-  const tokens = memorySearchTokens(input)
-    .map((token) => token.replace(/[^a-z0-9]/gi, "").toLowerCase())
-    .filter((token) => token.length > 1);
+  const tokens = new Set<string>();
 
-  return tokens.length > 0
-    ? [...new Set(tokens)].map((token) => `${token}*`).join(" OR ")
-    : null;
+  for (const token of memorySearchTokens(input)) {
+    const normalized = token.replace(/[^a-z0-9]/gi, "").toLowerCase();
+    if (normalized.length > 1) tokens.add(normalized);
+  }
+
+  return tokens.size > 0 ? [...tokens].map((token) => `${token}*`).join(" OR ") : null;
 }

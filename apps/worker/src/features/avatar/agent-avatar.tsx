@@ -1,6 +1,9 @@
-import { useEffect, type ReactNode } from "react";
 import { useMachine } from "@xstate/react";
-import { motion, type TargetAndTransition } from "motion/react";
+import type { TargetAndTransition } from "motion/react";
+import * as m from "motion/react-m";
+import { useEffect, type ReactNode } from "react";
+import { assign, setup } from "xstate";
+
 import {
   BrainIcon,
   ChatCircleDotsIcon,
@@ -8,17 +11,10 @@ import {
   WrenchIcon,
   XCircleIcon
 } from "@/components/app/icons";
-import { assign, setup } from "xstate";
-import { cn } from "@teampitch/ui/lib/utils";
 import { Button } from "@/components/app/ui";
+import { cn } from "@teampitch/ui/lib/utils";
 
-export type AgentVisualState =
-  | "idle"
-  | "thinking"
-  | "speaking"
-  | "tool"
-  | "success"
-  | "error";
+export type AgentVisualState = "idle" | "thinking" | "speaking" | "tool" | "success" | "error";
 
 type AgentEvent =
   | { type: "IDLE" }
@@ -97,6 +93,18 @@ const imageAnimationByState: Record<AgentVisualState, TargetAndTransition> = {
   }
 };
 
+const showcaseControls: Array<{
+  state: AgentVisualState;
+  icon: ReactNode;
+}> = [
+  { state: "idle", icon: <ChatCircleDotsIcon size={15} /> },
+  { state: "thinking", icon: <BrainIcon size={15} /> },
+  { state: "speaking", icon: <ChatCircleDotsIcon size={15} /> },
+  { state: "tool", icon: <WrenchIcon size={15} /> },
+  { state: "success", icon: <CheckCircleIcon size={15} /> },
+  { state: "error", icon: <XCircleIcon size={15} /> }
+];
+
 const agentAvatarMachine = setup({
   types: {
     context: {} as { visualState: AgentVisualState },
@@ -161,11 +169,11 @@ export function AgentAvatar({
         className
       )}
     >
-      <motion.img
+      <m.img
         key={state}
         src={assetByState[state]}
         alt={`Agent ${labelByState[state].toLowerCase()}`}
-        className="size-full select-none object-contain [transform-origin:50%_70%]"
+        className="size-full [transform-origin:50%_70%] object-contain select-none"
         draggable={false}
         animate={imageAnimationByState[state]}
       />
@@ -173,11 +181,7 @@ export function AgentAvatar({
   );
 }
 
-export function AgentAvatarShowcase({
-  liveState
-}: {
-  liveState: AgentVisualState;
-}) {
+export function AgentAvatarShowcase({ liveState }: { liveState: AgentVisualState }) {
   const [snapshot, send] = useMachine(agentAvatarMachine);
   const visualState = snapshot.context.visualState;
 
@@ -185,41 +189,25 @@ export function AgentAvatarShowcase({
     send({ type: eventByState[liveState] });
   }, [liveState, send]);
 
-  const controls: Array<{
-    state: AgentVisualState;
-    icon: ReactNode;
-  }> = [
-    { state: "idle", icon: <ChatCircleDotsIcon size={15} /> },
-    { state: "thinking", icon: <BrainIcon size={15} /> },
-    { state: "speaking", icon: <ChatCircleDotsIcon size={15} /> },
-    { state: "tool", icon: <WrenchIcon size={15} /> },
-    { state: "success", icon: <CheckCircleIcon size={15} /> },
-    { state: "error", icon: <XCircleIcon size={15} /> }
-  ];
-
   return (
     <section className="rounded-lg border border-border bg-card px-4 py-4">
       <div className="flex flex-col gap-4">
         <div className="flex items-center gap-3">
           <AgentAvatar state={visualState} size="lg" />
           <div className="min-w-0">
-            <div className="text-sm font-semibold text-foreground">
-              Ink face state
-            </div>
-            <div className="font-mono text-xs uppercase tracking-normal text-muted-foreground">
+            <div className="text-sm font-semibold text-foreground">Ink face state</div>
+            <div className="font-mono text-xs tracking-normal text-muted-foreground uppercase">
               {visualState}
             </div>
           </div>
         </div>
         <div className="flex flex-col gap-3">
           <div className="grid grid-cols-3 gap-1.5 sm:flex">
-            {controls.map((control) => (
+            {showcaseControls.map((control) => (
               <Button
                 key={control.state}
                 size="sm"
-                variant={
-                  visualState === control.state ? "primary" : "secondary"
-                }
+                variant={visualState === control.state ? "primary" : "secondary"}
                 icon={control.icon}
                 onClick={() => send({ type: eventByState[control.state] })}
                 aria-pressed={visualState === control.state}
@@ -232,7 +220,7 @@ export function AgentAvatarShowcase({
             className="grid max-w-[30rem] grid-cols-[repeat(6,minmax(2.8rem,1fr))] gap-[0.35rem] rounded-lg border border-border bg-background p-[0.45rem]"
             aria-label="Agent face state sheet"
           >
-            {controls.map((control) => (
+            {showcaseControls.map((control) => (
               <button
                 key={`strip-${control.state}`}
                 className={cn(
