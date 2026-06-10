@@ -47,7 +47,7 @@ export function AssistantAppShell({
   const statusLabel = getStatusLabel(isStreaming, connected);
 
   return (
-    <div className="h-screen overflow-hidden bg-[#f2f2ef] p-px text-foreground">
+    <div className="h-screen overflow-hidden bg-[#f2f2ef] p-[3px] text-foreground">
       <div className="flex h-full min-h-0 overflow-visible">
         <DesktopAssistantNav
           connected={connected}
@@ -63,7 +63,7 @@ export function AssistantAppShell({
           onPanelOpenChange={setPanelOpen}
           onShowDebugChange={onShowDebugChange}
         />
-        <main className="relative z-10 flex min-w-0 flex-1 flex-col overflow-hidden rounded-[1.125rem] border border-white/80 bg-background shadow-[0_12px_34px_rgba(16,16,15,0.08)] md:ml-px">
+        <main className="relative z-10 flex min-w-0 flex-1 flex-col overflow-hidden rounded-[1.125rem] border border-white/80 bg-background shadow-[0_12px_34px_rgba(16,16,15,0.08)] md:ml-[3px]">
           <ChatTopbar
             isStreaming={isStreaming}
             messageCount={messageCount}
@@ -131,7 +131,7 @@ function DesktopAssistantNav({
       />
       <motion.aside
         aria-hidden={!panelOpen}
-        className="h-full overflow-hidden bg-[#f2f2ef]"
+        className="h-full overflow-hidden bg-transparent"
         animate={{ width: getPanelWidth(panelOpen) }}
         transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
       >
