@@ -30,6 +30,8 @@ const panelDragOpenThreshold = 80;
 const panelDragCloseThreshold = 96;
 const panelDragVelocityThreshold = 1600;
 const panelDragDeadzone = 4;
+const visibleProfilePanelMotion = { opacity: 1, scale: 1, y: 0 };
+const hiddenProfilePanelMotion = { opacity: 0, scale: 0.98, y: 4 };
 
 export function AssistantAppShell({
   children,
@@ -73,6 +75,7 @@ export function AssistantAppShell({
           onNewChat={onNewChat}
           onPanelOpenChange={setPanelOpen}
           onShowDebugChange={onShowDebugChange}
+          themeToggle={themeToggle}
         />
         <main className="relative z-10 flex min-w-0 flex-1 overflow-hidden rounded-[1.125rem] border border-white/80 bg-background shadow-[0_0_0_1px_rgba(16,16,15,0.1),0_1px_2px_-1px_rgba(16,16,15,0.1),0_2px_4px_rgba(16,16,15,0.05)] md:ml-[3px]">
           <div className="flex min-h-0 flex-1 overflow-hidden">
@@ -83,7 +86,6 @@ export function AssistantAppShell({
                 messageCount={messageCount}
                 onDetailsPanelOpenChange={setDetailsPanelOpen}
                 onNewChat={onNewChat}
-                themeToggle={themeToggle}
               />
               <motion.div
                 className="min-h-0 flex-1 overflow-y-auto"
@@ -302,6 +304,7 @@ function DesktopAssistantNav({
   messageCount,
   panelOpen,
   showDebug,
+  themeToggle,
   onNewChat,
   onPanelOpenChange,
   onShowDebugChange
@@ -310,6 +313,7 @@ function DesktopAssistantNav({
   messageCount: number;
   panelOpen: boolean;
   showDebug: boolean;
+  themeToggle: ReactNode;
   onNewChat: () => void;
   onPanelOpenChange: (open: boolean) => void;
   onShowDebugChange: (checked: boolean) => void;
@@ -325,6 +329,7 @@ function DesktopAssistantNav({
       <PrimaryRail
         connected={connected}
         panelOpen={panelOpen}
+        themeToggle={themeToggle}
         onNewChat={onNewChat}
         onPanelOpenChange={onPanelOpenChange}
       />
@@ -352,7 +357,7 @@ function DesktopAssistantNav({
             </div>
           </div>
 
-          <div className="space-y-5 overflow-y-auto pr-1">
+          <div className="min-h-0 flex-1 space-y-5 overflow-y-auto pr-1">
             <NavSection title="Chats">
               <PanelNavLabel
                 active
@@ -417,18 +422,20 @@ function DesktopAssistantNav({
 function PrimaryRail({
   connected,
   panelOpen,
+  themeToggle,
   onNewChat,
   onPanelOpenChange
 }: {
   connected: boolean;
   panelOpen: boolean;
+  themeToggle: ReactNode;
   onNewChat: () => void;
   onPanelOpenChange: (open: boolean) => void;
 }) {
   const connectionDotClass = getConnectionDotClass(connected);
 
   return (
-    <aside className="flex h-full w-16 shrink-0 flex-col items-center rounded-[1.125rem] bg-[#10100f] py-3 text-white shadow-[0_10px_28px_rgba(16,16,15,0.18)]">
+    <aside className="relative flex h-full w-16 shrink-0 flex-col items-center rounded-[1.125rem] bg-[#10100f] py-3 text-white shadow-[0_10px_28px_rgba(16,16,15,0.18)]">
       <button
         type="button"
         aria-label="Open assistant panel"
@@ -457,11 +464,74 @@ function PrimaryRail({
         />
       </nav>
 
-      <div
-        className={cn("mb-3 size-2 rounded-full", connectionDotClass)}
-        title={connected ? "Connected" : "Disconnected"}
+      <PrimaryRailBottomActions
+        connected={connected}
+        connectionDotClass={connectionDotClass}
+        themeToggle={themeToggle}
       />
     </aside>
+  );
+}
+
+function PrimaryRailBottomActions({
+  connected,
+  connectionDotClass,
+  themeToggle
+}: {
+  connected: boolean;
+  connectionDotClass: string;
+  themeToggle: ReactNode;
+}) {
+  const [profileOpen, setProfileOpen] = useState(false);
+
+  return (
+    <>
+      <div className="mb-2 flex shrink-0 flex-col items-center gap-2">
+        <div className="[&>button]:size-8 [&>button]:border-white/10 [&>button]:bg-white/[0.10] [&>button]:text-white [&>button:hover]:bg-white/[0.16]">
+          {themeToggle}
+        </div>
+        <button
+          type="button"
+          aria-controls="primary-rail-profile-panel"
+          aria-expanded={profileOpen}
+          aria-label="Toggle user profile"
+          className="relative grid size-8 place-items-center rounded-full bg-white/[0.12] text-[11px] font-medium text-white transition-colors hover:bg-white/[0.18] active:scale-95"
+          onClick={() => setProfileOpen(!profileOpen)}
+        >
+          TP
+          <span
+            className={cn(
+              "absolute bottom-0 right-0 size-2.5 rounded-full ring-2 ring-[#10100f]",
+              connectionDotClass
+            )}
+            title={getConnectionLabel(connected)}
+          />
+        </button>
+      </div>
+
+      <motion.div
+        id="primary-rail-profile-panel"
+        aria-hidden={getProfilePanelHidden(profileOpen)}
+        className={getProfilePanelClassName(profileOpen)}
+        initial={false}
+        animate={getProfilePanelMotion(profileOpen)}
+        transition={{ duration: 0.16, ease: [0.22, 1, 0.36, 1] }}
+      >
+        <div className="flex items-center gap-2">
+          <span className="grid size-8 shrink-0 place-items-center rounded-full bg-neutral-950 text-xs font-medium text-white">
+            TP
+          </span>
+          <span className="min-w-0">
+            <span className="block truncate text-sm font-medium">
+              Teampitch
+            </span>
+            <span className="block truncate text-xs text-muted-foreground">
+              Local workspace
+            </span>
+          </span>
+        </div>
+      </motion.div>
+    </>
   );
 }
 
@@ -719,6 +789,21 @@ function getPanelToggleLabel(panelOpen: boolean) {
   return panelOpen ? "Collapse assistant panel" : "Open assistant panel";
 }
 
+function getProfilePanelHidden(profileOpen: boolean) {
+  return !profileOpen;
+}
+
+function getProfilePanelClassName(profileOpen: boolean) {
+  return cn(
+    "absolute bottom-2 left-[4.5rem] w-56 rounded-xl border border-black/10 bg-background p-3 text-neutral-950 shadow-[0_12px_32px_rgba(16,16,15,0.16)]",
+    !profileOpen && "pointer-events-none"
+  );
+}
+
+function getProfilePanelMotion(profileOpen: boolean) {
+  return profileOpen ? visibleProfilePanelMotion : hiddenProfilePanelMotion;
+}
+
 function safelySetPointerCapture(target: HTMLButtonElement, pointerId: number) {
   try {
     target.setPointerCapture(pointerId);
@@ -880,14 +965,12 @@ function ChatTopbar({
   isStreaming,
   messageCount,
   onDetailsPanelOpenChange,
-  themeToggle,
   onNewChat
 }: {
   detailsPanelOpen: boolean;
   isStreaming: boolean;
   messageCount: number;
   onDetailsPanelOpenChange: (open: boolean) => void;
-  themeToggle: ReactNode;
   onNewChat: () => void;
 }) {
   return (
@@ -899,7 +982,6 @@ function ChatTopbar({
         </h1>
       </div>
       <div className="flex shrink-0 items-center gap-2">
-        {themeToggle}
         <Button
           variant="secondary"
           size="sm"
