@@ -449,10 +449,15 @@ function WorkspacePreviewDocument() {
       <div
         role="tablist"
         aria-label="Preview pages"
-        className="flex h-11 shrink-0 items-end gap-1 overflow-x-auto border-b border-black/10 bg-[#f1f1ee] px-2 pt-2"
+        className="relative flex h-11 shrink-0 items-end gap-1 overflow-visible border-b border-black/10 bg-[#f1f1ee] px-3 pt-2"
       >
-        {workspacePreviewPages.map((page) => {
+        {workspacePreviewPages.map((page, index) => {
           const active = page.id === activePage.id;
+          const position = getWorkspacePreviewTabPosition(
+            index,
+            workspacePreviewPages.length
+          );
+
           return (
             <button
               key={page.id}
@@ -462,7 +467,13 @@ function WorkspacePreviewDocument() {
               className={getWorkspacePreviewTabClassName(active)}
               onClick={() => setActivePageId(page.id)}
             >
-              {page.tabLabel}
+              {active && position !== "first" && (
+                <WorkspacePreviewTabCorner side="left" />
+              )}
+              <span className="relative z-10">{page.tabLabel}</span>
+              {active && position !== "last" && (
+                <WorkspacePreviewTabCorner side="right" />
+              )}
             </button>
           );
         })}
@@ -493,13 +504,54 @@ function WorkspacePreviewDocument() {
   );
 }
 
+type WorkspacePreviewTabPosition = "first" | "middle" | "last";
+
 function getWorkspacePreviewTabClassName(active: boolean) {
   return cn(
-    "relative -mb-px h-9 shrink-0 rounded-t-lg border px-3 text-sm transition-[background-color,border-color,color]",
+    "relative h-9 shrink-0 px-3 text-sm outline-none transition-[background-color,color]",
     active
-      ? "border-black/10 border-b-[#fbfbfa] bg-[#fbfbfa] text-neutral-950"
-      : "border-black/[0.06] bg-white/25 text-neutral-500 hover:border-black/10 hover:bg-[#fbfbfa]/70 hover:text-neutral-800"
+      ? "z-10 -mb-px rounded-t-xl border border-b-0 border-black/10 bg-[#fbfbfa] pb-px text-neutral-950 focus-visible:border-black/20 focus-visible:underline focus-visible:underline-offset-4"
+      : "mb-px rounded-t-lg text-neutral-500 hover:bg-[#fbfbfa]/70 hover:text-neutral-800 focus-visible:bg-[#fbfbfa]/70 focus-visible:text-neutral-950 focus-visible:underline focus-visible:underline-offset-4"
   );
+}
+
+function WorkspacePreviewTabCorner({ side }: { side: "left" | "right" }) {
+  const path =
+    side === "left"
+      ? "M10 0 A10 10 0 0 1 0 10 L10 10 Z"
+      : "M0 0 A10 10 0 0 0 10 10 L0 10 Z";
+  const borderPath =
+    side === "left"
+      ? "M10 0 A10 10 0 0 1 0 10 L0 9 A9 9 0 0 0 9 0 Z"
+      : "M0 0 A10 10 0 0 0 10 10 L10 9 A9 9 0 0 1 1 0 Z";
+  const sideCoverPath =
+    side === "left" ? "M9 0 H10 V10 H9 Z" : "M0 0 H1 V10 H0 Z";
+
+  return (
+    <svg
+      aria-hidden
+      className={cn(
+        "pointer-events-none absolute bottom-0 size-[10px]",
+        side === "left" ? "-left-[10px]" : "-right-[10px]"
+      )}
+      focusable="false"
+      shapeRendering="geometricPrecision"
+      viewBox="0 0 10 10"
+    >
+      <path d={path} fill="#fbfbfa" />
+      <path d={sideCoverPath} fill="#fbfbfa" />
+      <path d={borderPath} fill="rgba(0,0,0,0.1)" />
+    </svg>
+  );
+}
+
+function getWorkspacePreviewTabPosition(
+  index: number,
+  count: number
+): WorkspacePreviewTabPosition {
+  if (index === 0) return "first";
+  if (index === count - 1) return "last";
+  return "middle";
 }
 
 function PreviewSection({
