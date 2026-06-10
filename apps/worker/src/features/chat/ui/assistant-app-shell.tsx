@@ -10,7 +10,6 @@ import { motion } from "motion/react";
 import { cn } from "@teampitch/ui/lib/utils";
 import {
   ChatCircleDotsIcon,
-  PanelLeftClose,
   PlusIcon,
   WrenchIcon
 } from "@/components/app/icons";
@@ -159,7 +158,7 @@ function DesktopAssistantNav({
           animate={{ opacity: getPanelContentOpacity(renderedPanelWidth) }}
           transition={isPanelDragging ? { duration: 0 } : { duration: 0.12 }}
         >
-          <div className="mb-4 flex h-9 items-center justify-between px-1">
+          <div className="mb-4 flex h-9 items-center px-1">
             <div className="flex min-w-0 items-center gap-2">
               <AgentAvatar state={avatarState} size="sm" />
               <div className="min-w-0">
@@ -171,14 +170,6 @@ function DesktopAssistantNav({
                 </div>
               </div>
             </div>
-            <button
-              type="button"
-              aria-label="Collapse assistant panel"
-              className="grid size-7 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-black/5 hover:text-foreground"
-              onClick={() => onPanelOpenChange(false)}
-            >
-              <PanelLeftClose size={16} />
-            </button>
           </div>
 
           <div className="space-y-5 overflow-y-auto pr-1">
