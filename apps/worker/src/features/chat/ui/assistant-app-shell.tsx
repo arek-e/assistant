@@ -47,7 +47,7 @@ export function AssistantAppShell({
   const statusLabel = getStatusLabel(isStreaming, connected);
 
   return (
-    <div className="h-screen overflow-hidden bg-[#f2f2ef] p-0.5 text-foreground">
+    <div className="h-screen overflow-hidden bg-[#f2f2ef] p-px text-foreground">
       <div className="flex h-full min-h-0 overflow-visible">
         <DesktopAssistantNav
           connected={connected}
@@ -63,7 +63,7 @@ export function AssistantAppShell({
           onPanelOpenChange={setPanelOpen}
           onShowDebugChange={onShowDebugChange}
         />
-        <main className="relative z-10 flex min-w-0 flex-1 flex-col overflow-hidden rounded-[1.125rem] border-l border-border/70 bg-background shadow-[-18px_0_44px_rgba(16,16,15,0.08)]">
+        <main className="relative z-10 flex min-w-0 flex-1 flex-col overflow-hidden rounded-[1.125rem] border border-white/80 bg-background shadow-[0_12px_34px_rgba(16,16,15,0.08)] md:ml-px">
           <ChatTopbar
             isStreaming={isStreaming}
             messageCount={messageCount}
@@ -240,7 +240,7 @@ function PrimaryRail({
   const connectionDotClass = getConnectionDotClass(connected);
 
   return (
-    <aside className="flex h-full w-[4.5rem] shrink-0 flex-col items-center rounded-[1.125rem] bg-[#10100f] py-4 text-white shadow-[0_18px_50px_rgba(16,16,15,0.24)]">
+    <aside className="flex h-full w-[4.5rem] shrink-0 flex-col items-center rounded-[1.125rem] bg-[#10100f] py-4 text-white shadow-[0_10px_28px_rgba(16,16,15,0.18)]">
       <button
         type="button"
         aria-label="Open assistant panel"
@@ -308,7 +308,7 @@ function PanelBoundary({
       >
         <span
           aria-hidden
-          className="absolute left-1/2 top-1/2 h-12 w-1.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-neutral-300/80 shadow-[0_1px_4px_rgba(16,16,15,0.22)] transition-[height,background-color,box-shadow] duration-150 group-hover:h-16 group-hover:bg-neutral-400 group-hover:shadow-[0_2px_8px_rgba(16,16,15,0.2)] group-focus-visible:bg-neutral-500 group-focus-visible:ring-2 group-focus-visible:ring-ring/40"
+          className="absolute left-[calc(50%+0.25rem)] top-1/2 h-7 w-1 -translate-y-1/2 rounded-full bg-neutral-400/70 opacity-0 shadow-[0_1px_3px_rgba(16,16,15,0.16)] transition-[height,background-color,opacity,box-shadow] duration-150 group-hover:h-8 group-hover:bg-neutral-500/75 group-hover:opacity-100 group-hover:shadow-[0_1px_5px_rgba(16,16,15,0.18)] group-focus-visible:opacity-100 group-focus-visible:ring-2 group-focus-visible:ring-ring/35"
         />
       </button>
     </div>
