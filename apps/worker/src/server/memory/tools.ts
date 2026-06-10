@@ -5,8 +5,12 @@ import { effectInputSchema } from "@/server/effect-schema";
 import { routeTask, type RouteDecision } from "@/server/routing/effort-router";
 
 import {
+  canAccessMemoryRecord,
+  canUseMemoryScope,
   createLocalMemoryAccessContext,
+  findMemoryScopeGrant,
   findMemoryScopeId,
+  toMemoryRecordActor,
   type MemoryAccessContext
 } from "./access";
 import type { CanonicalMemoryStore } from "./contract";
@@ -93,9 +97,13 @@ const routeTaskInputSchema = effectInputSchema(
   })
 );
 
+type MemoryAccessContextProvider =
+  | MemoryAccessContext
+  | (() => MemoryAccessContext | Promise<MemoryAccessContext>);
+
 export function createMemoryPrimitiveTools(
   store: CanonicalMemoryStore,
-  accessContext: MemoryAccessContext = createLocalMemoryAccessContext()
+  accessContextProvider: MemoryAccessContextProvider = createLocalMemoryAccessContext()
 ): ToolSet {
   return {
     recordMemory: tool({
@@ -103,7 +111,11 @@ export function createMemoryPrimitiveTools(
         "Save a typed durable memory record with evidence, lifecycle status, and consumer rules.",
       inputSchema: recordMemoryInputSchema,
       execute: async (input) => {
-        const record = store.upsert(toMemoryRecord(input));
+        const accessContext = await resolveAccessContext(accessContextProvider);
+        const denied = denyInaccessibleWrite(input.scope, input.scopeId, accessContext);
+        if (denied) return denied;
+
+        const record = store.upsert(toMemoryRecord(input, accessContext));
         return { saved: true, record };
       }
     }),
@@ -113,27 +125,36 @@ export function createMemoryPrimitiveTools(
         "Save a proposed or active decision with rationale, alternatives, and a re-evaluation trigger.",
       inputSchema: recordDecisionInputSchema,
       execute: async (input) => {
+        const accessContext = await resolveAccessContext(accessContextProvider);
+        const teamGrant = findMemoryScopeGrant(accessContext, "team");
+        if (!teamGrant) {
+          return denyMissingScope("team", accessContext);
+        }
+
         const record = store.upsert(
-          toMemoryRecord({
-            id: input.id,
-            kind: "decision_record",
-            scope: "team",
-            scopeId: findMemoryScopeId(accessContext, "team"),
-            status: input.status,
-            title: input.title,
-            body: `${input.body}\n\nAlternatives considered:\n${input.alternatives
-              .map((item) => `- ${item}`)
-              .join("\n")}`,
-            evidence: input.evidence,
-            rationale: input.rationale,
-            reEvalTrigger: input.reEvalTrigger,
-            consumerRules: [
-              "Use only when status is active",
-              "If proposed, cite as intent rather than implemented behavior"
-            ],
-            tags: input.tags,
-            supersedes: []
-          })
+          toMemoryRecord(
+            {
+              id: input.id,
+              kind: "decision_record",
+              scope: "team",
+              scopeId: teamGrant.scopeId,
+              status: input.status,
+              title: input.title,
+              body: `${input.body}\n\nAlternatives considered:\n${input.alternatives
+                .map((item) => `- ${item}`)
+                .join("\n")}`,
+              evidence: input.evidence,
+              rationale: input.rationale,
+              reEvalTrigger: input.reEvalTrigger,
+              consumerRules: [
+                "Use only when status is active",
+                "If proposed, cite as intent rather than implemented behavior"
+              ],
+              tags: input.tags,
+              supersedes: []
+            },
+            accessContext
+          )
         );
         return { saved: true, record };
       }
@@ -144,6 +165,7 @@ export function createMemoryPrimitiveTools(
         "Search durable assistant memory. Use before answering questions about project decisions, preferences, terms, or prior choices.",
       inputSchema: searchMemoryInputSchema,
       execute: async ({ query }) => {
+        const accessContext = await resolveAccessContext(accessContextProvider);
         const result = store.search(query, accessContext);
         return {
           records: result.hits.map((hit) => ({
@@ -173,7 +195,18 @@ export function createMemoryPrimitiveTools(
         "Move a durable memory record between lifecycle states such as proposed, active, superseded, and rejected.",
       inputSchema: promoteRecordInputSchema,
       execute: async ({ recordId, status }) => {
-        const record = store.promote(recordId, status);
+        const accessContext = await resolveAccessContext(accessContextProvider);
+        const existingRecord = store.list().find((candidate) => candidate.id === recordId);
+
+        if (existingRecord && !canAccessMemoryRecord(existingRecord, accessContext)) {
+          return {
+            promoted: false,
+            error: `Access denied for memory record ${recordId}`,
+            identity: summarizeIdentity(accessContext)
+          };
+        }
+
+        const record = store.promote(recordId, status, accessContext);
         return record
           ? { promoted: true, record }
           : {
@@ -188,6 +221,7 @@ export function createMemoryPrimitiveTools(
         "Make an internal Effort Router decision for a task using current memory retrieval evidence.",
       inputSchema: routeTaskInputSchema,
       execute: async ({ input }) => {
+        const accessContext = await resolveAccessContext(accessContextProvider);
         const retrieval = store.search(input, accessContext);
         const route = routeTask(input, retrieval);
         const routeRecord = store.upsert(
@@ -195,7 +229,8 @@ export function createMemoryPrimitiveTools(
             input,
             route,
             retrieval.hits.map((hit) => hit.record.id),
-            findMemoryScopeId(accessContext, "session")
+            findMemoryScopeId(accessContext, "session"),
+            accessContext
           )
         );
         return {
@@ -209,12 +244,17 @@ export function createMemoryPrimitiveTools(
 }
 
 function toMemoryRecord(
-  input: Omit<MemoryRecordDraft, "createdAt" | "updatedAt" | "contentHash" | "recordHash">
+  input: Omit<
+    MemoryRecordDraft,
+    "actor" | "createdAt" | "updatedAt" | "contentHash" | "recordHash"
+  >,
+  accessContext: MemoryAccessContext
 ): MemoryRecordDraft {
   const now = new Date().toISOString();
 
   return {
     ...input,
+    actor: toMemoryRecordActor(accessContext),
     createdAt: now,
     updatedAt: now
   };
@@ -224,7 +264,8 @@ function toRouteRecord(
   input: string,
   route: RouteDecision,
   retrievedRecordIds: readonly string[],
-  scopeId: string
+  scopeId: string,
+  accessContext: MemoryAccessContext
 ): MemoryRecordDraft {
   const now = new Date().toISOString();
   const inputHash = hashString(input);
@@ -239,6 +280,7 @@ function toRouteRecord(
     body: JSON.stringify(
       {
         input,
+        actor: summarizeIdentity(accessContext),
         route,
         retrievedRecordIds
       },
@@ -255,7 +297,45 @@ function toRouteRecord(
       "Do not present route records as durable product decisions"
     ],
     tags: ["routing", route.mode, route.effort, route.budget],
+    actor: toMemoryRecordActor(accessContext),
     supersedes: []
+  };
+}
+
+async function resolveAccessContext(
+  provider: MemoryAccessContextProvider
+): Promise<MemoryAccessContext> {
+  return typeof provider === "function" ? await provider() : provider;
+}
+
+function denyInaccessibleWrite(
+  scope: MemoryRecordDraft["scope"],
+  scopeId: string,
+  accessContext: MemoryAccessContext
+) {
+  if (canUseMemoryScope(scope, scopeId, accessContext)) return null;
+
+  return {
+    saved: false,
+    error: `Access denied for memory scope ${scope}:${scopeId}`,
+    identity: summarizeIdentity(accessContext)
+  };
+}
+
+function denyMissingScope(scope: MemoryRecordDraft["scope"], accessContext: MemoryAccessContext) {
+  return {
+    saved: false,
+    error: `No ${scope} memory grant is available for this actor`,
+    identity: summarizeIdentity(accessContext)
+  };
+}
+
+function summarizeIdentity(accessContext: MemoryAccessContext) {
+  return {
+    subjectId: accessContext.subjectId,
+    subjectType: accessContext.subjectType,
+    provider: accessContext.provider,
+    grants: accessContext.grants
   };
 }
 

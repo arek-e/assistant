@@ -11,7 +11,7 @@ import {
   WrenchIcon,
   XCircleIcon
 } from "@/components/app/icons";
-import { Badge, Button, Empty } from "@/components/app/ui";
+import { Badge, Button } from "@/components/app/ui";
 import type { AgentVisualState } from "@/features/avatar/agent-avatar";
 import {
   ActivityCard,
@@ -81,11 +81,16 @@ export function MessageList({
 }) {
   if (messages.length === 0) {
     return (
-      <Empty
-        icon={<BrainIcon size={32} />}
-        title="Start thinking"
-        contents={
-          <div className="flex flex-wrap justify-center gap-2">
+      <div className="flex min-h-[52vh] flex-col justify-center">
+        <div className="max-w-xl">
+          <div className="mb-5 flex items-center gap-2 text-sm text-muted-foreground">
+            <BrainIcon size={16} />
+            Teampitch
+          </div>
+          <h2 className="text-2xl font-medium tracking-normal text-foreground">
+            Ask about this project, memory, tools, or what I can do here.
+          </h2>
+          <div className="mt-7 flex flex-wrap gap-2">
             {starterPrompts.map((prompt) => (
               <Button
                 key={prompt}
@@ -98,8 +103,8 @@ export function MessageList({
               </Button>
             ))}
           </div>
-        }
-      />
+        </div>
+      </div>
     );
   }
 

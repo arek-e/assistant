@@ -23,6 +23,10 @@ export default defineConfig({
       {
         files: ["src/features/debug/memory-debug-drawer.tsx"],
         rules: ["react-doctor/no-event-handler"]
+      },
+      {
+        files: ["src/features/auth/auth-shell.tsx"],
+        rules: ["react-doctor/no-multi-comp"]
       }
     ]
   },

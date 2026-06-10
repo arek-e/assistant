@@ -3,13 +3,6 @@ import { forwardRef, type ComponentProps, type ReactNode } from "react";
 import { Badge as CossBadge } from "@teampitch/ui/components/badge";
 import { Button as CossButton } from "@teampitch/ui/components/button";
 import { Card } from "@teampitch/ui/components/card";
-import {
-  Empty as CossEmpty,
-  EmptyContent,
-  EmptyHeader,
-  EmptyMedia,
-  EmptyTitle
-} from "@teampitch/ui/components/empty";
 import { Switch as CossSwitch } from "@teampitch/ui/components/switch";
 import { Textarea } from "@teampitch/ui/components/textarea";
 import { cn } from "@teampitch/ui/lib/utils";
@@ -91,26 +84,6 @@ export function Text({
     >
       {children}
     </Component>
-  );
-}
-
-export function Empty({
-  icon,
-  title,
-  contents
-}: {
-  icon: ReactNode;
-  title: string;
-  contents: ReactNode;
-}) {
-  return (
-    <CossEmpty className="min-h-[320px]">
-      <EmptyHeader>
-        <EmptyMedia variant="icon">{icon}</EmptyMedia>
-        <EmptyTitle>{title}</EmptyTitle>
-      </EmptyHeader>
-      <EmptyContent>{contents}</EmptyContent>
-    </CossEmpty>
   );
 }
 

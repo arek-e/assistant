@@ -1,12 +1,22 @@
-import type { MemoryRecord, MemoryScope } from "./types";
+import type {
+  AuthSubjectType,
+  MemoryRecord,
+  MemoryRecordActor,
+  MemoryScope,
+  MemoryScopeGrant
+} from "./types";
 
-export interface MemoryScopeGrant {
-  scope: MemoryScope;
-  scopeId: string;
-}
+export type { MemoryScopeGrant } from "./types";
 
 export interface MemoryAccessContext {
   subjectId: string;
+  subjectType: AuthSubjectType;
+  provider: string;
+  displayName: string;
+  sessionId: string;
+  organizationId: string;
+  role: string;
+  permissions: readonly string[];
   grants: readonly MemoryScopeGrant[];
 }
 
@@ -20,6 +30,13 @@ const localMemoryScopeIds = {
 export function createLocalMemoryAccessContext(): MemoryAccessContext {
   return {
     subjectId: localMemoryScopeIds.private,
+    subjectType: "user",
+    provider: "local",
+    displayName: "Local User",
+    sessionId: localMemoryScopeIds.session,
+    organizationId: localMemoryScopeIds.org,
+    role: "local-admin",
+    permissions: ["memory:read", "memory:write"],
     grants: [
       { scope: "private", scopeId: localMemoryScopeIds.private },
       { scope: "team", scopeId: localMemoryScopeIds.team },
@@ -33,16 +50,40 @@ export function canAccessMemoryRecord(
   record: MemoryRecord,
   accessContext: MemoryAccessContext
 ): boolean {
-  return accessContext.grants.some(
-    (grant) => grant.scope === record.scope && grant.scopeId === record.scopeId
-  );
+  return canUseMemoryScope(record.scope, record.scopeId, accessContext);
+}
+
+export function canUseMemoryScope(
+  scope: MemoryScope,
+  scopeId: string,
+  accessContext: MemoryAccessContext
+): boolean {
+  return accessContext.grants.some((grant) => grant.scope === scope && grant.scopeId === scopeId);
+}
+
+export function findMemoryScopeGrant(
+  accessContext: MemoryAccessContext,
+  scope: MemoryScope
+): MemoryScopeGrant | undefined {
+  return accessContext.grants.find((grant) => grant.scope === scope);
 }
 
 export function findMemoryScopeId(accessContext: MemoryAccessContext, scope: MemoryScope): string {
-  return (
-    accessContext.grants.find((grant) => grant.scope === scope)?.scopeId ??
-    localMemoryScopeIds[scope]
-  );
+  return findMemoryScopeGrant(accessContext, scope)?.scopeId ?? localMemoryScopeIds[scope];
+}
+
+export function toMemoryRecordActor(accessContext: MemoryAccessContext): MemoryRecordActor {
+  return {
+    subjectId: accessContext.subjectId,
+    subjectType: accessContext.subjectType,
+    provider: accessContext.provider,
+    displayName: accessContext.displayName,
+    sessionId: accessContext.sessionId,
+    organizationId: accessContext.organizationId,
+    role: accessContext.role,
+    permissions: [...accessContext.permissions],
+    grants: accessContext.grants.map((grant) => ({ ...grant }))
+  };
 }
 
 export function scopePrecedence(scope: MemoryScope): number {

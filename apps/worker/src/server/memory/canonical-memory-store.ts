@@ -1,14 +1,9 @@
 import type { MemoryAccessContext } from "./access";
 import type { CanonicalMemoryStore, MemoryDebugSnapshot } from "./contract";
 import { createMemoryDebugSnapshot } from "./debug-snapshot";
-import { createMemoryRecord } from "./record";
+import { createMemoryRecord, promoteMemoryRecord } from "./record";
 import { searchMemoryRecords, type RetrievalResult, type SearchMemoryOptions } from "./retrieval";
-import {
-  decodeLifecycleStatus,
-  type LifecycleStatus,
-  type MemoryRecord,
-  type MemoryRecordDraft
-} from "./types";
+import { type LifecycleStatus, type MemoryRecord, type MemoryRecordDraft } from "./types";
 
 export class InMemoryCanonicalMemoryStore implements CanonicalMemoryStore {
   private readonly records = new Map<string, MemoryRecord>();
@@ -42,20 +37,20 @@ export class InMemoryCanonicalMemoryStore implements CanonicalMemoryStore {
     return searchMemoryRecords(this.list(), input, accessContext, options);
   }
 
-  promote(recordId: string, status: LifecycleStatus): MemoryRecord | null {
+  promote(
+    recordId: string,
+    status: LifecycleStatus,
+    accessContext?: MemoryAccessContext
+  ): MemoryRecord | null {
     const record = this.records.get(recordId);
     if (!record) return null;
 
-    const promotedRecord = createMemoryRecord({
-      ...record,
-      status: decodeLifecycleStatus(status),
-      updatedAt: new Date().toISOString()
-    });
+    const promotedRecord = promoteMemoryRecord(record, status, accessContext);
     this.records.set(recordId, promotedRecord);
     return promotedRecord;
   }
 
-  debugSnapshot(limit = 50): MemoryDebugSnapshot {
-    return createMemoryDebugSnapshot(this.list(), limit);
+  debugSnapshot(limit = 50, accessContext?: MemoryAccessContext): MemoryDebugSnapshot {
+    return createMemoryDebugSnapshot(this.list(), limit, accessContext);
   }
 }

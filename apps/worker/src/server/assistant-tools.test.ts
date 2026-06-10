@@ -4,6 +4,7 @@ import type { Schedule } from "agents";
 import type { ToolSet } from "ai";
 
 import { createAssistantTools, type AssistantToolContext } from "./assistant-tools";
+import { createScheduledTaskMessage } from "./scheduled-task";
 
 function createToolContext(overrides: Partial<AssistantToolContext> = {}) {
   const scheduled: Array<{
@@ -110,10 +111,53 @@ describe("createAssistantTools", () => {
       {
         input: 60,
         callback: "executeTask",
-        payload: "check the build",
+        payload: JSON.stringify({
+          description: "check the build"
+        }),
         options: { idempotent: true }
       }
     ]);
+  });
+
+  test("stores identity metadata in scheduled task payloads", async () => {
+    const { context, scheduled } = createToolContext({
+      async getIdentity() {
+        return {
+          subjectId: "user-123",
+          subjectType: "user",
+          provider: "workos",
+          displayName: "Test User",
+          sessionId: "session-123",
+          organizationId: "org-123",
+          role: "admin",
+          permissions: ["memory:write"],
+          grants: [
+            { scope: "private", scopeId: "user-123" },
+            { scope: "org", scopeId: "org-123" },
+            { scope: "session", scopeId: "session-123" }
+          ]
+        };
+      }
+    });
+    const execute = scheduleTaskExecutor(context);
+
+    await execute(
+      {
+        description: "check auth",
+        when: { type: "delayed", delayInSeconds: 30 }
+      },
+      toolOptions(execute)
+    );
+
+    expect(createScheduledTaskMessage(scheduled[0]?.payload ?? "")).toMatchObject({
+      type: "scheduled-task",
+      description: "check auth",
+      actor: {
+        subjectId: "user-123",
+        subjectType: "user",
+        provider: "workos"
+      }
+    });
   });
 
   test("rejects invalid schedule input without calling the context", async () => {
