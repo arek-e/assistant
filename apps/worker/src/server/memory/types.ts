@@ -20,6 +20,35 @@ const MemoryScopeSchema = Schema.Literal("private", "team", "org", "session");
 
 export type MemoryScope = Schema.Schema.Type<typeof MemoryScopeSchema>;
 
+const AuthSubjectTypeSchema = Schema.Literal("user", "agent");
+
+export type AuthSubjectType = Schema.Schema.Type<typeof AuthSubjectTypeSchema>;
+
+export const MemoryScopeGrantSchema = Schema.Struct({
+  scope: MemoryScopeSchema,
+  scopeId: Schema.String
+});
+
+export type MemoryScopeGrant = Schema.Schema.Type<
+  typeof MemoryScopeGrantSchema
+>;
+
+export const MemoryRecordActorSchema = Schema.Struct({
+  subjectId: Schema.String,
+  subjectType: AuthSubjectTypeSchema,
+  provider: Schema.String,
+  displayName: Schema.String,
+  sessionId: Schema.String,
+  organizationId: Schema.String,
+  role: Schema.String,
+  permissions: Schema.Array(Schema.String),
+  grants: Schema.Array(MemoryScopeGrantSchema)
+});
+
+export type MemoryRecordActor = Schema.Schema.Type<
+  typeof MemoryRecordActorSchema
+>;
+
 const LifecycleStatusSchema = Schema.Literal(
   "draft",
   "proposed",
@@ -47,6 +76,7 @@ export const MemoryRecordSchema = Schema.Struct({
   consumerRules: Schema.Array(Schema.String),
   tags: Schema.Array(Schema.String),
   supersedes: Schema.Array(Schema.String),
+  actor: MemoryRecordActorSchema,
   contentHash: Schema.String,
   recordHash: Schema.String
 });
@@ -55,8 +85,9 @@ export type MemoryRecord = Schema.Schema.Type<typeof MemoryRecordSchema>;
 
 export type MemoryRecordDraft = Omit<
   MemoryRecord,
-  "contentHash" | "recordHash"
+  "actor" | "contentHash" | "recordHash"
 > & {
+  actor?: MemoryRecordActor;
   contentHash?: string;
   recordHash?: string;
 };

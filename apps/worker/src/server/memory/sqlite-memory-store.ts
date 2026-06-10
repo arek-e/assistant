@@ -6,7 +6,11 @@ import {
   type RetrievalResult,
   type SearchMemoryOptions
 } from "./retrieval";
-import type { MemoryAccessContext } from "./access";
+import {
+  createLocalMemoryAccessContext,
+  toMemoryRecordActor,
+  type MemoryAccessContext
+} from "./access";
 import { createMemoryRecord } from "./record";
 import {
   decodeLifecycleStatus,
@@ -157,13 +161,18 @@ export class SqliteCanonicalMemoryStore implements CanonicalMemoryStore {
     );
   }
 
-  promote(recordId: string, status: LifecycleStatus): MemoryRecord | null {
+  promote(
+    recordId: string,
+    status: LifecycleStatus,
+    accessContext?: MemoryAccessContext
+  ): MemoryRecord | null {
     const record = this.get(recordId);
     if (!record) return null;
 
     const promotedRecord = createMemoryRecord({
       ...record,
       status: decodeLifecycleStatus(status),
+      actor: accessContext ? toMemoryRecordActor(accessContext) : record.actor,
       updatedAt: new Date().toISOString()
     });
     this.upsert(promotedRecord);
@@ -180,8 +189,11 @@ export class SqliteCanonicalMemoryStore implements CanonicalMemoryStore {
     return rows[0] ? decodeStoredMemoryRecord(rows[0].record) : null;
   }
 
-  debugSnapshot(limit = 50): MemoryDebugSnapshot {
-    return createMemoryDebugSnapshot(this.list(), limit);
+  debugSnapshot(
+    limit = 50,
+    accessContext?: MemoryAccessContext
+  ): MemoryDebugSnapshot {
+    return createMemoryDebugSnapshot(this.list(), limit, accessContext);
   }
 
   private ensureSchema(): void {
@@ -480,7 +492,8 @@ const legacyRecordDefaults = {
   reEvalTrigger: "when legacy memory is inspected",
   consumerRules: ["Use only after inspection"],
   tags: [],
-  supersedes: []
+  supersedes: [],
+  actor: toMemoryRecordActor(createLocalMemoryAccessContext())
 } satisfies Omit<MemoryRecordDraft, "scope" | "scopeId">;
 
 function normalizeLegacyRecord(value: unknown): MemoryRecordDraft {

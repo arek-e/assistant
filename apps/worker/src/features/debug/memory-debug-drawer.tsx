@@ -173,6 +173,7 @@ function MemoryPanel({
 }) {
   return (
     <div className="space-y-4">
+      <IdentityPanel snapshot={snapshot} />
       <SnapshotSummary snapshot={snapshot} />
       <TraceList title="Memory Tool Calls" traces={traces} />
       <div className="space-y-2">
@@ -208,6 +209,46 @@ function MemoryPanel({
         )}
       </div>
     </div>
+  );
+}
+
+function IdentityPanel({ snapshot }: { snapshot: MemoryDebugSnapshot | null }) {
+  const identity = snapshot?.identity;
+
+  return (
+    <Surface className="p-3">
+      <div className="flex flex-wrap items-center gap-2">
+        <PanelHeading>Current Actor</PanelHeading>
+        {identity ? (
+          <>
+            <Badge variant="secondary">{identity.provider}</Badge>
+            <Badge variant="secondary">{identity.subjectType}</Badge>
+            {identity.role && (
+              <Badge variant="secondary">{identity.role}</Badge>
+            )}
+          </>
+        ) : (
+          <Badge variant="secondary">not loaded</Badge>
+        )}
+      </div>
+      {identity && (
+        <div className="mt-2 grid gap-2">
+          <Text className="block" size="xs" variant="secondary">
+            {identity.displayName} · {identity.subjectId}
+          </Text>
+          <div className="flex flex-wrap gap-1.5">
+            {identity.grants.map((grant) => (
+              <Badge
+                key={`${grant.scope}:${grant.scopeId}`}
+                variant="secondary"
+              >
+                {grant.scope}: {grant.scopeId}
+              </Badge>
+            ))}
+          </div>
+        </div>
+      )}
+    </Surface>
   );
 }
 

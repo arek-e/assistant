@@ -3,7 +3,7 @@ import {
   type RetrievalResult,
   type SearchMemoryOptions
 } from "./retrieval";
-import type { MemoryAccessContext } from "./access";
+import { toMemoryRecordActor, type MemoryAccessContext } from "./access";
 import { createMemoryRecord } from "./record";
 import {
   decodeLifecycleStatus,
@@ -48,20 +48,28 @@ export class InMemoryCanonicalMemoryStore implements CanonicalMemoryStore {
     return searchMemoryRecords(this.list(), input, accessContext, options);
   }
 
-  promote(recordId: string, status: LifecycleStatus): MemoryRecord | null {
+  promote(
+    recordId: string,
+    status: LifecycleStatus,
+    accessContext?: MemoryAccessContext
+  ): MemoryRecord | null {
     const record = this.records.get(recordId);
     if (!record) return null;
 
     const promotedRecord = createMemoryRecord({
       ...record,
       status: decodeLifecycleStatus(status),
+      actor: accessContext ? toMemoryRecordActor(accessContext) : record.actor,
       updatedAt: new Date().toISOString()
     });
     this.records.set(recordId, promotedRecord);
     return promotedRecord;
   }
 
-  debugSnapshot(limit = 50): MemoryDebugSnapshot {
-    return createMemoryDebugSnapshot(this.list(), limit);
+  debugSnapshot(
+    limit = 50,
+    accessContext?: MemoryAccessContext
+  ): MemoryDebugSnapshot {
+    return createMemoryDebugSnapshot(this.list(), limit, accessContext);
   }
 }

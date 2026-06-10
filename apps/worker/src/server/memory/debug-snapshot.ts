@@ -1,18 +1,39 @@
+import {
+  canAccessMemoryRecord,
+  createLocalMemoryAccessContext,
+  type MemoryAccessContext
+} from "./access";
 import type { MemoryDebugSnapshot } from "./contract";
 import type { MemoryRecord } from "./types";
 
 export function createMemoryDebugSnapshot(
   records: readonly MemoryRecord[],
-  limit = 50
+  limit = 50,
+  accessContext: MemoryAccessContext = createLocalMemoryAccessContext()
 ): MemoryDebugSnapshot {
+  const visibleRecords = records.filter((record) =>
+    canAccessMemoryRecord(record, accessContext)
+  );
+
   return {
     generatedAt: new Date().toISOString(),
-    recordCount: records.length,
-    countsByKind: countBy(records, "kind"),
-    countsByStatus: countBy(records, "status"),
-    countsByScope: countBy(records, "scope"),
-    records: records.slice(0, limit),
-    recentRoutes: records
+    identity: {
+      subjectId: accessContext.subjectId,
+      subjectType: accessContext.subjectType,
+      provider: accessContext.provider,
+      displayName: accessContext.displayName,
+      sessionId: accessContext.sessionId,
+      organizationId: accessContext.organizationId,
+      role: accessContext.role,
+      permissions: [...accessContext.permissions],
+      grants: accessContext.grants.map((grant) => ({ ...grant }))
+    },
+    recordCount: visibleRecords.length,
+    countsByKind: countBy(visibleRecords, "kind"),
+    countsByStatus: countBy(visibleRecords, "status"),
+    countsByScope: countBy(visibleRecords, "scope"),
+    records: visibleRecords.slice(0, limit),
+    recentRoutes: visibleRecords
       .filter((record) => record.kind === "route_record")
       .slice(0, 10)
   };

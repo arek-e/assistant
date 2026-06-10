@@ -29,13 +29,21 @@ import {
   releaseAttachmentPreviews,
   type Attachment
 } from "@/features/attachments/attachments";
+import { AccountControls } from "@/features/auth/auth-shell";
+import type { AuthSession } from "@/features/auth/auth-context";
 import { MemoryDebugDrawer } from "@/features/debug/memory-debug-drawer";
 import { McpPanel } from "@/features/mcp/mcp-panel";
 import { ThemeToggle } from "@/features/theme/theme-toggle";
 import { ChatComposer } from "./chat-composer";
 import { MessageList } from "./message-list";
 
-export function Chat() {
+export function Chat({
+  auth,
+  onSignOut
+}: {
+  auth: AuthSession;
+  onSignOut: () => void;
+}) {
   const [connected, setConnected] = useState(false);
   const [input, setInput] = useState("");
   const [showDebugDrawer, setShowDebugDrawer] = useState(false);
@@ -254,6 +262,7 @@ export function Chat() {
           </div>
           <div className="flex items-center gap-3">
             <ConnectionStatus connected={connected} />
+            <AccountControls session={auth} onSignOut={onSignOut} />
             <div className="flex items-center gap-1.5">
               <BugIcon size={14} className="text-muted-foreground" />
               <Switch

@@ -1,4 +1,5 @@
 import { hashStableValue } from "./hash";
+import { createLocalMemoryAccessContext, toMemoryRecordActor } from "./access";
 import {
   decodeMemoryRecord,
   type MemoryRecord,
@@ -6,11 +7,15 @@ import {
 } from "./types";
 
 export function createMemoryRecord(input: MemoryRecordDraft): MemoryRecord {
-  const contentHash = hashMemoryContent(input);
-  const recordHash = hashMemoryRecord({ ...input, contentHash });
+  const record = {
+    ...input,
+    actor: input.actor ?? toMemoryRecordActor(createLocalMemoryAccessContext())
+  };
+  const contentHash = hashMemoryContent(record);
+  const recordHash = hashMemoryRecord({ ...record, contentHash });
 
   return decodeMemoryRecord({
-    ...input,
+    ...record,
     contentHash,
     recordHash
   });
@@ -41,6 +46,7 @@ function hashMemoryRecord(
     status: record.status,
     createdAt: record.createdAt,
     updatedAt: record.updatedAt,
+    actor: record.actor,
     contentHash: record.contentHash
   });
 }
