@@ -4,6 +4,7 @@ import {
   Attachment01Icon,
   BrainIcon as BrainIconData,
   Briefcase01Icon,
+  Bug01Icon,
   Calendar03Icon,
   Cancel01Icon,
   CancelCircleIcon,
@@ -55,6 +56,7 @@ export const CheckCircleIcon = createIcon(CheckmarkCircle01Icon);
 export const XCircleIcon = createIcon(CancelCircleIcon);
 export const BrainIcon = createIcon(BrainIconData);
 export const CaretDownIcon = createIcon(ArrowDown01Icon);
+export const BugIcon = createIcon(Bug01Icon);
 export const PlugsConnectedIcon = createIcon(McpServerIcon);
 export const PlusIcon = createIcon(PlusSignIcon);
 export const SignInIcon = createIcon(Login01Icon);
