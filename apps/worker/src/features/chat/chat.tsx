@@ -36,6 +36,10 @@ import { ChatComposer } from "./chat-composer";
 import { MessageList } from "./message-list";
 import { AssistantAppShell } from "./ui/assistant-app-shell";
 
+type OutgoingMessagePart =
+  | { type: "text"; text: string }
+  | { type: "file"; mediaType: string; url: string };
+
 export function Chat({
   auth,
   onSignOut
@@ -215,29 +219,15 @@ export function Chat({
 
   const send = useCallback(async () => {
     const text = input.trim();
-    if ((!text && attachments.length === 0) || isStreaming) return;
+    if (!canSendMessage(text, attachments.length, isStreaming)) return;
     setInput("");
 
-    const parts: Array<
-      | { type: "text"; text: string }
-      | { type: "file"; mediaType: string; url: string }
-    > = [];
-    if (text) parts.push({ type: "text", text });
-
-    for (const attachment of attachments) {
-      const dataUri = await fileToDataUri(attachment.file);
-      parts.push({
-        type: "file",
-        mediaType: attachment.mediaType,
-        url: dataUri
-      });
-    }
-
+    const parts = await createOutgoingMessageParts(text, attachments);
     releaseAttachmentPreviews(attachments);
     setAttachments([]);
 
     sendMessage({ role: "user", parts });
-    if (textareaRef.current) textareaRef.current.style.height = "auto";
+    resetTextAreaHeight(textareaRef.current);
   }, [input, attachments, isStreaming, sendMessage]);
 
   const integrationControls = (
@@ -350,6 +340,42 @@ function ImageDropOverlay() {
   );
 }
 
+function canSendMessage(
+  text: string,
+  attachmentCount: number,
+  isStreaming: boolean
+) {
+  return (text.length > 0 || attachmentCount > 0) && !isStreaming;
+}
+
+async function createOutgoingMessageParts(
+  text: string,
+  attachments: Attachment[]
+): Promise<OutgoingMessagePart[]> {
+  const textParts = createTextMessageParts(text);
+  const fileParts = await Promise.all(attachments.map(createFileMessagePart));
+  return [...textParts, ...fileParts];
+}
+
+function createTextMessageParts(text: string): OutgoingMessagePart[] {
+  return text ? [{ type: "text", text }] : [];
+}
+
+async function createFileMessagePart(
+  attachment: Attachment
+): Promise<OutgoingMessagePart> {
+  return {
+    type: "file",
+    mediaType: attachment.mediaType,
+    url: await fileToDataUri(attachment.file)
+  };
+}
+
+function resetTextAreaHeight(textarea: HTMLTextAreaElement | null) {
+  if (!textarea) return;
+  textarea.style.height = "auto";
+}
+
 type WorkspacePreviewPage = {
   id: string;
   tabLabel: string;
@@ -454,32 +480,18 @@ function WorkspacePreviewDocument() {
         aria-label="Preview pages"
         className="relative flex h-11 shrink-0 items-end gap-1 overflow-visible border-b border-black/10 bg-[#f1f1ee] px-3 pt-2"
       >
-        {workspacePreviewPages.map((page, index) => {
-          const active = page.id === activePage.id;
-          const position = getWorkspacePreviewTabPosition(
-            index,
-            workspacePreviewPages.length
-          );
-
-          return (
-            <button
-              key={page.id}
-              type="button"
-              role="tab"
-              aria-selected={active}
-              className={getWorkspacePreviewTabClassName(active)}
-              onClick={() => setActivePageId(page.id)}
-            >
-              {active && position !== "first" && (
-                <WorkspacePreviewTabCorner side="left" />
-              )}
-              <span className="relative z-10">{page.tabLabel}</span>
-              {active && position !== "last" && (
-                <WorkspacePreviewTabCorner side="right" />
-              )}
-            </button>
-          );
-        })}
+        {workspacePreviewPages.map((page, index) => (
+          <WorkspacePreviewTab
+            key={page.id}
+            active={page.id === activePage.id}
+            page={page}
+            position={getWorkspacePreviewTabPosition(
+              index,
+              workspacePreviewPages.length
+            )}
+            onSelect={setActivePageId}
+          />
+        ))}
       </div>
       <div className="min-h-0 flex-1 overflow-y-auto px-5 py-5">
         <article className="mx-auto max-w-3xl space-y-5 text-neutral-900">
@@ -509,6 +521,79 @@ function WorkspacePreviewDocument() {
 
 type WorkspacePreviewTabPosition = "first" | "middle" | "last";
 
+const workspacePreviewTabCornerPaths = {
+  left: {
+    background: "M10 0 A10 10 0 0 1 0 10 L10 10 Z",
+    border: "M10 0 A10 10 0 0 1 0 10 L0 9 A9 9 0 0 0 9 0 Z",
+    cover: "M9 0 H10 V10 H9 Z",
+    className: "-left-[10px]"
+  },
+  right: {
+    background: "M0 0 A10 10 0 0 0 10 10 L0 10 Z",
+    border: "M0 0 A10 10 0 0 0 10 10 L10 9 A9 9 0 0 1 1 0 Z",
+    cover: "M0 0 H1 V10 H0 Z",
+    className: "-right-[10px]"
+  }
+} satisfies Record<
+  "left" | "right",
+  {
+    background: string;
+    border: string;
+    cover: string;
+    className: string;
+  }
+>;
+
+const workspacePreviewTabCornerVisibility = {
+  left: {
+    first: false,
+    middle: true,
+    last: true
+  },
+  right: {
+    first: true,
+    middle: true,
+    last: false
+  }
+} satisfies Record<
+  "left" | "right",
+  Record<WorkspacePreviewTabPosition, boolean>
+>;
+
+function WorkspacePreviewTab({
+  active,
+  page,
+  position,
+  onSelect
+}: {
+  active: boolean;
+  page: WorkspacePreviewPage;
+  position: WorkspacePreviewTabPosition;
+  onSelect: (pageId: WorkspacePreviewPageId) => void;
+}) {
+  return (
+    <button
+      type="button"
+      role="tab"
+      aria-selected={active}
+      className={getWorkspacePreviewTabClassName(active)}
+      onClick={() => onSelect(page.id)}
+    >
+      <WorkspacePreviewTabCornerSlot
+        active={active}
+        position={position}
+        side="left"
+      />
+      <span className="relative z-10">{page.tabLabel}</span>
+      <WorkspacePreviewTabCornerSlot
+        active={active}
+        position={position}
+        side="right"
+      />
+    </button>
+  );
+}
+
 function getWorkspacePreviewTabClassName(active: boolean) {
   return cn(
     "relative h-9 shrink-0 px-3 text-sm outline-none transition-[background-color,color]",
@@ -518,34 +603,46 @@ function getWorkspacePreviewTabClassName(active: boolean) {
   );
 }
 
+function WorkspacePreviewTabCornerSlot({
+  active,
+  position,
+  side
+}: {
+  active: boolean;
+  position: WorkspacePreviewTabPosition;
+  side: "left" | "right";
+}) {
+  if (!shouldShowWorkspacePreviewTabCorner(active, position, side)) return null;
+  return <WorkspacePreviewTabCorner side={side} />;
+}
+
 function WorkspacePreviewTabCorner({ side }: { side: "left" | "right" }) {
-  const path =
-    side === "left"
-      ? "M10 0 A10 10 0 0 1 0 10 L10 10 Z"
-      : "M0 0 A10 10 0 0 0 10 10 L0 10 Z";
-  const borderPath =
-    side === "left"
-      ? "M10 0 A10 10 0 0 1 0 10 L0 9 A9 9 0 0 0 9 0 Z"
-      : "M0 0 A10 10 0 0 0 10 10 L10 9 A9 9 0 0 1 1 0 Z";
-  const sideCoverPath =
-    side === "left" ? "M9 0 H10 V10 H9 Z" : "M0 0 H1 V10 H0 Z";
+  const paths = workspacePreviewTabCornerPaths[side];
 
   return (
     <svg
       aria-hidden
       className={cn(
         "pointer-events-none absolute bottom-0 size-[10px]",
-        side === "left" ? "-left-[10px]" : "-right-[10px]"
+        paths.className
       )}
       focusable="false"
       shapeRendering="geometricPrecision"
       viewBox="0 0 10 10"
     >
-      <path d={path} fill="#fbfbfa" />
-      <path d={sideCoverPath} fill="#fbfbfa" />
-      <path d={borderPath} fill="rgba(0,0,0,0.1)" />
+      <path d={paths.background} fill="#fbfbfa" />
+      <path d={paths.cover} fill="#fbfbfa" />
+      <path d={paths.border} fill="rgba(0,0,0,0.1)" />
     </svg>
   );
+}
+
+function shouldShowWorkspacePreviewTabCorner(
+  active: boolean,
+  position: WorkspacePreviewTabPosition,
+  side: "left" | "right"
+) {
+  return active && workspacePreviewTabCornerVisibility[side][position];
 }
 
 function getWorkspacePreviewTabPosition(
