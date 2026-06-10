@@ -1,4 +1,11 @@
-import { useState, type ReactNode } from "react";
+import {
+  useEffect,
+  useRef,
+  useState,
+  type MouseEvent as ReactMouseEvent,
+  type PointerEvent as ReactPointerEvent,
+  type ReactNode
+} from "react";
 import { motion } from "motion/react";
 import { cn } from "@teampitch/ui/lib/utils";
 import {
@@ -15,6 +22,10 @@ import {
 
 const expandedPanelWidth = 304;
 const collapsedPanelWidth = 0;
+const panelDragOpenThreshold = 80;
+const panelDragCloseThreshold = 96;
+const panelDragVelocityThreshold = 1600;
+const panelDragDeadzone = 4;
 
 export function AssistantAppShell({
   children,
@@ -118,6 +129,10 @@ function DesktopAssistantNav({
   onShowDebugChange: (checked: boolean) => void;
 }) {
   const avatarState = getAvatarState(connected);
+  const [dragPanelWidth, setDragPanelWidth] = useState<number | null>(null);
+  const dragStartPanelWidthRef = useRef(getPanelWidth(panelOpen));
+  const renderedPanelWidth = dragPanelWidth ?? getPanelWidth(panelOpen);
+  const isPanelDragging = dragPanelWidth !== null;
 
   return (
     <div className="relative z-20 hidden h-full shrink-0 md:flex">
@@ -132,13 +147,17 @@ function DesktopAssistantNav({
       <motion.aside
         aria-hidden={!panelOpen}
         className="h-full overflow-hidden bg-transparent"
-        animate={{ width: getPanelWidth(panelOpen) }}
-        transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
+        animate={{ width: renderedPanelWidth }}
+        transition={
+          isPanelDragging
+            ? { duration: 0 }
+            : { duration: 0.22, ease: [0.22, 1, 0.36, 1] }
+        }
       >
         <motion.div
           className="flex h-full w-[19rem] flex-col p-3"
-          animate={{ opacity: panelOpen ? 1 : 0 }}
-          transition={{ duration: 0.12 }}
+          animate={{ opacity: getPanelContentOpacity(renderedPanelWidth) }}
+          transition={isPanelDragging ? { duration: 0 } : { duration: 0.12 }}
         >
           <div className="mb-4 flex h-9 items-center justify-between px-1">
             <div className="flex min-w-0 items-center gap-2">
@@ -217,6 +236,24 @@ function DesktopAssistantNav({
       <PanelBoundary
         panelOpen={panelOpen}
         onPanelOpenChange={onPanelOpenChange}
+        onPanelDrag={(offsetX) => {
+          setDragPanelWidth(
+            clampPanelWidth(dragStartPanelWidthRef.current + offsetX)
+          );
+        }}
+        onPanelDragEnd={(offsetX, velocityX) => {
+          const nextPanelOpen = getNextPanelOpenState(
+            panelOpen,
+            offsetX,
+            velocityX
+          );
+          setDragPanelWidth(null);
+          onPanelOpenChange(nextPanelOpen);
+        }}
+        onPanelDragStart={() => {
+          dragStartPanelWidthRef.current = getPanelWidth(panelOpen);
+          setDragPanelWidth(getPanelWidth(panelOpen));
+        }}
       />
     </div>
   );
@@ -291,20 +328,155 @@ function RailMark() {
 
 function PanelBoundary({
   panelOpen,
+  onPanelDrag,
+  onPanelDragEnd,
+  onPanelDragStart,
   onPanelOpenChange
 }: {
   panelOpen: boolean;
+  onPanelDrag: (offsetX: number) => void;
+  onPanelDragEnd: (offsetX: number, velocityX: number) => void;
+  onPanelDragStart: () => void;
   onPanelOpenChange: (open: boolean) => void;
 }) {
   const toggleLabel = getPanelToggleLabel(panelOpen);
+  const draggingRef = useRef(false);
+  const dragStartXRef = useRef(0);
+  const dragMovedRef = useRef(false);
+  const lastDragSampleRef = useRef({ time: 0, x: 0 });
+  const dragVelocityXRef = useRef(0);
+  const dragCleanupRef = useRef<null | (() => void)>(null);
+
+  useEffect(() => {
+    return () => {
+      dragCleanupRef.current?.();
+    };
+  }, []);
+
+  function handlePointerDown(event: ReactPointerEvent<HTMLButtonElement>) {
+    if (event.button !== 0) return;
+
+    event.preventDefault();
+    const target = event.currentTarget;
+    const pointerId = event.pointerId;
+
+    beginPanelDrag(event.clientX);
+    safelySetPointerCapture(target, pointerId);
+
+    const handleWindowPointerMove = (windowEvent: PointerEvent) => {
+      if (windowEvent.pointerId !== pointerId) return;
+      updatePointerDrag(windowEvent.clientX);
+    };
+
+    const handleWindowPointerEnd = (windowEvent: PointerEvent) => {
+      if (windowEvent.pointerId !== pointerId) return;
+      finishPointerDrag(windowEvent.clientX, target, pointerId);
+    };
+
+    window.addEventListener("pointermove", handleWindowPointerMove);
+    window.addEventListener("pointerup", handleWindowPointerEnd);
+    window.addEventListener("pointercancel", handleWindowPointerEnd);
+
+    dragCleanupRef.current = () => {
+      window.removeEventListener("pointermove", handleWindowPointerMove);
+      window.removeEventListener("pointerup", handleWindowPointerEnd);
+      window.removeEventListener("pointercancel", handleWindowPointerEnd);
+      dragCleanupRef.current = null;
+    };
+  }
+
+  function handleMouseDown(event: ReactMouseEvent<HTMLButtonElement>) {
+    if (event.button !== 0 || draggingRef.current) return;
+
+    event.preventDefault();
+    const target = event.currentTarget;
+
+    beginPanelDrag(event.clientX);
+
+    const handleWindowMouseMove = (windowEvent: MouseEvent) => {
+      updatePointerDrag(windowEvent.clientX);
+    };
+
+    const handleWindowMouseEnd = (windowEvent: MouseEvent) => {
+      finishPointerDrag(windowEvent.clientX, target);
+    };
+
+    window.addEventListener("mousemove", handleWindowMouseMove);
+    window.addEventListener("mouseup", handleWindowMouseEnd);
+
+    dragCleanupRef.current = () => {
+      window.removeEventListener("mousemove", handleWindowMouseMove);
+      window.removeEventListener("mouseup", handleWindowMouseEnd);
+      dragCleanupRef.current = null;
+    };
+  }
+
+  function beginPanelDrag(clientX: number) {
+    const now = performance.now();
+
+    dragCleanupRef.current?.();
+    draggingRef.current = true;
+    dragMovedRef.current = false;
+    dragStartXRef.current = clientX;
+    lastDragSampleRef.current = { time: now, x: clientX };
+    dragVelocityXRef.current = 0;
+    onPanelDragStart();
+  }
+
+  function updatePointerDrag(clientX: number) {
+    if (!draggingRef.current) return;
+
+    const offsetX = clientX - dragStartXRef.current;
+    const now = performance.now();
+    const lastSample = lastDragSampleRef.current;
+    const elapsedSeconds = Math.max((now - lastSample.time) / 1000, 0.001);
+
+    dragVelocityXRef.current = (clientX - lastSample.x) / elapsedSeconds;
+    lastDragSampleRef.current = { time: now, x: clientX };
+
+    if (Math.abs(offsetX) > panelDragDeadzone) {
+      dragMovedRef.current = true;
+    }
+
+    onPanelDrag(offsetX);
+  }
+
+  function finishPointerDrag(
+    clientX: number,
+    target: HTMLButtonElement,
+    pointerId?: number
+  ) {
+    if (!draggingRef.current) return;
+
+    const offsetX = clientX - dragStartXRef.current;
+
+    draggingRef.current = false;
+    dragCleanupRef.current?.();
+    onPanelDragEnd(offsetX, dragVelocityXRef.current);
+    if (pointerId !== undefined) {
+      safelyReleasePointerCapture(target, pointerId);
+    }
+  }
+
+  function handleClick(event: ReactMouseEvent<HTMLButtonElement>) {
+    if (dragMovedRef.current) {
+      dragMovedRef.current = false;
+      event.preventDefault();
+      return;
+    }
+
+    onPanelOpenChange(!panelOpen);
+  }
 
   return (
     <div className="relative z-30 h-full w-0 shrink-0">
       <button
         type="button"
         aria-label={toggleLabel}
-        className="group absolute left-0 top-0 h-full w-8 -translate-x-1/2 cursor-col-resize outline-none"
-        onClick={() => onPanelOpenChange(!panelOpen)}
+        className="group absolute left-0 top-0 h-full w-8 -translate-x-1/2 cursor-col-resize touch-none select-none outline-none"
+        onClick={handleClick}
+        onMouseDown={handleMouseDown}
+        onPointerDown={handlePointerDown}
       >
         <span
           aria-hidden
@@ -322,6 +494,31 @@ function getStatusLabel(isStreaming: boolean, connected: boolean) {
 
 function getPanelWidth(panelOpen: boolean) {
   return panelOpen ? expandedPanelWidth : collapsedPanelWidth;
+}
+
+function clampPanelWidth(width: number) {
+  return Math.min(expandedPanelWidth, Math.max(collapsedPanelWidth, width));
+}
+
+function getPanelContentOpacity(width: number) {
+  return Math.min(1, Math.max(0, (width - 64) / 96));
+}
+
+function getNextPanelOpenState(
+  panelOpen: boolean,
+  offsetX: number,
+  velocityX: number
+) {
+  if (panelOpen) {
+    return !(
+      offsetX <= -panelDragCloseThreshold ||
+      velocityX <= -panelDragVelocityThreshold
+    );
+  }
+
+  return (
+    offsetX >= panelDragOpenThreshold || velocityX >= panelDragVelocityThreshold
+  );
 }
 
 function getAvatarState(connected: boolean): AgentVisualState {
@@ -350,6 +547,27 @@ function getAgentDotClass(isStreaming: boolean) {
 
 function getPanelToggleLabel(panelOpen: boolean) {
   return panelOpen ? "Collapse assistant panel" : "Open assistant panel";
+}
+
+function safelySetPointerCapture(target: HTMLButtonElement, pointerId: number) {
+  try {
+    target.setPointerCapture(pointerId);
+  } catch {
+    // Synthetic and cancelled pointers might not be capturable.
+  }
+}
+
+function safelyReleasePointerCapture(
+  target: HTMLButtonElement,
+  pointerId: number
+) {
+  try {
+    if (target.hasPointerCapture(pointerId)) {
+      target.releasePointerCapture(pointerId);
+    }
+  } catch {
+    // The pointer may already have been released by the browser.
+  }
 }
 
 function RailButton({
