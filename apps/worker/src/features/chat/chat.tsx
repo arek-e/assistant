@@ -289,6 +289,9 @@ export function Chat({
         messageCount={messages.length}
         integrationControls={integrationControls}
         themeToggle={<ThemeToggle />}
+        accountControls={
+          <AccountControls session={auth} onSignOut={onSignOut} />
+        }
         workspacePreview={<WorkspacePreviewDocument />}
         onShowDebugChange={setShowDebugDrawer}
         onNewChat={clearHistory}

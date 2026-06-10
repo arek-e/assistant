@@ -61,6 +61,7 @@ export function AssistantAppShell({
   messageCount,
   integrationControls,
   themeToggle,
+  accountControls,
   onShowDebugChange,
   onNewChat
 }: {
@@ -75,6 +76,7 @@ export function AssistantAppShell({
   messageCount: number;
   integrationControls: ReactNode;
   themeToggle: ReactNode;
+  accountControls: ReactNode;
   onShowDebugChange: (checked: boolean) => void;
   onNewChat: () => void;
 }) {
@@ -95,6 +97,7 @@ export function AssistantAppShell({
         onPanelOpenChange={setPanelOpen}
         onShowDebugChange={onShowDebugChange}
         themeToggle={themeToggle}
+        accountControls={accountControls}
       />
     ),
     mainContent: (
@@ -634,6 +637,7 @@ function DesktopAssistantNav({
   panelOpen,
   showDebug,
   themeToggle,
+  accountControls,
   onNewChat,
   onPanelOpenChange,
   onShowDebugChange
@@ -643,6 +647,7 @@ function DesktopAssistantNav({
   panelOpen: boolean;
   showDebug: boolean;
   themeToggle: ReactNode;
+  accountControls: ReactNode;
   onNewChat: () => void;
   onPanelOpenChange: (open: boolean) => void;
   onShowDebugChange: (checked: boolean) => void;
@@ -658,6 +663,7 @@ function DesktopAssistantNav({
         connected={connected}
         panelOpen={panelOpen}
         themeToggle={themeToggle}
+        accountControls={accountControls}
         onNewChat={onNewChat}
         onPanelOpenChange={onPanelOpenChange}
       />
@@ -797,12 +803,14 @@ function PrimaryRail({
   connected,
   panelOpen,
   themeToggle,
+  accountControls,
   onNewChat,
   onPanelOpenChange
 }: {
   connected: boolean;
   panelOpen: boolean;
   themeToggle: ReactNode;
+  accountControls: ReactNode;
   onNewChat: () => void;
   onPanelOpenChange: (open: boolean) => void;
 }) {
@@ -845,6 +853,7 @@ function PrimaryRail({
         connected={connected}
         connectionDotClass={connectionDotClass}
         themeToggle={themeToggle}
+        accountControls={accountControls}
       />
     </aside>
   );
@@ -853,11 +862,13 @@ function PrimaryRail({
 function PrimaryRailBottomActions({
   connected,
   connectionDotClass,
-  themeToggle
+  themeToggle,
+  accountControls
 }: {
   connected: boolean;
   connectionDotClass: string;
   themeToggle: ReactNode;
+  accountControls: ReactNode;
 }) {
   const [profileOpen, setProfileOpen] = useState(false);
 
@@ -906,6 +917,9 @@ function PrimaryRailBottomActions({
               Local workspace
             </span>
           </span>
+        </div>
+        <div className="mt-3 border-t border-border/70 pt-3 [&>div]:w-full [&>div]:justify-between">
+          {accountControls}
         </div>
       </motion.div>
     </>
