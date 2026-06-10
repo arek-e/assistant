@@ -4,7 +4,6 @@ import { cn } from "@teampitch/ui/lib/utils";
 import {
   ChatCircleDotsIcon,
   PanelLeftClose,
-  PanelRight,
   PlusIcon,
   WrenchIcon
 } from "@/components/app/icons";
@@ -48,43 +47,45 @@ export function AssistantAppShell({
   const statusLabel = getStatusLabel(isStreaming, connected);
 
   return (
-    <div className="flex h-screen overflow-hidden bg-[#f6f6f4] text-foreground">
-      <DesktopAssistantNav
-        connected={connected}
-        isStreaming={isStreaming}
-        messageCount={messageCount}
-        panelOpen={panelOpen}
-        serverCount={serverCount}
-        showDebug={showDebug}
-        statusLabel={statusLabel}
-        toolCount={toolCount}
-        integrationControls={integrationControls}
-        onNewChat={onNewChat}
-        onPanelOpenChange={setPanelOpen}
-        onShowDebugChange={onShowDebugChange}
-      />
-      <main className="flex min-w-0 flex-1 flex-col bg-background">
-        <ChatTopbar
+    <div className="h-screen overflow-hidden bg-[#dfe3e1] p-2 text-foreground">
+      <div className="flex h-full min-h-0 overflow-visible">
+        <DesktopAssistantNav
+          connected={connected}
           isStreaming={isStreaming}
           messageCount={messageCount}
-          onNewChat={onNewChat}
+          panelOpen={panelOpen}
+          serverCount={serverCount}
+          showDebug={showDebug}
           statusLabel={statusLabel}
-          themeToggle={themeToggle}
+          toolCount={toolCount}
+          integrationControls={integrationControls}
+          onNewChat={onNewChat}
+          onPanelOpenChange={setPanelOpen}
+          onShowDebugChange={onShowDebugChange}
         />
-        <motion.div
-          className="min-h-0 flex-1 overflow-y-auto"
-          initial={{ opacity: 0, y: 8 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.2, ease: [0.22, 1, 0.36, 1] }}
-        >
-          <div className="mx-auto w-full max-w-3xl px-5 pb-10 pt-10 sm:px-8 lg:pt-16">
-            {children}
+        <main className="relative z-10 flex min-w-0 flex-1 flex-col overflow-hidden rounded-[1.125rem] border-l border-border/70 bg-background shadow-[-18px_0_44px_rgba(16,16,15,0.08)]">
+          <ChatTopbar
+            isStreaming={isStreaming}
+            messageCount={messageCount}
+            onNewChat={onNewChat}
+            statusLabel={statusLabel}
+            themeToggle={themeToggle}
+          />
+          <motion.div
+            className="min-h-0 flex-1 overflow-y-auto"
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.2, ease: [0.22, 1, 0.36, 1] }}
+          >
+            <div className="mx-auto w-full max-w-3xl px-5 pb-10 pt-10 sm:px-8 lg:pt-16">
+              {children}
+            </div>
+          </motion.div>
+          <div className="shrink-0 bg-gradient-to-t from-background via-background to-background/0 px-4 pb-5 pt-3 sm:px-8">
+            {composer}
           </div>
-        </motion.div>
-        <div className="shrink-0 bg-gradient-to-t from-background via-background to-background/0 px-4 pb-5 pt-3 sm:px-8">
-          {composer}
-        </div>
-      </main>
+        </main>
+      </div>
     </div>
   );
 }
@@ -119,7 +120,7 @@ function DesktopAssistantNav({
   const avatarState = getAvatarState(connected);
 
   return (
-    <div className="hidden h-full shrink-0 md:flex">
+    <div className="relative z-20 hidden h-full shrink-0 md:flex">
       <PrimaryRail
         connected={connected}
         panelOpen={panelOpen}
@@ -239,7 +240,7 @@ function PrimaryRail({
   const connectionDotClass = getConnectionDotClass(connected);
 
   return (
-    <aside className="flex h-full w-[4.5rem] shrink-0 flex-col items-center bg-[#10100f] py-4 text-white shadow-[8px_0_30px_rgba(0,0,0,0.08)]">
+    <aside className="flex h-full w-[4.5rem] shrink-0 flex-col items-center rounded-[1.125rem] bg-[#10100f] py-4 text-white shadow-[0_18px_50px_rgba(16,16,15,0.24)]">
       <button
         type="button"
         aria-label="Open assistant panel"
@@ -296,17 +297,19 @@ function PanelBoundary({
   onPanelOpenChange: (open: boolean) => void;
 }) {
   const toggleLabel = getPanelToggleLabel(panelOpen);
-  const toggleIcon = getPanelToggleIcon(panelOpen);
 
   return (
-    <div className="relative z-20 h-full w-px shrink-0 bg-border/80">
+    <div className="relative z-30 h-full w-0 shrink-0">
       <button
         type="button"
         aria-label={toggleLabel}
-        className="absolute left-1/2 top-1/2 grid h-14 w-5 -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full border border-border bg-background text-muted-foreground shadow-sm transition-colors hover:border-neutral-300 hover:text-foreground"
+        className="group absolute left-0 top-0 h-full w-8 -translate-x-1/2 cursor-col-resize outline-none"
         onClick={() => onPanelOpenChange(!panelOpen)}
       >
-        {toggleIcon}
+        <span
+          aria-hidden
+          className="absolute left-1/2 top-1/2 h-12 w-1.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-neutral-300/80 shadow-[0_1px_4px_rgba(16,16,15,0.22)] transition-[height,background-color,box-shadow] duration-150 group-hover:h-16 group-hover:bg-neutral-400 group-hover:shadow-[0_2px_8px_rgba(16,16,15,0.2)] group-focus-visible:bg-neutral-500 group-focus-visible:ring-2 group-focus-visible:ring-ring/40"
+        />
       </button>
     </div>
   );
@@ -347,10 +350,6 @@ function getAgentDotClass(isStreaming: boolean) {
 
 function getPanelToggleLabel(panelOpen: boolean) {
   return panelOpen ? "Collapse assistant panel" : "Open assistant panel";
-}
-
-function getPanelToggleIcon(panelOpen: boolean) {
-  return panelOpen ? <PanelLeftClose size={18} /> : <PanelRight size={18} />;
 }
 
 function RailButton({

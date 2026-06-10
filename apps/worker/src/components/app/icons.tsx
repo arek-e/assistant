@@ -15,7 +15,6 @@ import {
   Moon02Icon,
   Navigation03Icon,
   PanelLeftCloseIcon,
-  PanelRightIcon,
   Settings01Icon,
   StopIcon as StopIconData,
   Sun03Icon,
@@ -54,4 +53,3 @@ export const WrenchIcon = createIcon(Wrench01Icon);
 export const PaperclipIcon = createIcon(Attachment01Icon);
 export const ImageIcon = createIcon(Image01Icon);
 export const PanelLeftClose = createIcon(PanelLeftCloseIcon);
-export const PanelRight = createIcon(PanelRightIcon);
