@@ -1,3 +1,13 @@
+export {
+  createAnonymousMemoryAccessContext,
+  createAuthIdentityAdapter,
+  createWorkOSMemoryAccessContext,
+  LocalAuthIdentityAdapter,
+  WorkOSAuthIdentityAdapter,
+  type AuthIdentityAdapter,
+  type AuthIdentityEnv,
+  type WorkOSClaims
+} from "./auth";
 export { InMemoryCanonicalMemoryStore } from "./memory/canonical-memory-store";
 export {
   type CanonicalMemoryStore,
@@ -5,6 +15,7 @@ export {
 } from "./memory/contract";
 export {
   createLocalMemoryAccessContext,
+  toMemoryRecordActor,
   type MemoryAccessContext,
   type MemoryScopeGrant
 } from "./memory/access";
@@ -28,7 +39,9 @@ export {
 } from "./memory/retrieval";
 export {
   MemoryRecordSchema,
+  type AuthSubjectType,
   type MemoryRecord,
+  type MemoryRecordActor,
   type MemoryRecordDraft,
   type MemoryScope
 } from "./memory/types";

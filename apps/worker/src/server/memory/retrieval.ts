@@ -4,7 +4,7 @@ import {
   type MemoryAccessContext
 } from "./access";
 import { hashStableValue } from "./hash";
-import type { MemoryRecord } from "./types";
+import type { MemoryRecord, MemoryScopeGrant } from "./types";
 
 const STOP_WORDS = new Set([
   "a",
@@ -85,6 +85,9 @@ export interface RetrievalScopeRoot {
 
 export interface RetrievalProvenance {
   subjectId: string;
+  subjectType: string;
+  provider: string;
+  grants: MemoryScopeGrant[];
   projectionVersion: string;
   scopeRoots: RetrievalScopeRoot[];
   records: RetrievalRecordProvenance[];
@@ -348,6 +351,9 @@ function createRetrievalProvenance(
 ): RetrievalProvenance {
   return {
     subjectId: accessContext.subjectId,
+    subjectType: accessContext.subjectType,
+    provider: accessContext.provider,
+    grants: accessContext.grants.map((grant) => ({ ...grant })),
     projectionVersion: "canonical-memory-v1",
     scopeRoots: createScopeRoots(records, accessContext),
     records: hits.map((hit) => ({

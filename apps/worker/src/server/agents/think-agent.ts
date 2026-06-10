@@ -1,19 +1,31 @@
 import { Think, type Session } from "@cloudflare/think";
 import { createWorkersAI } from "workers-ai-provider";
-import { callable, type Schedule } from "agents";
+import { callable, getCurrentAgent, type Schedule } from "agents";
 import type { ToolSet } from "ai";
+import {
+  createAuthIdentityAdapter,
+  type AuthIdentityAdapter,
+  type AuthIdentityEnv
+} from "@/server/auth/identity";
 import { getAssistantSystemPrompt } from "@/server/assistant-prompt";
-import { createAssistantTools } from "@/server/assistant-tools";
+import {
+  createAssistantTools,
+  type AssistantToolContext
+} from "@/server/assistant-tools";
 import { createScheduledTaskMessage } from "@/server/scheduled-task";
 import {
   createMemoryPrimitiveTools,
   SqliteCanonicalMemoryStore
 } from "@/server/memory";
-import type { CanonicalMemoryStore } from "@/server/memory";
+import type {
+  CanonicalMemoryStore,
+  MemoryAccessContext
+} from "@/server/memory";
 
 export class ThinkAgent extends Think<Env> {
   maxSteps = 6;
   private memoryStore?: CanonicalMemoryStore;
+  private authIdentityAdapter?: AuthIdentityAdapter;
 
   getModel() {
     return createWorkersAI({ binding: this.env.AI })(
@@ -50,8 +62,10 @@ Memory rules:
 
   getTools(): ToolSet {
     return {
-      ...createAssistantTools(this, {}),
-      ...createMemoryPrimitiveTools(this.getMemoryStore())
+      ...createAssistantTools(this.getAssistantToolContext(), {}),
+      ...createMemoryPrimitiveTools(this.getMemoryStore(), () =>
+        this.getAuthIdentity()
+      )
     };
   }
 
@@ -67,7 +81,10 @@ Memory rules:
 
   @callable()
   async getMemoryDebugSnapshot() {
-    return this.getMemoryStore().debugSnapshot();
+    return this.getMemoryStore().debugSnapshot(
+      50,
+      await this.getAuthIdentity()
+    );
   }
 
   async executeTask(description: string, _task: Schedule<string>) {
@@ -79,5 +96,29 @@ Memory rules:
   private getMemoryStore(): CanonicalMemoryStore {
     this.memoryStore ??= new SqliteCanonicalMemoryStore(this.ctx.storage.sql);
     return this.memoryStore;
+  }
+
+  private getAssistantToolContext(): AssistantToolContext {
+    return {
+      schedule: this.schedule.bind(this),
+      getSchedules: this.getSchedules.bind(this),
+      cancelSchedule: this.cancelSchedule.bind(this),
+      getIdentity: () => this.getAuthIdentity()
+    };
+  }
+
+  private getAuthIdentityAdapter(): AuthIdentityAdapter {
+    this.authIdentityAdapter ??= createAuthIdentityAdapter(
+      this.env as Env & AuthIdentityEnv
+    );
+    return this.authIdentityAdapter;
+  }
+
+  private async getAuthIdentity(): Promise<MemoryAccessContext> {
+    return this.getAuthIdentityAdapter().resolve({
+      env: this.env as Env & AuthIdentityEnv,
+      request: getCurrentAgent().request,
+      sessionId: this.name
+    });
   }
 }

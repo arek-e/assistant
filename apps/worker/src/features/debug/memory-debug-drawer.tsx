@@ -173,6 +173,7 @@ function MemoryPanel({
 }) {
   return (
     <div className="space-y-4">
+      <IdentityPanel snapshot={snapshot} />
       <SnapshotSummary snapshot={snapshot} />
       <TraceList title="Memory Tool Calls" traces={traces} />
       <div className="space-y-2">
@@ -208,6 +209,57 @@ function MemoryPanel({
         )}
       </div>
     </div>
+  );
+}
+
+function IdentityPanel({ snapshot }: { snapshot: MemoryDebugSnapshot | null }) {
+  const identity = snapshot?.identity ?? null;
+
+  return (
+    <Surface className="p-3">
+      <div className="flex flex-wrap items-center gap-2">
+        <PanelHeading>Current Actor</PanelHeading>
+        <IdentityBadges identity={identity} />
+      </div>
+      <IdentityDetails identity={identity} />
+    </Surface>
+  );
+}
+
+type SnapshotIdentity = NonNullable<MemoryDebugSnapshot["identity"]>;
+
+function IdentityBadges({ identity }: { identity: SnapshotIdentity | null }) {
+  return identityBadgeLabels(identity).map((label) => (
+    <Badge key={label} variant="secondary">
+      {label}
+    </Badge>
+  ));
+}
+
+function IdentityDetails({ identity }: { identity: SnapshotIdentity | null }) {
+  if (!identity) return null;
+
+  return (
+    <div className="mt-2 grid gap-2">
+      <Text className="block" size="xs" variant="secondary">
+        {identity.displayName} · {identity.subjectId}
+      </Text>
+      <div className="flex flex-wrap gap-1.5">
+        {identity.grants.map((grant) => (
+          <Badge key={`${grant.scope}:${grant.scopeId}`} variant="secondary">
+            {grant.scope}: {grant.scopeId}
+          </Badge>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function identityBadgeLabels(identity: SnapshotIdentity | null): string[] {
+  if (!identity) return ["not loaded"];
+
+  return [identity.provider, identity.subjectType, identity.role].filter(
+    isNonEmptyString
   );
 }
 
@@ -447,4 +499,8 @@ function collectToolTraces(messages: UIMessage[]): ToolTrace[] {
 
 function stringify(value: unknown) {
   return JSON.stringify(value, null, 2);
+}
+
+function isNonEmptyString(value: unknown): value is string {
+  return typeof value === "string" && value.length > 0;
 }

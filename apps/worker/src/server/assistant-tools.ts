@@ -4,6 +4,8 @@ import { Schema } from "effect";
 import { Effect } from "effect";
 import { tool, type ToolSet } from "ai";
 import { getDemoWeather } from "@/effects";
+import { encodeScheduledTaskPayload } from "@/server/scheduled-task";
+import type { MemoryAccessContext } from "@/server/memory";
 import { effectInputSchema } from "./effect-schema";
 
 const weatherInputSchema = effectInputSchema(
@@ -47,6 +49,7 @@ export interface AssistantToolContext {
   ): void;
   getSchedules(): Schedule<string>[];
   cancelSchedule(taskId: string): void;
+  getIdentity?(): Promise<MemoryAccessContext>;
 }
 
 export function createAssistantTools(
@@ -112,9 +115,17 @@ export function createAssistantTools(
                 : null;
         if (!input) return "Invalid schedule type";
         try {
-          context.schedule(input, "executeTask", description, {
-            idempotent: true
-          });
+          const identity = context.getIdentity
+            ? summarizeIdentity(await context.getIdentity())
+            : undefined;
+          context.schedule(
+            input,
+            "executeTask",
+            encodeScheduledTaskPayload(description, identity),
+            {
+              idempotent: true
+            }
+          );
           return `Task scheduled: "${description}" (${when.type}: ${input})`;
         } catch (error) {
           return `Error scheduling task: ${error}`;
@@ -143,5 +154,14 @@ export function createAssistantTools(
         }
       }
     })
+  };
+}
+
+function summarizeIdentity(accessContext: MemoryAccessContext) {
+  return {
+    subjectId: accessContext.subjectId,
+    subjectType: accessContext.subjectType,
+    provider: accessContext.provider,
+    grants: accessContext.grants.map((grant) => ({ ...grant }))
   };
 }
