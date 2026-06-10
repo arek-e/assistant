@@ -4,7 +4,8 @@ import {
   useRef,
   useState,
   type ClipboardEvent,
-  type DragEvent
+  type DragEvent,
+  type ReactNode
 } from "react";
 import { useAgent } from "agents/react";
 import { useAgentChat } from "@cloudflare/ai-chat/react";
@@ -287,6 +288,7 @@ export function Chat({
         messageCount={messages.length}
         integrationControls={integrationControls}
         themeToggle={<ThemeToggle />}
+        workspacePreview={<WorkspacePreviewDocument />}
         onShowDebugChange={setShowDebugDrawer}
         onNewChat={clearHistory}
         composer={
@@ -341,5 +343,103 @@ function ImageDropOverlay() {
         </span>
       </div>
     </div>
+  );
+}
+
+function WorkspacePreviewDocument() {
+  return (
+    <div className="flex h-full min-h-0 flex-col bg-[#fbfbfa]">
+      <div className="flex h-12 shrink-0 items-center justify-between gap-3 border-b border-black/10 px-4">
+        <div className="min-w-0">
+          <p className="truncate text-sm font-medium text-neutral-950">
+            Assistant Shell Slots
+          </p>
+        </div>
+        <span className="rounded-md bg-black/[0.04] px-2 py-1 text-xs text-neutral-500">
+          Preview
+        </span>
+      </div>
+      <div className="min-h-0 flex-1 overflow-y-auto px-7 py-8">
+        <article className="mx-auto max-w-3xl space-y-7 text-neutral-900">
+          <div className="space-y-3">
+            <p className="text-xs font-medium uppercase tracking-wide text-neutral-400">
+              Product structure note
+            </p>
+            <h1 className="text-4xl font-medium tracking-normal text-neutral-950">
+              Assistant Shell Slots
+            </h1>
+            <p className="max-w-2xl text-base leading-7 text-neutral-600">
+              Durable shell regions for the assistant workspace. These terms
+              should stay consistent in product discussion, component naming,
+              and implementation reviews.
+            </p>
+          </div>
+
+          <PreviewSection title="Primary Rail">
+            <p>Stable workspace modes and persistent account controls.</p>
+            <PreviewList
+              items={[
+                "Assistant / chat",
+                "Work queue / tasks",
+                "Integrations / tools",
+                "Memory / knowledge",
+                "Settings",
+                "Bottom: theme + user profile"
+              ]}
+            />
+          </PreviewSection>
+
+          <PreviewSection title="Workspace Preview">
+            <p>
+              Optional center preview surface for documents, task artifacts,
+              plans, uploaded files, or other work objects. When present, this
+              slot takes the central workspace area and the chat moves into a
+              right-side work/chat column.
+            </p>
+          </PreviewSection>
+
+          <PreviewSection title="Right Details">
+            <p>Accountability and control inspector.</p>
+            <PreviewList
+              items={[
+                "runtime status",
+                "agent state",
+                "tools/servers involved",
+                "approvals, failures, recovery",
+                "object metadata for the selected item"
+              ]}
+            />
+          </PreviewSection>
+        </article>
+      </div>
+    </div>
+  );
+}
+
+function PreviewSection({
+  children,
+  title
+}: {
+  children: ReactNode;
+  title: string;
+}) {
+  return (
+    <section className="space-y-3 border-t border-black/10 pt-5 text-sm leading-6 text-neutral-600">
+      <h2 className="text-xl font-medium text-neutral-950">{title}</h2>
+      {children}
+    </section>
+  );
+}
+
+function PreviewList({ items }: { items: string[] }) {
+  return (
+    <ul className="space-y-2">
+      {items.map((item) => (
+        <li key={item} className="flex gap-3">
+          <span className="mt-2 size-1.5 rounded-full bg-neutral-300" />
+          <span>{item}</span>
+        </li>
+      ))}
+    </ul>
   );
 }

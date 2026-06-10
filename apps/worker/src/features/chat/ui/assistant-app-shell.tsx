@@ -76,9 +76,11 @@ export function AssistantAppShell({
   onNewChat: () => void;
 }) {
   const [panelOpen, setPanelOpen] = useState(true);
-  const [detailsPanelOpen, setDetailsPanelOpen] = useState(true);
-  const statusLabel = getStatusLabel(isStreaming, connected);
   const hasWorkspacePreview = Boolean(workspacePreview);
+  const [detailsPanelOpen, setDetailsPanelOpen] = useState(
+    () => !hasWorkspacePreview
+  );
+  const statusLabel = getStatusLabel(isStreaming, connected);
   const shellSlots: AssistantShellSlots = {
     primaryAndSecondaryNavigation: (
       <DesktopAssistantNav
