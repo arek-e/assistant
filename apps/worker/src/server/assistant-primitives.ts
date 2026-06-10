@@ -4,6 +4,12 @@ export {
   type MemoryDebugSnapshot
 } from "./memory/contract";
 export {
+  createLocalMemoryAccessContext,
+  type MemoryAccessContext,
+  type MemoryScopeGrant
+} from "./memory/access";
+export { createMemoryRecord } from "./memory/record";
+export {
   SqliteCanonicalMemoryStore,
   type MemorySqlCursor,
   type MemorySqlStorage,
@@ -15,8 +21,17 @@ export {
   type MemoryWriteKind,
   type MemoryWriteStatus
 } from "./memory/admission";
-export { type RetrievalResult } from "./memory/retrieval";
-export { MemoryRecordSchema, type MemoryRecord } from "./memory/types";
+export {
+  type BlockedMemoryRecord,
+  type RetrievalProvenance,
+  type RetrievalResult
+} from "./memory/retrieval";
+export {
+  MemoryRecordSchema,
+  type MemoryRecord,
+  type MemoryRecordDraft,
+  type MemoryScope
+} from "./memory/types";
 export {
   routeTask,
   type RouteBudget,

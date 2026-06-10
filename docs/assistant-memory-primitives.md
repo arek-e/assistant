@@ -47,14 +47,17 @@ The assistant should not save every chat message into long-term memory. It shoul
 Every durable record should include:
 
 - `kind`
-- `scope`: `user`, `project`, `repo`, or `session`
-- `status`: `draft`, `proposed`, `active`, `superseded`, or `rejected`
+- `scope`: `private`, `team`, `org`, or `session`
+- `scope_id`: the owner id for the scope, such as the user, team, org, or session id
+- `status`: `draft`, `proposed`, `active`, `superseded`, `rejected`, or `redacted`
 - `evidence`
 - `rationale`
 - `created_at`
 - `updated_at`
 - `re_eval_trigger`
 - `consumer_rules`
+- `content_hash`: deterministic hash of the consumable memory content
+- `record_hash`: deterministic hash of the content hash plus trust metadata such as scope, lifecycle, and timestamps
 
 ## Admission Rules
 
@@ -82,11 +85,17 @@ Mark older records as `superseded` instead of deleting them when the history is 
 
 Use `rejected` for alternatives that are likely to be suggested again.
 
+Use `redacted` when a record must remain auditable but can no longer be used as answer evidence.
+
 ## Consumer Rules
 
 The assistant may rely on `active` records as current truth.
 
-The assistant may cite `proposed` records as intent, but must not treat them as implemented behavior.
+The assistant may inspect `draft` and `proposed` records for workflow context, but must not treat them as current answer evidence.
+
+The assistant must not use `superseded`, `rejected`, or `redacted` records as current answer evidence.
+
+Org memory outranks conflicting team memory, team memory outranks conflicting private memory, and session memory is only for temporary execution traces. Lower-scope memory should remain auditable when blocked by higher-scope memory.
 
 The assistant should use `term_record` entries to keep naming and explanations concise.
 
@@ -101,6 +110,8 @@ The assistant should use `route_record` entries as early experience for future r
 Use a Canonical Memory Store as the source of truth for durable records. For the first Think Prototype, this should be an app-owned Durable Object SQLite store with typed records, JSON metadata, lifecycle status, and FTS5 indexes over searchable text.
 
 Think context and search memory should be projections from the Canonical Memory Store. The assistant should project only the current mission, active preferences, active decisions, and task-relevant memory into Think context blocks. It should not dump all durable memory into the model context.
+
+Search projections must be rebuildable. Retrieval results should carry internal provenance: the subject, active scope roots, content hashes, record hashes, blocked candidate ids, and the projection version used for the answer.
 
 Initial Retrieval Ladder:
 
@@ -124,6 +135,8 @@ The first eval suite should test retrieval before answer quality:
 - Exact recall: names, dates, paths, tool names, decision ids, and project terms are retrieved.
 - Semantic recall: paraphrased user requests find the correct memory records.
 - Lifecycle correctness: `proposed`, `rejected`, and `superseded` records are not treated as active truth.
+- Scope correctness: inaccessible private, team, or org records are blocked even when lexical retrieval finds them.
+- Redaction correctness: `redacted` records are never answer evidence.
 - Conflict handling: newer active records beat older superseded records, and unresolved conflicts are surfaced.
 - Negative retrieval: irrelevant records are not pulled into context just because they share broad vocabulary.
 - Grounded answers: answers that use memory cite or expose the record ids and evidence internally for audit.

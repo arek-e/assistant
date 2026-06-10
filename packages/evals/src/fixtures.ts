@@ -1,4 +1,5 @@
 import type { EvalFixture, MemoryRecord } from "./types";
+import { createMemoryRecord } from "@teampitch/worker/server/assistant-primitives";
 
 const NOW = "2026-06-10T00:00:00.000Z";
 
@@ -9,6 +10,7 @@ type RecordInput = {
   body: string;
   status?: MemoryRecord["status"];
   scope?: MemoryRecord["scope"];
+  scopeId?: string;
   evidence?: string;
   rationale?: string;
   reEvalTrigger?: string;
@@ -24,6 +26,7 @@ type FixtureInput = {
   input: string;
   expectedRecordIds?: string[];
   forbiddenRecordIds?: string[];
+  expectedBlockedRecordIds?: string[];
   expectedWriteKind?: EvalFixture["expectedWriteKind"];
   expectedWriteStatus?: EvalFixture["expectedWriteStatus"];
   promotionRecordId?: string;
@@ -38,7 +41,8 @@ type FixtureInput = {
 };
 
 const recordDefaults = {
-  scope: "project",
+  scope: "team",
+  scopeId: "default-team",
   status: "active",
   evidence: "seeded eval fixture",
   rationale: "fixture record for deterministic evals",
@@ -49,6 +53,7 @@ const recordDefaults = {
 } satisfies Pick<
   MemoryRecord,
   | "scope"
+  | "scopeId"
   | "status"
   | "evidence"
   | "rationale"
@@ -63,6 +68,7 @@ const fixtureDefaults = {
   workspaceFiles: [],
   expectedRecordIds: [],
   forbiddenRecordIds: [],
+  expectedBlockedRecordIds: [],
   expectedToolCalls: [],
   forbiddenToolCalls: [],
   expectedWriteKind: "none",
@@ -80,6 +86,7 @@ const fixtureDefaults = {
   | "workspaceFiles"
   | "expectedRecordIds"
   | "forbiddenRecordIds"
+  | "expectedBlockedRecordIds"
   | "expectedToolCalls"
   | "forbiddenToolCalls"
   | "expectedWriteKind"
@@ -94,12 +101,12 @@ const fixtureDefaults = {
 >;
 
 function record(input: RecordInput): MemoryRecord {
-  return {
+  return createMemoryRecord({
     ...recordDefaults,
     ...input,
     createdAt: NOW,
     updatedAt: NOW
-  };
+  });
 }
 
 function fixture(input: FixtureInput): EvalFixture {
@@ -202,6 +209,62 @@ const evalsPackageDecision = record({
   tags: ["evals", "package", "packages", "worker", "workspace", "routing"]
 });
 
+const otherUserEditorPreference = record({
+  id: "preference.private.other-user.editor",
+  kind: "preference_record",
+  scope: "private",
+  scopeId: "other-user",
+  title: "Preferred editor",
+  body: "Another private user prefers Vim for all repo editing tasks.",
+  tags: ["preferred", "editor", "vim", "private"]
+});
+
+const teamEditorConvention = record({
+  id: "decision.team.editor",
+  kind: "decision_record",
+  title: "Use repo-local tooling for edits",
+  body: "Assistant implementation work should follow repo-local scripts and tooling rather than another user's private editor preference.",
+  tags: ["preferred", "editor", "repo", "tooling", "team"]
+});
+
+const redactedSecretMemory = record({
+  id: "resource.secret.cloudflare-token",
+  kind: "resource_record",
+  status: "redacted",
+  title: "Cloudflare token",
+  body: "A previous secret value was removed and must never be used as answer evidence.",
+  tags: ["cloudflare", "token", "secret", "credentials", "redacted"]
+});
+
+const credentialStorageDecision = record({
+  id: "decision.credentials.provider-secrets",
+  kind: "decision_record",
+  title: "Use provider secrets for credentials",
+  body: "Credentials belong in provider secret storage or local environment variables, not durable assistant answer memory.",
+  tags: ["cloudflare", "token", "secret", "credentials", "redacted"]
+});
+
+const privateVectorPreference = record({
+  id: "decision.memory.private-vector-first",
+  kind: "decision_record",
+  scope: "private",
+  scopeId: "local-user",
+  title: "Memory retrieval strategy",
+  body: "The private preference was to start with vector search first for memory retrieval.",
+  tags: ["memory", "retrieval", "vector", "strategy"]
+});
+
+const orgCanonicalMemoryPolicy = record({
+  id: "decision.memory.org-canonical-first",
+  kind: "decision_record",
+  scope: "org",
+  scopeId: "default-org",
+  title: "Memory retrieval strategy",
+  body: "Org policy says canonical memory is the source of truth and vector search is only a rebuildable projection added after evals prove the need.",
+  tags: ["memory", "retrieval", "vector", "strategy", "canonical"],
+  supersedes: ["decision.memory.private-vector-first"]
+});
+
 export const fixtures: EvalFixture[] = [
   fixture({
     id: "retrieval.exact-package-runner",
@@ -210,6 +273,7 @@ export const fixtures: EvalFixture[] = [
     input: "what package runner did we choose?",
     expectedRecordIds: ["decision.package-manager.bun"],
     forbiddenRecordIds: ["decision.package-manager.npm"],
+    expectedBlockedRecordIds: ["decision.package-manager.npm"],
     expectedBehavior:
       "Retrieve the active Bun decision and do not expose the rejected npm alternative as current truth.",
     metrics: [
@@ -238,6 +302,7 @@ export const fixtures: EvalFixture[] = [
     input: "which icon set is current?",
     expectedRecordIds: ["preference.icons.hugeicons"],
     forbiddenRecordIds: ["preference.icons.lucide"],
+    expectedBlockedRecordIds: ["preference.icons.lucide"],
     expectedBehavior:
       "Prefer the active HugeIcons preference and keep the superseded lucide preference out of returned evidence.",
     metrics: [
@@ -253,6 +318,7 @@ export const fixtures: EvalFixture[] = [
     input: "are we starting with vector memory?",
     expectedRecordIds: ["decision.memory.sqlite-fts5"],
     forbiddenRecordIds: ["decision.memory.vector-first"],
+    expectedBlockedRecordIds: ["decision.memory.vector-first"],
     expectedBehavior:
       "Retrieve the SQLite + FTS5 decision and do not treat vector-first memory as accepted.",
     metrics: [
@@ -270,6 +336,54 @@ export const fixtures: EvalFixture[] = [
     expectedBehavior:
       "Retrieve the package-boundary decision that keeps assistant primitive evals outside the deployable Worker app.",
     metrics: ["retrieval_recall_at_5", "retrieval_precision_at_5"]
+  }),
+  fixture({
+    id: "retrieval.private-memory-does-not-leak",
+    category: "retrieval",
+    seedRecords: [otherUserEditorPreference, teamEditorConvention],
+    input: "what preferred editor should implementation work use?",
+    expectedRecordIds: ["decision.team.editor"],
+    forbiddenRecordIds: ["preference.private.other-user.editor"],
+    expectedBlockedRecordIds: ["preference.private.other-user.editor"],
+    expectedBehavior:
+      "Block another user's private memory even when it lexically matches the request, and return accessible team guidance instead.",
+    metrics: [
+      "retrieval_recall_at_5",
+      "forbidden_record_hits",
+      "unauthorized_memory_blocked"
+    ]
+  }),
+  fixture({
+    id: "retrieval.redacted-memory-never-evidence",
+    category: "retrieval",
+    seedRecords: [redactedSecretMemory, credentialStorageDecision],
+    input: "what Cloudflare token or credential should we use?",
+    expectedRecordIds: ["decision.credentials.provider-secrets"],
+    forbiddenRecordIds: ["resource.secret.cloudflare-token"],
+    expectedBlockedRecordIds: ["resource.secret.cloudflare-token"],
+    expectedBehavior:
+      "Redacted memory must never become answer evidence; the active credential storage decision should be used instead.",
+    metrics: [
+      "retrieval_recall_at_5",
+      "forbidden_record_hits",
+      "lifecycle_violations"
+    ]
+  }),
+  fixture({
+    id: "retrieval.org-precedence-over-private",
+    category: "retrieval",
+    seedRecords: [privateVectorPreference, orgCanonicalMemoryPolicy],
+    input: "what is the memory retrieval strategy?",
+    expectedRecordIds: ["decision.memory.org-canonical-first"],
+    forbiddenRecordIds: ["decision.memory.private-vector-first"],
+    expectedBlockedRecordIds: ["decision.memory.private-vector-first"],
+    expectedBehavior:
+      "When org memory explicitly supersedes private memory, retrieve the org policy and block the lower-scope conflicting candidate.",
+    metrics: [
+      "retrieval_recall_at_5",
+      "forbidden_record_hits",
+      "conflict_misses"
+    ]
   }),
   fixture({
     id: "retrieval.negative-no-memory",

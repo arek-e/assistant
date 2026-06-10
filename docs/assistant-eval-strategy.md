@@ -17,6 +17,7 @@ Test the failure modes we actually fear:
 
 - remembering too much
 - retrieving stale or rejected records
+- retrieving inaccessible or redacted records
 - missing exact project terms
 - overusing semantic search when lexical lookup is correct
 - hiding unsupported claims in polished answers
@@ -36,6 +37,7 @@ Each eval fixture should be versioned and include:
 - `input`
 - `expected_record_ids`
 - `forbidden_record_ids`
+- `expected_blocked_record_ids`
 - `expected_tool_calls`
 - `forbidden_tool_calls`
 - `expected_behavior`
@@ -59,6 +61,15 @@ Seed an old active record superseded by a newer active record. The eval passes o
 
 Rejected alternative:
 Seed a rejected vector-first decision and the proposed SQLite + FTS5 retrieval decision. Ask "are we starting with vector memory?" The eval passes only if the assistant says no and retrieves the SQLite + FTS5 decision.
+
+Scope boundary:
+Seed another user's private preference and an accessible team decision that both match the query. The eval passes only if the private record is blocked and the team record is usable evidence.
+
+Redaction boundary:
+Seed a redacted credential record and an active credential storage decision. The eval passes only if the redacted record is blocked and never returned as answer evidence.
+
+Scope precedence:
+Seed conflicting private and org records. The eval passes only if active org memory wins and the private record remains auditable as a blocked candidate.
 
 Semantic paraphrase:
 Seed preference and mission records. Ask an indirect question that does not share keywords. The eval passes if the relevant record is retrieved without pulling unrelated broad matches.
@@ -105,6 +116,8 @@ Track retrieval separately from answer quality:
 - `retrieval_precision_at_5`
 - `forbidden_record_hits`
 - `lifecycle_violations`
+- `unauthorized_memory_blocked`
+- `redacted_evidence_count`
 - `conflict_misses`
 - `unsupported_answer_count`
 - `tool_call_accuracy`
@@ -116,7 +129,8 @@ For the first prototype, the hard gates should be:
 
 - exact retrieval recall must be perfect on critical decision, preference, and term fixtures
 - lifecycle violations must be zero
-- forbidden record hits must be zero for rejected and superseded records
+- forbidden record hits must be zero for rejected, superseded, redacted, inaccessible, and lower-precedence conflicting records
+- expected blocked records must be present in the blocked-candidate trace
 - memory write fixtures must include evidence and status
 - route records must be written for non-trivial routing decisions
 

@@ -16,14 +16,17 @@ export type MemoryRecordKind = Schema.Schema.Type<
   typeof MemoryRecordKindSchema
 >;
 
-const MemoryScopeSchema = Schema.Literal("user", "project", "repo", "session");
+const MemoryScopeSchema = Schema.Literal("private", "team", "org", "session");
+
+export type MemoryScope = Schema.Schema.Type<typeof MemoryScopeSchema>;
 
 const LifecycleStatusSchema = Schema.Literal(
   "draft",
   "proposed",
   "active",
   "superseded",
-  "rejected"
+  "rejected",
+  "redacted"
 );
 
 export type LifecycleStatus = Schema.Schema.Type<typeof LifecycleStatusSchema>;
@@ -32,6 +35,7 @@ export const MemoryRecordSchema = Schema.Struct({
   id: Schema.String,
   kind: MemoryRecordKindSchema,
   scope: MemoryScopeSchema,
+  scopeId: Schema.String,
   status: LifecycleStatusSchema,
   title: Schema.String,
   body: Schema.String,
@@ -42,10 +46,20 @@ export const MemoryRecordSchema = Schema.Struct({
   reEvalTrigger: Schema.String,
   consumerRules: Schema.Array(Schema.String),
   tags: Schema.Array(Schema.String),
-  supersedes: Schema.Array(Schema.String)
+  supersedes: Schema.Array(Schema.String),
+  contentHash: Schema.String,
+  recordHash: Schema.String
 });
 
 export type MemoryRecord = Schema.Schema.Type<typeof MemoryRecordSchema>;
+
+export type MemoryRecordDraft = Omit<
+  MemoryRecord,
+  "contentHash" | "recordHash"
+> & {
+  contentHash?: string;
+  recordHash?: string;
+};
 
 export function decodeMemoryRecord(record: unknown): MemoryRecord {
   const result = Schema.decodeUnknownEither(MemoryRecordSchema)(record);

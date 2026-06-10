@@ -29,8 +29,9 @@ You are running inside the Think prototype. Use the primitive memory tools for d
 Memory rules:
 - Search memory before answering questions about prior project choices.
 - Save only durable facts, preferences, decisions, terms, or lessons with evidence.
+- Use private, team, org, or session scope deliberately, with the matching scope id.
 - Keep planned choices as proposed until implementation evidence exists.
-- Treat rejected and superseded records as history, not current truth.
+- Treat draft, proposed, rejected, superseded, and redacted records as history or workflow state, not current truth.
 - Use routeTask when a task needs an auditable Effort Router decision.`;
   }
 

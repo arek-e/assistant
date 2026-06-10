@@ -12,6 +12,74 @@ _Avoid_: Memory dump, auto-save everything
 A typed durable record that future assistant runs can consume. Each record has a kind, scope, status, evidence, rationale, timestamps, and consumer rules.
 _Avoid_: Note, chat summary
 
+**Memory Scope**:
+The trust level that defines who may consume a Memory Record: Private Memory, Team Memory, Org Memory, or Session Memory.
+_Avoid_: Storage namespace, arbitrary tag
+
+**Private Memory**:
+A Memory Record visible only to the person it belongs to.
+_Avoid_: Personal memory, user-wide shared context
+
+**Team Memory**:
+A Memory Record shared within a defined team or project context.
+_Avoid_: Workspace memory, project memory, repo memory
+
+**Org Memory**:
+A canonical Memory Record approved for organization-wide use.
+_Avoid_: Global note, company trivia
+
+**Session Memory**:
+A Memory Record whose relevance is limited to one assistant session or audit trail.
+_Avoid_: Durable product memory, team memory
+
+**Memory Precedence**:
+The rule that Org Memory overrides conflicting Team Memory, Team Memory overrides conflicting Private Memory, and non-conflicting lower-scope records remain usable context.
+_Avoid_: Text relevance only, newest record wins
+
+**Memory Promotion**:
+The intentional act of creating a higher-scope Memory Record from a lower-scope insight with owner approval.
+_Avoid_: Automatic sharing, scope mutation
+
+**Content Hash**:
+A stable fingerprint of the consumable content inside a Memory Record.
+_Avoid_: Database id, cache key
+
+**Record Hash**:
+A stable fingerprint of a Memory Record's content and trust state.
+_Avoid_: Content hash, row version
+
+**Scope Root**:
+A stable fingerprint of the current usable Memory Records within one Memory Scope.
+_Avoid_: Projection version, global checksum
+
+**Projection Root**:
+A stable fingerprint of the Memory Record state that a search projection has actually indexed.
+_Avoid_: Source of truth, vector truth
+
+**Vector Candidate Retrieval**:
+A retrieval step where a vector projection suggests relevant Memory Record ids without deciding whether those records are trustworthy or usable.
+_Avoid_: Vector truth, embedding-backed answer
+
+**Projection Freshness**:
+The check that a projected Memory Record still matches the current Record Hash before it can be used as answer evidence.
+_Avoid_: Whole-index freshness only, stale vector trust
+
+**Freshness Degradation Policy**:
+The rule that normal answers may ignore stale projection candidates while high-risk tasks block or require confirmation when freshness is uncertain.
+_Avoid_: Always fail on stale projection, silently trust stale projection
+
+**Memory Audit Automation**:
+A scheduled or recurring check that detects stale projections, access drift, redacted content exposure, or provenance gaps in memory-backed answers.
+_Avoid_: One-off debug check, manual inspection only
+
+**WorkOS E2E Test**:
+An opt-in or scheduled browser test that verifies real WorkOS authentication and organization membership produce the expected memory access context.
+_Avoid_: Default PR gate, mocked identity test
+
+**Auth Identity Adapter**:
+The seam that converts an authenticated person and their organization memberships into the scopes the memory system may read.
+_Avoid_: Memory permissions system, provider-specific user object
+
 **Term Record**:
 A canonical vocabulary entry for project-specific language. It exists to compress future communication and should not contain implementation details.
 _Avoid_: Spec entry, implementation note
@@ -63,6 +131,14 @@ _Avoid_: Temporary demo, parallel experiment
 **Primitive-First Slice**:
 The first Think prototype scope: one Think agent plus high-quality memory, routing, and evaluation tools. Agent roster and multiple specialized agents are deferred until the primitives prove useful.
 _Avoid_: Agent marketplace, multi-agent UI first
+
+**Trust-First Memory Slice**:
+The next memory scope that proves access, lifecycle, hashes, provenance, and precedence before adding reusable vector or graph projections.
+_Avoid_: Projection-first memory, vector-first trust
+
+**WorkOS Auth Slice**:
+The memory-auth integration slice that makes WorkOS populate the provider-neutral Auth Identity Adapter while keeping real WorkOS E2E tests opt-in.
+_Avoid_: Auth-first memory rewrite, credentials-required test suite
 
 **Legacy ChatAgent**:
 The previous `AIChatAgent` Durable Object class. It is no longer user-facing and has been removed from Worker code and bindings. Wrangler migration `v3` deletes this class, which will delete stored `ChatAgent` Durable Objects when deployed.
@@ -129,5 +205,9 @@ A threshold that must pass before changing memory, retrieval, routing, or self-i
 _Avoid_: Benchmark vanity metric
 
 **Lifecycle Status**:
-The state of a record: `draft`, `proposed`, `active`, `superseded`, or `rejected`. Planned decisions should not be consumed as current truth until promoted to `active`.
+The state of a record: `draft`, `proposed`, `active`, `superseded`, `rejected`, or `redacted`. Redacted records may remain auditable but must not be consumed as content.
 _Avoid_: Implicit truth
+
+**Active Memory Evidence**:
+A Memory Record that may be used as answer evidence because it is active, accessible, fresh, and not overridden by Memory Precedence.
+_Avoid_: Proposed context, debug-only memory

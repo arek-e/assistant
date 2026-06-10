@@ -2,8 +2,13 @@ import { Schema } from "effect";
 import { tool, type ToolSet } from "ai";
 import { effectInputSchema } from "@/server/effect-schema";
 import { routeTask, type RouteDecision } from "@/server/routing/effort-router";
+import {
+  createLocalMemoryAccessContext,
+  findMemoryScopeId,
+  type MemoryAccessContext
+} from "./access";
 import type { CanonicalMemoryStore } from "./contract";
-import type { MemoryRecord } from "./types";
+import type { MemoryRecordDraft } from "./types";
 
 const memoryKindSchema = Schema.Literal(
   "term_record",
@@ -22,10 +27,11 @@ const lifecycleStatusSchema = Schema.Literal(
   "proposed",
   "active",
   "superseded",
-  "rejected"
+  "rejected",
+  "redacted"
 );
 
-const memoryScopeSchema = Schema.Literal("user", "project", "repo", "session");
+const memoryScopeSchema = Schema.Literal("private", "team", "org", "session");
 
 const recordMemoryInputSchema = effectInputSchema(
   Schema.Struct({
@@ -34,6 +40,10 @@ const recordMemoryInputSchema = effectInputSchema(
     }),
     kind: memoryKindSchema,
     scope: memoryScopeSchema,
+    scopeId: Schema.String.annotations({
+      description:
+        "Scope owner id, such as local-user, default-team, default-org, or local-session."
+    }),
     status: lifecycleStatusSchema,
     title: Schema.String,
     body: Schema.String,
@@ -82,7 +92,8 @@ const routeTaskInputSchema = effectInputSchema(
 );
 
 export function createMemoryPrimitiveTools(
-  store: CanonicalMemoryStore
+  store: CanonicalMemoryStore,
+  accessContext: MemoryAccessContext = createLocalMemoryAccessContext()
 ): ToolSet {
   return {
     recordMemory: tool({
@@ -104,7 +115,8 @@ export function createMemoryPrimitiveTools(
           toMemoryRecord({
             id: input.id,
             kind: "decision_record",
-            scope: "project",
+            scope: "team",
+            scopeId: findMemoryScopeId(accessContext, "team"),
             status: input.status,
             title: input.title,
             body: `${input.body}\n\nAlternatives considered:\n${input.alternatives
@@ -130,20 +142,26 @@ export function createMemoryPrimitiveTools(
         "Search durable assistant memory. Use before answering questions about project decisions, preferences, terms, or prior choices.",
       inputSchema: searchMemoryInputSchema,
       execute: async ({ query }) => {
-        const result = store.search(query);
+        const result = store.search(query, accessContext);
         return {
           records: result.hits.map((hit) => ({
             id: hit.record.id,
             title: hit.record.title,
             kind: hit.record.kind,
+            scope: hit.record.scope,
+            scopeId: hit.record.scopeId,
             status: hit.record.status,
             body: hit.record.body,
             evidence: hit.record.evidence,
+            contentHash: hit.record.contentHash,
+            recordHash: hit.record.recordHash,
             score: hit.score,
             reasons: hit.reasons
           })),
           lifecycleViolations: result.lifecycleViolations,
-          blockedRecordIds: result.blockedRecordIds
+          blockedRecordIds: result.blockedRecordIds,
+          blockedRecords: result.blockedRecords,
+          provenance: result.provenance
         };
       }
     }),
@@ -168,13 +186,14 @@ export function createMemoryPrimitiveTools(
         "Make an internal Effort Router decision for a task using current memory retrieval evidence.",
       inputSchema: routeTaskInputSchema,
       execute: async ({ input }) => {
-        const retrieval = store.search(input);
+        const retrieval = store.search(input, accessContext);
         const route = routeTask(input, retrieval);
         const routeRecord = store.upsert(
           toRouteRecord(
             input,
             route,
-            retrieval.hits.map((hit) => hit.record.id)
+            retrieval.hits.map((hit) => hit.record.id),
+            findMemoryScopeId(accessContext, "session")
           )
         );
         return {
@@ -188,8 +207,11 @@ export function createMemoryPrimitiveTools(
 }
 
 function toMemoryRecord(
-  input: Omit<MemoryRecord, "createdAt" | "updatedAt">
-): MemoryRecord {
+  input: Omit<
+    MemoryRecordDraft,
+    "createdAt" | "updatedAt" | "contentHash" | "recordHash"
+  >
+): MemoryRecordDraft {
   const now = new Date().toISOString();
 
   return {
@@ -202,8 +224,9 @@ function toMemoryRecord(
 function toRouteRecord(
   input: string,
   route: RouteDecision,
-  retrievedRecordIds: readonly string[]
-): MemoryRecord {
+  retrievedRecordIds: readonly string[],
+  scopeId: string
+): MemoryRecordDraft {
   const now = new Date().toISOString();
   const inputHash = hashString(input);
 
@@ -211,6 +234,7 @@ function toRouteRecord(
     id: `route.${now.replace(/[^0-9]/g, "")}.${inputHash}`,
     kind: "route_record",
     scope: "session",
+    scopeId,
     status: "active",
     title: `${route.mode} route for ${truncate(input, 48)}`,
     body: JSON.stringify(
