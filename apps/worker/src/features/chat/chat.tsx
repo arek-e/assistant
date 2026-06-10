@@ -4,22 +4,20 @@ import {
   useRef,
   useState,
   type ClipboardEvent,
-  type DragEvent
+  type DragEvent,
+  type ReactNode
 } from "react";
 import { useAgent } from "agents/react";
 import { useAgentChat } from "@cloudflare/ai-chat/react";
 import type { MCPServersState } from "agents";
+import { cn } from "@teampitch/ui/lib/utils";
 import type { ThinkAgent } from "@/server";
 import {
-  BrainIcon,
-  BugIcon,
-  CircleIcon,
   ImageIcon,
   PlugsConnectedIcon,
-  TrashIcon,
   WrenchIcon
 } from "@/components/app/icons";
-import { Badge, Button, Switch, Text } from "@/components/app/ui";
+import { Badge, Button } from "@/components/app/ui";
 import { toastManager } from "@teampitch/ui/components/toast";
 import {
   clipboardFiles,
@@ -36,6 +34,11 @@ import { McpPanel } from "@/features/mcp/mcp-panel";
 import { ThemeToggle } from "@/features/theme/theme-toggle";
 import { ChatComposer } from "./chat-composer";
 import { MessageList } from "./message-list";
+import { AssistantAppShell } from "./ui/assistant-app-shell";
+
+type OutgoingMessagePart =
+  | { type: "text"; text: string }
+  | { type: "file"; mediaType: string; url: string };
 
 export function Chat({
   auth,
@@ -117,6 +120,7 @@ export function Chat({
 
   const isStreaming = status === "streaming" || status === "submitted";
   const mcpToolCount = mcpState.tools.length;
+  const mcpServerCount = Object.keys(mcpState.servers).length;
 
   useEffect(() => {
     if (!showMcpPanel) return;
@@ -215,105 +219,90 @@ export function Chat({
 
   const send = useCallback(async () => {
     const text = input.trim();
-    if ((!text && attachments.length === 0) || isStreaming) return;
+    if (!canSendMessage(text, attachments.length, isStreaming)) return;
     setInput("");
 
-    const parts: Array<
-      | { type: "text"; text: string }
-      | { type: "file"; mediaType: string; url: string }
-    > = [];
-    if (text) parts.push({ type: "text", text });
-
-    for (const attachment of attachments) {
-      const dataUri = await fileToDataUri(attachment.file);
-      parts.push({
-        type: "file",
-        mediaType: attachment.mediaType,
-        url: dataUri
-      });
-    }
-
+    const parts = await createOutgoingMessageParts(text, attachments);
     releaseAttachmentPreviews(attachments);
     setAttachments([]);
 
     sendMessage({ role: "user", parts });
-    if (textareaRef.current) textareaRef.current.style.height = "auto";
+    resetTextAreaHeight(textareaRef.current);
   }, [input, attachments, isStreaming, sendMessage]);
+
+  const integrationControls = (
+    <div className="relative" ref={mcpPanelRef}>
+      <Button
+        variant="secondary"
+        size="sm"
+        icon={<PlugsConnectedIcon size={15} />}
+        onClick={() => setShowMcpPanel(!showMcpPanel)}
+      >
+        MCP servers
+        {mcpToolCount > 0 && (
+          <Badge variant="primary" className="ml-1.5">
+            <WrenchIcon size={10} className="mr-0.5" />
+            {mcpToolCount}
+          </Badge>
+        )}
+      </Button>
+      {showMcpPanel && (
+        <McpPanel
+          mcpState={mcpState}
+          name={mcpName}
+          url={mcpUrl}
+          isAddingServer={isAddingServer}
+          onNameChange={setMcpName}
+          onUrlChange={setMcpUrl}
+          onAddServer={handleAddServer}
+          onClose={() => setShowMcpPanel(false)}
+          onRemoveServer={handleRemoveServer}
+        />
+      )}
+    </div>
+  );
 
   return (
     <div
-      className="flex flex-col h-screen bg-background relative"
+      className="relative h-screen"
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
     >
       {isDragging && <ImageDropOverlay />}
-
-      <header className="px-5 py-4 bg-card border-b border-border">
-        <div className="max-w-3xl mx-auto flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <h1 className="text-lg font-semibold text-foreground">
-              <span className="mr-2">⛅</span>Teampitch
-            </h1>
-            <Badge variant="secondary">
-              <BrainIcon size={12} className="mr-1" />
-              Think
-            </Badge>
-          </div>
-          <div className="flex items-center gap-3">
-            <ConnectionStatus connected={connected} />
-            <AccountControls session={auth} onSignOut={onSignOut} />
-            <div className="flex items-center gap-1.5">
-              <BugIcon size={14} className="text-muted-foreground" />
-              <Switch
-                checked={showDebugDrawer}
-                onCheckedChange={setShowDebugDrawer}
-                size="sm"
-                aria-label="Toggle debugger"
-              />
-            </div>
-            <ThemeToggle />
-            <div className="relative" ref={mcpPanelRef}>
-              <Button
-                variant="secondary"
-                icon={<PlugsConnectedIcon size={16} />}
-                onClick={() => setShowMcpPanel(!showMcpPanel)}
-              >
-                MCP
-                {mcpToolCount > 0 && (
-                  <Badge variant="primary" className="ml-1.5">
-                    <WrenchIcon size={10} className="mr-0.5" />
-                    {mcpToolCount}
-                  </Badge>
-                )}
-              </Button>
-              {showMcpPanel && (
-                <McpPanel
-                  mcpState={mcpState}
-                  name={mcpName}
-                  url={mcpUrl}
-                  isAddingServer={isAddingServer}
-                  onNameChange={setMcpName}
-                  onUrlChange={setMcpUrl}
-                  onAddServer={handleAddServer}
-                  onClose={() => setShowMcpPanel(false)}
-                  onRemoveServer={handleRemoveServer}
-                />
-              )}
-            </div>
-            <Button
-              variant="secondary"
-              icon={<TrashIcon size={16} />}
-              onClick={clearHistory}
-            >
-              Clear
-            </Button>
-          </div>
-        </div>
-      </header>
-
-      <div className="flex-1 overflow-y-auto">
-        <div className="max-w-3xl mx-auto px-5 py-6 space-y-5">
+      <AssistantAppShell
+        connected={connected}
+        isStreaming={isStreaming}
+        showDebug={showDebugDrawer}
+        toolCount={mcpToolCount}
+        serverCount={mcpServerCount}
+        messageCount={messages.length}
+        integrationControls={integrationControls}
+        themeToggle={<ThemeToggle />}
+        accountControls={
+          <AccountControls session={auth} onSignOut={onSignOut} />
+        }
+        workspacePreview={<WorkspacePreviewDocument />}
+        onShowDebugChange={setShowDebugDrawer}
+        onNewChat={clearHistory}
+        composer={
+          <ChatComposer
+            input={input}
+            attachments={attachments}
+            connected={connected}
+            isStreaming={isStreaming}
+            textareaRef={textareaRef}
+            fileInputRef={fileInputRef}
+            onInputChange={setInput}
+            onSend={send}
+            onStop={stop}
+            onAddFiles={addFiles}
+            onPaste={handlePaste}
+            onRemoveAttachment={removeAttachment}
+          />
+        }
+      >
+        <div className="space-y-5">
           <MessageList
             messages={messages}
             isStreaming={isStreaming}
@@ -327,22 +316,7 @@ export function Chat({
           />
           <div ref={messagesEndRef} />
         </div>
-      </div>
-
-      <ChatComposer
-        input={input}
-        attachments={attachments}
-        connected={connected}
-        isStreaming={isStreaming}
-        textareaRef={textareaRef}
-        fileInputRef={fileInputRef}
-        onInputChange={setInput}
-        onSend={send}
-        onStop={stop}
-        onAddFiles={addFiles}
-        onPaste={handlePaste}
-        onRemoveAttachment={removeAttachment}
-      />
+      </AssistantAppShell>
       <MemoryDebugDrawer
         open={showDebugDrawer}
         messages={messages}
@@ -355,27 +329,355 @@ export function Chat({
 
 function ImageDropOverlay() {
   return (
-    <div className="absolute inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm border-2 border-dashed border-primary rounded-xl m-2 pointer-events-none">
+    <div className="pointer-events-none absolute inset-0 z-50 m-2 flex items-center justify-center rounded-xl border-2 border-dashed border-primary bg-background/80 backdrop-blur-sm">
       <div className="flex flex-col items-center gap-2 text-primary">
         <ImageIcon size={40} />
-        <Text variant="heading3" as="span">
+        <span className="text-lg font-semibold text-foreground">
           Drop images here
-        </Text>
+        </span>
       </div>
     </div>
   );
 }
 
-function ConnectionStatus({ connected }: { connected: boolean }) {
+function canSendMessage(
+  text: string,
+  attachmentCount: number,
+  isStreaming: boolean
+) {
+  return (text.length > 0 || attachmentCount > 0) && !isStreaming;
+}
+
+async function createOutgoingMessageParts(
+  text: string,
+  attachments: Attachment[]
+): Promise<OutgoingMessagePart[]> {
+  const textParts = createTextMessageParts(text);
+  const fileParts = await Promise.all(attachments.map(createFileMessagePart));
+  return [...textParts, ...fileParts];
+}
+
+function createTextMessageParts(text: string): OutgoingMessagePart[] {
+  return text ? [{ type: "text", text }] : [];
+}
+
+async function createFileMessagePart(
+  attachment: Attachment
+): Promise<OutgoingMessagePart> {
+  return {
+    type: "file",
+    mediaType: attachment.mediaType,
+    url: await fileToDataUri(attachment.file)
+  };
+}
+
+function resetTextAreaHeight(textarea: HTMLTextAreaElement | null) {
+  if (!textarea) return;
+  textarea.style.height = "auto";
+}
+
+type WorkspacePreviewPage = {
+  id: string;
+  tabLabel: string;
+  eyebrow: string;
+  title: string;
+  description: string;
+  sections: Array<{
+    title: string;
+    body: string;
+    items?: string[];
+  }>;
+};
+
+const workspacePreviewPages = [
+  {
+    id: "shell-slots",
+    tabLabel: "Shell slots",
+    eyebrow: "Product structure note",
+    title: "Assistant Shell Slots",
+    description:
+      "Durable shell regions for the assistant workspace. These terms should stay consistent in product discussion, component naming, and implementation reviews.",
+    sections: [
+      {
+        title: "Primary Rail",
+        body: "Stable workspace modes and persistent account controls.",
+        items: [
+          "Assistant / chat",
+          "Work queue / tasks",
+          "Integrations / tools",
+          "Memory / knowledge",
+          "Settings",
+          "Bottom: theme + user profile"
+        ]
+      },
+      {
+        title: "Workspace Preview",
+        body: "Optional center preview surface for documents, task artifacts, plans, uploaded files, or other work objects."
+      },
+      {
+        title: "Right Details",
+        body: "Accountability and control inspector for runtime state, approvals, recovery, and selected object metadata."
+      }
+    ]
+  },
+  {
+    id: "preview-surfaces",
+    tabLabel: "Preview surfaces",
+    eyebrow: "Workspace objects",
+    title: "Preview Surfaces",
+    description:
+      "The preview slot should feel like a focused page inside the workspace, not a separate split screen or modal.",
+    sections: [
+      {
+        title: "Document pages",
+        body: "Use the slot for generated plans, notes, uploaded files, transcripts, and editable work objects.",
+        items: [
+          "document preview",
+          "task artifact preview",
+          "generated plan preview",
+          "uploaded file preview"
+        ]
+      },
+      {
+        title: "Chat position",
+        body: "When a preview is open, chat becomes the right-side work companion for the selected document."
+      }
+    ]
+  },
+  {
+    id: "control-inspector",
+    tabLabel: "Inspector",
+    eyebrow: "Accountability layer",
+    title: "Control Inspector",
+    description:
+      "The inspector stays separate from the preview and chat so runtime state, tools, and approvals do not compete with the working document.",
+    sections: [
+      {
+        title: "Runtime status",
+        body: "Show whether the agent is idle, responding, using tools, or waiting on approval."
+      },
+      {
+        title: "Recovery",
+        body: "Expose failed runs, approval decisions, tool state, and recovery actions in a predictable place."
+      }
+    ]
+  }
+] satisfies WorkspacePreviewPage[];
+
+type WorkspacePreviewPageId = (typeof workspacePreviewPages)[number]["id"];
+
+function WorkspacePreviewDocument() {
+  const [activePageId, setActivePageId] =
+    useState<WorkspacePreviewPageId>("shell-slots");
+  const activePage =
+    workspacePreviewPages.find((page) => page.id === activePageId) ??
+    workspacePreviewPages[0];
+
   return (
-    <div className="flex items-center gap-1.5">
-      <CircleIcon
-        size={8}
-        className={connected ? "text-success" : "text-destructive"}
-      />
-      <Text size="xs" variant="secondary">
-        {connected ? "Connected" : "Disconnected"}
-      </Text>
+    <div className="flex h-full min-h-0 flex-col bg-[#fbfbfa]">
+      <div
+        role="tablist"
+        aria-label="Preview pages"
+        className="relative flex h-11 shrink-0 items-end gap-1 overflow-visible border-b border-black/10 bg-[#f1f1ee] px-3 pt-2"
+      >
+        {workspacePreviewPages.map((page, index) => (
+          <WorkspacePreviewTab
+            key={page.id}
+            active={page.id === activePage.id}
+            page={page}
+            position={getWorkspacePreviewTabPosition(
+              index,
+              workspacePreviewPages.length
+            )}
+            onSelect={setActivePageId}
+          />
+        ))}
+      </div>
+      <div className="min-h-0 flex-1 overflow-y-auto px-5 py-5">
+        <article className="mx-auto max-w-3xl space-y-5 text-neutral-900">
+          <div className="space-y-2.5">
+            <p className="text-xs font-medium uppercase tracking-wide text-neutral-400">
+              {activePage.eyebrow}
+            </p>
+            <h1 className="text-3xl font-medium tracking-normal text-neutral-950">
+              {activePage.title}
+            </h1>
+            <p className="max-w-2xl text-base leading-7 text-neutral-600">
+              {activePage.description}
+            </p>
+          </div>
+
+          {activePage.sections.map((section) => (
+            <PreviewSection key={section.title} title={section.title}>
+              <p>{section.body}</p>
+              {section.items && <PreviewList items={section.items} />}
+            </PreviewSection>
+          ))}
+        </article>
+      </div>
     </div>
+  );
+}
+
+type WorkspacePreviewTabPosition = "first" | "middle" | "last";
+
+const workspacePreviewTabCornerPaths = {
+  left: {
+    background: "M10 0 A10 10 0 0 1 0 10 L10 10 Z",
+    border: "M10 0 A10 10 0 0 1 0 10 L0 9 A9 9 0 0 0 9 0 Z",
+    cover: "M9 0 H10 V10 H9 Z",
+    className: "-left-[10px]"
+  },
+  right: {
+    background: "M0 0 A10 10 0 0 0 10 10 L0 10 Z",
+    border: "M0 0 A10 10 0 0 0 10 10 L10 9 A9 9 0 0 1 1 0 Z",
+    cover: "M0 0 H1 V10 H0 Z",
+    className: "-right-[10px]"
+  }
+} satisfies Record<
+  "left" | "right",
+  {
+    background: string;
+    border: string;
+    cover: string;
+    className: string;
+  }
+>;
+
+const workspacePreviewTabCornerVisibility = {
+  left: {
+    first: false,
+    middle: true,
+    last: true
+  },
+  right: {
+    first: true,
+    middle: true,
+    last: false
+  }
+} satisfies Record<
+  "left" | "right",
+  Record<WorkspacePreviewTabPosition, boolean>
+>;
+
+function WorkspacePreviewTab({
+  active,
+  page,
+  position,
+  onSelect
+}: {
+  active: boolean;
+  page: WorkspacePreviewPage;
+  position: WorkspacePreviewTabPosition;
+  onSelect: (pageId: WorkspacePreviewPageId) => void;
+}) {
+  return (
+    <button
+      type="button"
+      role="tab"
+      aria-selected={active}
+      className={getWorkspacePreviewTabClassName(active)}
+      onClick={() => onSelect(page.id)}
+    >
+      <WorkspacePreviewTabCornerSlot
+        active={active}
+        position={position}
+        side="left"
+      />
+      <span className="relative z-10">{page.tabLabel}</span>
+      <WorkspacePreviewTabCornerSlot
+        active={active}
+        position={position}
+        side="right"
+      />
+    </button>
+  );
+}
+
+function getWorkspacePreviewTabClassName(active: boolean) {
+  return cn(
+    "relative h-9 shrink-0 px-3 text-sm outline-none transition-[background-color,color]",
+    active
+      ? "z-10 -mb-px rounded-t-xl border border-b-0 border-black/10 bg-[#fbfbfa] pb-px text-neutral-950 focus-visible:border-black/20 focus-visible:underline focus-visible:underline-offset-4"
+      : "mb-px rounded-t-lg text-neutral-500 hover:bg-[#fbfbfa]/70 hover:text-neutral-800 focus-visible:bg-[#fbfbfa]/70 focus-visible:text-neutral-950 focus-visible:underline focus-visible:underline-offset-4"
+  );
+}
+
+function WorkspacePreviewTabCornerSlot({
+  active,
+  position,
+  side
+}: {
+  active: boolean;
+  position: WorkspacePreviewTabPosition;
+  side: "left" | "right";
+}) {
+  if (!shouldShowWorkspacePreviewTabCorner(active, position, side)) return null;
+  return <WorkspacePreviewTabCorner side={side} />;
+}
+
+function WorkspacePreviewTabCorner({ side }: { side: "left" | "right" }) {
+  const paths = workspacePreviewTabCornerPaths[side];
+
+  return (
+    <svg
+      aria-hidden
+      className={cn(
+        "pointer-events-none absolute bottom-0 size-[10px]",
+        paths.className
+      )}
+      focusable="false"
+      shapeRendering="geometricPrecision"
+      viewBox="0 0 10 10"
+    >
+      <path d={paths.background} fill="#fbfbfa" />
+      <path d={paths.cover} fill="#fbfbfa" />
+      <path d={paths.border} fill="rgba(0,0,0,0.1)" />
+    </svg>
+  );
+}
+
+function shouldShowWorkspacePreviewTabCorner(
+  active: boolean,
+  position: WorkspacePreviewTabPosition,
+  side: "left" | "right"
+) {
+  return active && workspacePreviewTabCornerVisibility[side][position];
+}
+
+function getWorkspacePreviewTabPosition(
+  index: number,
+  count: number
+): WorkspacePreviewTabPosition {
+  if (index === 0) return "first";
+  if (index === count - 1) return "last";
+  return "middle";
+}
+
+function PreviewSection({
+  children,
+  title
+}: {
+  children: ReactNode;
+  title: string;
+}) {
+  return (
+    <section className="space-y-2.5 border-t border-black/10 pt-4 text-sm leading-6 text-neutral-600">
+      <h2 className="text-xl font-medium text-neutral-950">{title}</h2>
+      {children}
+    </section>
+  );
+}
+
+function PreviewList({ items }: { items: string[] }) {
+  return (
+    <ul className="space-y-2">
+      {items.map((item) => (
+        <li key={item} className="flex gap-3">
+          <span className="mt-2 size-1.5 rounded-full bg-neutral-300" />
+          <span>{item}</span>
+        </li>
+      ))}
+    </ul>
   );
 }
