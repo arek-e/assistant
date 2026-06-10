@@ -14,7 +14,7 @@ import {
   type AgentVisualState
 } from "@/features/avatar/agent-avatar";
 
-const expandedPanelWidth = 286;
+const expandedPanelWidth = 304;
 const collapsedPanelWidth = 0;
 
 export function AssistantAppShell({
@@ -116,18 +116,29 @@ function DesktopAssistantNav({
   onPanelOpenChange: (open: boolean) => void;
   onShowDebugChange: (checked: boolean) => void;
 }) {
-  const panelWidth = getPanelWidth(panelOpen);
   const avatarState = getAvatarState(connected);
 
   return (
     <div className="hidden h-full shrink-0 md:flex">
+      <PrimaryRail
+        connected={connected}
+        panelOpen={panelOpen}
+        showDebug={showDebug}
+        onNewChat={onNewChat}
+        onPanelOpenChange={onPanelOpenChange}
+        onShowDebugChange={onShowDebugChange}
+      />
       <motion.aside
         aria-hidden={!panelOpen}
-        className="h-full overflow-hidden border-r border-border/80 bg-[#f2f2ef]"
-        animate={{ width: panelWidth }}
+        className="h-full overflow-hidden bg-[#f2f2ef]"
+        animate={{ width: getPanelWidth(panelOpen) }}
         transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
       >
-        <div className="flex h-full w-[17.875rem] flex-col p-3">
+        <motion.div
+          className="flex h-full w-[19rem] flex-col p-3"
+          animate={{ opacity: panelOpen ? 1 : 0 }}
+          transition={{ duration: 0.12 }}
+        >
           <div className="mb-4 flex h-9 items-center justify-between px-1">
             <div className="flex min-w-0 items-center gap-2">
               <AgentAvatar state={avatarState} size="sm" />
@@ -199,22 +210,18 @@ function DesktopAssistantNav({
               </div>
             </NavSection>
           </div>
-        </div>
+        </motion.div>
       </motion.aside>
 
-      <BoundaryRail
-        connected={connected}
+      <PanelBoundary
         panelOpen={panelOpen}
-        showDebug={showDebug}
-        onNewChat={onNewChat}
         onPanelOpenChange={onPanelOpenChange}
-        onShowDebugChange={onShowDebugChange}
       />
     </div>
   );
 }
 
-function BoundaryRail({
+function PrimaryRail({
   connected,
   panelOpen,
   showDebug,
@@ -229,24 +236,22 @@ function BoundaryRail({
   onPanelOpenChange: (open: boolean) => void;
   onShowDebugChange: (checked: boolean) => void;
 }) {
-  const toggleLabel = getPanelToggleLabel(panelOpen);
-  const toggleIcon = getPanelToggleIcon(panelOpen);
   const connectionDotClass = getConnectionDotClass(connected);
 
   return (
-    <aside className="flex h-full w-[4.25rem] shrink-0 flex-col items-center border-r border-black/20 bg-[#10100f] py-4 text-white shadow-[8px_0_30px_rgba(0,0,0,0.08)]">
+    <aside className="flex h-full w-[4.5rem] shrink-0 flex-col items-center bg-[#10100f] py-4 text-white shadow-[8px_0_30px_rgba(0,0,0,0.08)]">
       <button
         type="button"
-        aria-label={toggleLabel}
-        className="grid size-10 place-items-center rounded-xl border border-white/10 bg-white text-sm font-semibold text-[#10100f] shadow-sm transition-transform active:scale-95"
-        onClick={() => onPanelOpenChange(!panelOpen)}
+        aria-label="Open assistant panel"
+        className="grid size-10 place-items-center rounded-xl text-white transition-colors hover:bg-white/[0.08] active:scale-95"
+        onClick={() => onPanelOpenChange(true)}
       >
-        {toggleIcon}
+        <RailMark />
       </button>
 
       <nav className="mt-9 flex flex-1 flex-col items-center gap-2">
         <RailButton
-          active
+          active={panelOpen}
           label="Current chat"
           icon={<ChatCircleDotsIcon size={18} />}
           onClick={() => onPanelOpenChange(true)}
@@ -269,6 +274,41 @@ function BoundaryRail({
         title={connected ? "Connected" : "Disconnected"}
       />
     </aside>
+  );
+}
+
+function RailMark() {
+  return (
+    <span aria-hidden className="grid size-6 grid-cols-2 grid-rows-2 gap-0.5">
+      <span className="bg-white" />
+      <span className="bg-white" />
+      <span className="bg-white" />
+      <span className="bg-white" />
+    </span>
+  );
+}
+
+function PanelBoundary({
+  panelOpen,
+  onPanelOpenChange
+}: {
+  panelOpen: boolean;
+  onPanelOpenChange: (open: boolean) => void;
+}) {
+  const toggleLabel = getPanelToggleLabel(panelOpen);
+  const toggleIcon = getPanelToggleIcon(panelOpen);
+
+  return (
+    <div className="relative z-20 h-full w-px shrink-0 bg-border/80">
+      <button
+        type="button"
+        aria-label={toggleLabel}
+        className="absolute left-1/2 top-1/2 grid h-14 w-5 -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full border border-border bg-background text-muted-foreground shadow-sm transition-colors hover:border-neutral-300 hover:text-foreground"
+        onClick={() => onPanelOpenChange(!panelOpen)}
+      >
+        {toggleIcon}
+      </button>
+    </div>
   );
 }
 
