@@ -76,7 +76,9 @@ export function AssistantAppShell({
 }) {
   const [panelOpen, setPanelOpen] = useState(true);
   const hasWorkspacePreview = Boolean(workspacePreview);
-  const [detailsPanelOpen, setDetailsPanelOpen] = useState(true);
+  const [detailsPanelOpen, setDetailsPanelOpen] = useState(
+    () => !hasWorkspacePreview
+  );
   const statusLabel = getStatusLabel(isStreaming, connected);
   const shellSlots: AssistantShellSlots = {
     primaryAndSecondaryNavigation: (
@@ -177,23 +179,27 @@ function AssistantMainContentSlot({
         onDetailsPanelOpenChange={onDetailsPanelOpenChange}
         onNewChat={onNewChat}
       />
-      <div className="relative min-h-0 flex-1 overflow-hidden">
-        <motion.div
-          className="h-full overflow-y-auto"
-          initial={{ opacity: 0, y: 8 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.2, ease: [0.22, 1, 0.36, 1] }}
-        >
-          <div className="mx-auto w-full max-w-3xl px-5 pb-10 pt-10 sm:px-8 lg:pt-16">
-            {children}
+      <div className={getMainContentBodyClassName(hasWorkspacePreview)}>
+        {hasWorkspacePreview && (
+          <WorkspacePreviewSlot open={hasWorkspacePreview}>
+            {workspacePreview}
+          </WorkspacePreviewSlot>
+        )}
+        <div className={getChatColumnClassName(hasWorkspacePreview)}>
+          <motion.div
+            className="min-h-0 flex-1 overflow-y-auto"
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.2, ease: [0.22, 1, 0.36, 1] }}
+          >
+            <div className={getChatStreamClassName(hasWorkspacePreview)}>
+              {children}
+            </div>
+          </motion.div>
+          <div className={getComposerDockClassName(hasWorkspacePreview)}>
+            {composer}
           </div>
-        </motion.div>
-        <WorkspacePreviewSlot open={hasWorkspacePreview}>
-          {workspacePreview}
-        </WorkspacePreviewSlot>
-      </div>
-      <div className="shrink-0 bg-gradient-to-t from-background via-background to-background/0 px-4 pb-5 pt-3 sm:px-8">
-        {composer}
+        </div>
       </div>
     </section>
   );
@@ -212,11 +218,10 @@ function WorkspacePreviewSlot({
       aria-hidden={!open}
       inert={!open}
       className={getWorkspacePreviewSlotClassName(open)}
-      initial={{ opacity: 0, scale: 0.985, y: 10 }}
+      initial={{ opacity: 0, x: -8 }}
       animate={{
         opacity: open ? 1 : 0,
-        scale: open ? 1 : 0.985,
-        y: open ? 0 : 10
+        x: open ? 0 : -8
       }}
       transition={{ duration: 0.2, ease: [0.22, 1, 0.36, 1] }}
     >
@@ -893,9 +898,45 @@ function getMainContentSlotClassName() {
   return "relative flex min-w-0 flex-1 flex-col bg-background";
 }
 
+function getMainContentBodyClassName(hasWorkspacePreview: boolean) {
+  return cn(
+    "min-h-0 flex-1 overflow-hidden",
+    hasWorkspacePreview
+      ? "flex flex-col p-0 xl:flex-row xl:gap-3 xl:p-3"
+      : "flex flex-col"
+  );
+}
+
+function getChatColumnClassName(hasWorkspacePreview: boolean) {
+  return cn(
+    "flex min-h-0 flex-col bg-background",
+    hasWorkspacePreview
+      ? "min-w-0 flex-1 overflow-hidden xl:w-[min(27rem,34vw)] xl:min-w-[23rem] xl:flex-none xl:border-l xl:border-black/10 xl:pl-3"
+      : "min-w-0 flex-1"
+  );
+}
+
+function getChatStreamClassName(hasWorkspacePreview: boolean) {
+  return cn(
+    "mx-auto w-full",
+    hasWorkspacePreview
+      ? "max-w-3xl px-5 pb-10 pt-10 sm:px-8 lg:pt-16 xl:max-w-none xl:px-1 xl:pb-4 xl:pt-3"
+      : "max-w-3xl px-5 pb-10 pt-10 sm:px-8 lg:pt-16"
+  );
+}
+
+function getComposerDockClassName(hasWorkspacePreview: boolean) {
+  return cn(
+    "shrink-0 bg-gradient-to-t from-background via-background to-background/0",
+    hasWorkspacePreview
+      ? "px-4 pb-5 pt-3 sm:px-8 xl:px-0 xl:pb-1 xl:pt-2"
+      : "px-4 pb-5 pt-3 sm:px-8"
+  );
+}
+
 function getWorkspacePreviewSlotClassName(open: boolean) {
   return cn(
-    "pointer-events-auto absolute inset-x-4 bottom-4 top-4 z-30 mx-auto hidden max-w-3xl flex-col overflow-hidden rounded-xl border border-black/10 bg-[#fbfbfa] shadow-[0_18px_50px_-24px_rgba(16,16,15,0.5),0_0_0_1px_rgba(255,255,255,0.78)] sm:inset-x-6 sm:bottom-6 sm:top-6",
+    "hidden min-w-0 flex-1 flex-col overflow-hidden rounded-lg border border-black/10 bg-[#fbfbfa]",
     open && "xl:flex"
   );
 }

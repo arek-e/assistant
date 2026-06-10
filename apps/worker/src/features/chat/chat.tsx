@@ -349,7 +349,7 @@ function ImageDropOverlay() {
 function WorkspacePreviewDocument() {
   return (
     <div className="flex h-full min-h-0 flex-col bg-[#fbfbfa]">
-      <div className="flex h-12 shrink-0 items-center justify-between gap-3 border-b border-black/10 px-4">
+      <div className="flex h-11 shrink-0 items-center justify-between gap-3 border-b border-black/10 px-3.5">
         <div className="min-w-0">
           <p className="truncate text-sm font-medium text-neutral-950">
             Assistant Shell Slots
@@ -359,13 +359,13 @@ function WorkspacePreviewDocument() {
           Preview
         </span>
       </div>
-      <div className="min-h-0 flex-1 overflow-y-auto px-7 py-8">
-        <article className="mx-auto max-w-3xl space-y-7 text-neutral-900">
-          <div className="space-y-3">
+      <div className="min-h-0 flex-1 overflow-y-auto px-5 py-5">
+        <article className="mx-auto max-w-3xl space-y-5 text-neutral-900">
+          <div className="space-y-2.5">
             <p className="text-xs font-medium uppercase tracking-wide text-neutral-400">
               Product structure note
             </p>
-            <h1 className="text-4xl font-medium tracking-normal text-neutral-950">
+            <h1 className="text-3xl font-medium tracking-normal text-neutral-950">
               Assistant Shell Slots
             </h1>
             <p className="max-w-2xl text-base leading-7 text-neutral-600">
@@ -424,7 +424,7 @@ function PreviewSection({
   title: string;
 }) {
   return (
-    <section className="space-y-3 border-t border-black/10 pt-5 text-sm leading-6 text-neutral-600">
+    <section className="space-y-2.5 border-t border-black/10 pt-4 text-sm leading-6 text-neutral-600">
       <h2 className="text-xl font-medium text-neutral-950">{title}</h2>
       {children}
     </section>
