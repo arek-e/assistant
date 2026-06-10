@@ -1,9 +1,28 @@
-import { isToolUIPart, type UIMessage } from "ai";
+import { getToolName, isToolUIPart, type UIMessage } from "ai";
 import { code } from "@streamdown/code";
 import { Streamdown } from "streamdown";
-import { BrainIcon, CaretDownIcon } from "@/components/app/icons";
-import { Button, Empty } from "@/components/app/ui";
-import { ToolPartView } from "@/features/tools/tool-part-view";
+import {
+  BrainIcon,
+  CaretDownIcon,
+  CheckCircleIcon,
+  GearIcon,
+  WrenchIcon,
+  XCircleIcon
+} from "@/components/app/icons";
+import { Badge, Button, Empty } from "@/components/app/ui";
+import type { AgentVisualState } from "@/features/avatar/agent-avatar";
+import {
+  ActivityCard,
+  ActivityCodeBlock,
+  ActivityDisclosure,
+  ActivityMeta,
+  ActivityTitle,
+  ActivityTray,
+  AssistantTimeline,
+  DisclosureCaret,
+  TimelineNode,
+  WorkSummary
+} from "@/features/chat/ui/assistant-timeline";
 
 const starterPrompts = [
   "What do you remember about this project?",
@@ -87,6 +106,11 @@ function MessageView({
   }) => void;
 }) {
   const isUser = message.role === "user";
+  const avatarState = getAssistantAvatarState(
+    message,
+    isLastAssistant,
+    isStreaming
+  );
 
   return (
     <div className="space-y-2">
@@ -96,34 +120,59 @@ function MessageView({
         </pre>
       )}
 
-      {message.parts.filter(isToolUIPart).map((part) => (
-        <ToolPartView
-          key={part.toolCallId}
-          part={part}
+      {isUser ? (
+        <UserMessageParts message={message} />
+      ) : (
+        <AssistantRun
+          message={message}
+          avatarState={avatarState}
+          isStreaming={isLastAssistant && isStreaming}
           addToolApprovalResponse={addToolApprovalResponse}
         />
-      ))}
+      )}
+    </div>
+  );
+}
 
-      {message.parts
-        .filter(
-          (part) =>
-            part.type === "reasoning" &&
-            (part as { text?: string }).text?.trim()
-        )
-        .map((part, index) => (
-          <ReasoningPart
-            key={index}
-            part={
-              part as {
-                type: "reasoning";
-                text: string;
-                state?: "streaming" | "done";
-              }
-            }
-            isStreaming={isStreaming}
-          />
-        ))}
+function getAssistantAvatarState(
+  message: UIMessage,
+  isLastAssistant: boolean,
+  isStreaming: boolean
+): AgentVisualState {
+  if (message.role !== "assistant") return "idle";
 
+  const hasRejectedTool = message.parts.some(
+    (part) =>
+      isToolUIPart(part) &&
+      (part.state === "output-denied" ||
+        ("approval" in part &&
+          (part.approval as { approved?: boolean })?.approved === false))
+  );
+  if (hasRejectedTool) return "error";
+
+  const hasRunningTool = message.parts.some(
+    (part) =>
+      isToolUIPart(part) &&
+      (part.state === "input-available" ||
+        part.state === "input-streaming" ||
+        part.state === "approval-requested")
+  );
+  if (hasRunningTool) return "tool";
+
+  const hasStreamingReasoning = message.parts.some(
+    (part) =>
+      part.type === "reasoning" &&
+      (part as { state?: string }).state === "streaming"
+  );
+  if (hasStreamingReasoning) return "thinking";
+
+  if (isLastAssistant && isStreaming) return "speaking";
+  return "idle";
+}
+
+function UserMessageParts({ message }: { message: UIMessage }) {
+  return (
+    <>
       {message.parts
         .filter(
           (part): part is Extract<typeof part, { type: "file" }> =>
@@ -132,10 +181,7 @@ function MessageView({
               true
         )
         .map((part, index) => (
-          <div
-            key={`file-${index}`}
-            className={`flex ${isUser ? "justify-end" : "justify-start"}`}
-          >
+          <div key={`file-${index}`} className="flex justify-end">
             <img
               src={part.url}
               alt="Attachment"
@@ -150,12 +196,290 @@ function MessageView({
           <TextPart
             key={index}
             text={(part as { type: "text"; text: string }).text}
-            isUser={isUser}
-            isAnimating={isLastAssistant && isStreaming}
+            isUser
+            isAnimating={false}
           />
         ))}
-    </div>
+    </>
   );
+}
+
+function AssistantRun({
+  message,
+  avatarState,
+  isStreaming,
+  addToolApprovalResponse
+}: {
+  message: UIMessage;
+  avatarState: AgentVisualState;
+  isStreaming: boolean;
+  addToolApprovalResponse: (response: {
+    id: string;
+    approved: boolean;
+  }) => void;
+}) {
+  const renderActivityNodes = (showDot: boolean) =>
+    message.parts
+      .map((part, index) => {
+        if (isToolUIPart(part)) {
+          return (
+            <TimelineNode
+              key={part.toolCallId}
+              variant={toolNodeVariant(part)}
+              showDot={showDot}
+            >
+              <ToolTimelinePart
+                part={part}
+                addToolApprovalResponse={addToolApprovalResponse}
+              />
+            </TimelineNode>
+          );
+        }
+
+        if (
+          part.type === "reasoning" &&
+          (part as { text?: string }).text?.trim()
+        ) {
+          return (
+            <TimelineNode
+              key={`reasoning-${index}`}
+              variant="thinking"
+              showDot={showDot}
+            >
+              <ReasoningPart
+                part={
+                  part as {
+                    type: "reasoning";
+                    text: string;
+                    state?: "streaming" | "done";
+                  }
+                }
+                isStreaming={isStreaming}
+              />
+            </TimelineNode>
+          );
+        }
+
+        if (
+          part.type === "file" &&
+          (part as { mediaType?: string }).mediaType?.startsWith("image/") ===
+            true
+        ) {
+          const filePart = part as Extract<typeof part, { type: "file" }>;
+          return (
+            <TimelineNode
+              key={`file-${index}`}
+              variant="idle"
+              showDot={showDot}
+            >
+              <img
+                src={filePart.url}
+                alt="Attachment"
+                className="max-h-64 rounded-xl border border-border object-contain"
+              />
+            </TimelineNode>
+          );
+        }
+
+        if (part.type === "text") {
+          return null;
+        }
+
+        return null;
+      })
+      .filter(Boolean);
+
+  const activityNodes = renderActivityNodes(true);
+
+  const finalNodes = message.parts
+    .map((part, index) => {
+      if (part.type === "text") {
+        return (
+          <TimelineNode key={`text-${index}`} variant="speaking">
+            <TextPart
+              text={(part as { type: "text"; text: string }).text}
+              isUser={false}
+              isAnimating={isStreaming}
+            />
+          </TimelineNode>
+        );
+      }
+
+      return null;
+    })
+    .filter(Boolean);
+
+  const shouldCollapseActivity = !isStreaming && activityNodes.length > 0;
+  const nodes = shouldCollapseActivity
+    ? [
+        <TimelineNode key="work-summary" variant="success">
+          <ActivityDisclosure
+            defaultOpen={false}
+            header={(open) => (
+              <>
+                <ActivityTitle>
+                  <span className="font-medium text-foreground">
+                    Completed in {activityNodes.length} step
+                    {activityNodes.length === 1 ? "" : "s"}
+                  </span>
+                  <DisclosureCaret open={open}>
+                    <CaretDownIcon size={13} />
+                  </DisclosureCaret>
+                </ActivityTitle>
+              </>
+            )}
+          >
+            <WorkSummary>{renderActivityNodes(false)}</WorkSummary>
+          </ActivityDisclosure>
+        </TimelineNode>,
+        ...finalNodes
+      ]
+    : [...activityNodes, ...finalNodes];
+
+  if (nodes.length === 0) return null;
+
+  return (
+    <AssistantTimeline avatarState={avatarState}>{nodes}</AssistantTimeline>
+  );
+}
+
+function toolNodeVariant(
+  part: UIMessage["parts"][number]
+): "tool" | "success" | "error" {
+  if (!isToolUIPart(part)) return "tool";
+  if (
+    part.state === "output-denied" ||
+    ("approval" in part &&
+      (part.approval as { approved?: boolean })?.approved === false)
+  ) {
+    return "error";
+  }
+  if (part.state === "output-available") return "success";
+  return "tool";
+}
+
+function ToolTimelinePart({
+  part,
+  addToolApprovalResponse
+}: {
+  part: UIMessage["parts"][number];
+  addToolApprovalResponse: (response: {
+    id: string;
+    approved: boolean;
+  }) => void;
+}) {
+  if (!isToolUIPart(part)) return null;
+
+  const toolName = getToolName(part);
+  const approvalId =
+    "approval" in part ? (part.approval as { id?: string })?.id : undefined;
+
+  if (part.state === "output-available") {
+    return (
+      <ActivityDisclosure
+        defaultOpen={false}
+        header={(open) => (
+          <>
+            <ActivityTitle>
+              <GearIcon size={14} className="text-muted-foreground" />
+              <span className="truncate font-medium">{toolName}</span>
+              <DisclosureCaret open={open}>
+                <CaretDownIcon size={13} />
+              </DisclosureCaret>
+            </ActivityTitle>
+          </>
+        )}
+      >
+        <ActivityTray>
+          <ActivityCodeBlock>
+            {JSON.stringify(part.output, null, 2)}
+          </ActivityCodeBlock>
+        </ActivityTray>
+      </ActivityDisclosure>
+    );
+  }
+
+  if ("approval" in part && part.state === "approval-requested") {
+    return (
+      <ActivityCard approval>
+        <div className="flex min-h-9 w-fit max-w-full items-center justify-start gap-[0.55rem] py-[0.2rem] text-xs text-foreground">
+          <ActivityTitle>
+            <WrenchIcon size={14} className="text-warning" />
+            <span className="truncate font-medium">Approval: {toolName}</span>
+          </ActivityTitle>
+          <Badge variant="secondary">Waiting</Badge>
+        </div>
+        <ActivityTray>
+          <ActivityCodeBlock>
+            {JSON.stringify(part.input, null, 2)}
+          </ActivityCodeBlock>
+          <div className="mt-2 flex gap-2">
+            <Button
+              variant="primary"
+              size="sm"
+              icon={<CheckCircleIcon size={14} />}
+              onClick={() => {
+                if (approvalId) {
+                  addToolApprovalResponse({ id: approvalId, approved: true });
+                }
+              }}
+            >
+              Approve
+            </Button>
+            <Button
+              variant="secondary"
+              size="sm"
+              icon={<XCircleIcon size={14} />}
+              onClick={() => {
+                if (approvalId) {
+                  addToolApprovalResponse({ id: approvalId, approved: false });
+                }
+              }}
+            >
+              Reject
+            </Button>
+          </div>
+        </ActivityTray>
+      </ActivityCard>
+    );
+  }
+
+  if (
+    part.state === "output-denied" ||
+    ("approval" in part &&
+      (part.approval as { approved?: boolean })?.approved === false)
+  ) {
+    return (
+      <ActivityCard>
+        <div className="flex min-h-9 w-fit max-w-full items-center justify-start gap-[0.55rem] py-[0.2rem] text-xs text-foreground">
+          <ActivityTitle>
+            <XCircleIcon size={14} className="text-destructive" />
+            <span className="truncate font-medium">{toolName}</span>
+          </ActivityTitle>
+          <Badge variant="secondary">Rejected</Badge>
+        </div>
+      </ActivityCard>
+    );
+  }
+
+  if (part.state === "input-available" || part.state === "input-streaming") {
+    return (
+      <ActivityCard>
+        <div className="flex min-h-9 w-fit max-w-full items-center justify-start gap-[0.55rem] py-[0.2rem] text-xs text-foreground">
+          <ActivityTitle>
+            <GearIcon
+              size={14}
+              className="animate-spin text-muted-foreground"
+            />
+            <span className="truncate font-medium">Running {toolName}</span>
+          </ActivityTitle>
+          <Badge variant="secondary">Active</Badge>
+        </div>
+      </ActivityCard>
+    );
+  }
+
+  return null;
 }
 
 function ReasoningPart({
@@ -168,23 +492,29 @@ function ReasoningPart({
   const isDone = part.state === "done" || !isStreaming;
 
   return (
-    <div className="flex justify-start">
-      <details className="max-w-[85%] w-full" open={!isDone}>
-        <summary className="flex items-center gap-2 cursor-pointer px-3 py-2 rounded-lg bg-purple-500/10 border border-purple-500/20 text-sm select-none">
-          <BrainIcon size={14} className="text-purple-400" />
-          <span className="font-medium text-foreground">Reasoning</span>
-          {isDone ? (
-            <span className="text-xs text-success">Complete</span>
-          ) : (
-            <span className="text-xs text-primary">Thinking...</span>
+    <ActivityDisclosure
+      defaultOpen={!isDone}
+      header={(open) => (
+        <>
+          <ActivityTitle>
+            <BrainIcon size={14} className="text-muted-foreground" />
+            <span className="font-medium text-foreground">Reasoning</span>
+            <DisclosureCaret open={open}>
+              <CaretDownIcon size={13} />
+            </DisclosureCaret>
+          </ActivityTitle>
+          {!isDone && (
+            <ActivityMeta>
+              <span className="text-xs text-primary">Thinking...</span>
+            </ActivityMeta>
           )}
-          <CaretDownIcon size={14} className="ml-auto text-muted-foreground" />
-        </summary>
-        <pre className="mt-2 px-3 py-2 rounded-lg bg-muted text-xs text-foreground whitespace-pre-wrap overflow-auto max-h-64">
-          {part.text}
-        </pre>
-      </details>
-    </div>
+        </>
+      )}
+    >
+      <ActivityTray>
+        <ActivityCodeBlock>{part.text}</ActivityCodeBlock>
+      </ActivityTray>
+    </ActivityDisclosure>
   );
 }
 
@@ -202,7 +532,7 @@ function TextPart({
   if (isUser) {
     return (
       <div className="flex justify-end">
-        <div className="max-w-[85%] px-4 py-2.5 rounded-2xl rounded-br-md bg-primary text-primary-foreground leading-relaxed">
+        <div className="max-w-[85%] rounded-2xl rounded-br-md bg-primary px-4 py-2.5 leading-relaxed text-primary-foreground">
           {text}
         </div>
       </div>
@@ -210,17 +540,15 @@ function TextPart({
   }
 
   return (
-    <div className="flex justify-start">
-      <div className="max-w-[85%] rounded-2xl rounded-bl-md bg-card text-foreground leading-relaxed">
-        <Streamdown
-          className="sd-theme rounded-2xl rounded-bl-md p-3"
-          plugins={{ code }}
-          controls={false}
-          isAnimating={isAnimating}
-        >
-          {text}
-        </Streamdown>
-      </div>
+    <div className="max-w-[85%] rounded-2xl rounded-bl-md bg-card leading-relaxed text-foreground">
+      <Streamdown
+        className="sd-theme rounded-2xl rounded-bl-md px-0 py-3"
+        plugins={{ code }}
+        controls={false}
+        isAnimating={isAnimating}
+      >
+        {text}
+      </Streamdown>
     </div>
   );
 }
