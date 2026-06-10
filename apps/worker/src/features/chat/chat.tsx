@@ -10,6 +10,7 @@ import {
 import { useAgent } from "agents/react";
 import { useAgentChat } from "@cloudflare/ai-chat/react";
 import type { MCPServersState } from "agents";
+import { cn } from "@teampitch/ui/lib/utils";
 import type { ThinkAgent } from "@/server";
 import {
   ImageIcon,
@@ -346,73 +347,158 @@ function ImageDropOverlay() {
   );
 }
 
+type WorkspacePreviewPage = {
+  id: string;
+  tabLabel: string;
+  eyebrow: string;
+  title: string;
+  description: string;
+  sections: Array<{
+    title: string;
+    body: string;
+    items?: string[];
+  }>;
+};
+
+const workspacePreviewPages = [
+  {
+    id: "shell-slots",
+    tabLabel: "Shell slots",
+    eyebrow: "Product structure note",
+    title: "Assistant Shell Slots",
+    description:
+      "Durable shell regions for the assistant workspace. These terms should stay consistent in product discussion, component naming, and implementation reviews.",
+    sections: [
+      {
+        title: "Primary Rail",
+        body: "Stable workspace modes and persistent account controls.",
+        items: [
+          "Assistant / chat",
+          "Work queue / tasks",
+          "Integrations / tools",
+          "Memory / knowledge",
+          "Settings",
+          "Bottom: theme + user profile"
+        ]
+      },
+      {
+        title: "Workspace Preview",
+        body: "Optional center preview surface for documents, task artifacts, plans, uploaded files, or other work objects."
+      },
+      {
+        title: "Right Details",
+        body: "Accountability and control inspector for runtime state, approvals, recovery, and selected object metadata."
+      }
+    ]
+  },
+  {
+    id: "preview-surfaces",
+    tabLabel: "Preview surfaces",
+    eyebrow: "Workspace objects",
+    title: "Preview Surfaces",
+    description:
+      "The preview slot should feel like a focused page inside the workspace, not a separate split screen or modal.",
+    sections: [
+      {
+        title: "Document pages",
+        body: "Use the slot for generated plans, notes, uploaded files, transcripts, and editable work objects.",
+        items: [
+          "document preview",
+          "task artifact preview",
+          "generated plan preview",
+          "uploaded file preview"
+        ]
+      },
+      {
+        title: "Chat position",
+        body: "When a preview is open, chat becomes the right-side work companion for the selected document."
+      }
+    ]
+  },
+  {
+    id: "control-inspector",
+    tabLabel: "Inspector",
+    eyebrow: "Accountability layer",
+    title: "Control Inspector",
+    description:
+      "The inspector stays separate from the preview and chat so runtime state, tools, and approvals do not compete with the working document.",
+    sections: [
+      {
+        title: "Runtime status",
+        body: "Show whether the agent is idle, responding, using tools, or waiting on approval."
+      },
+      {
+        title: "Recovery",
+        body: "Expose failed runs, approval decisions, tool state, and recovery actions in a predictable place."
+      }
+    ]
+  }
+] satisfies WorkspacePreviewPage[];
+
+type WorkspacePreviewPageId = (typeof workspacePreviewPages)[number]["id"];
+
 function WorkspacePreviewDocument() {
+  const [activePageId, setActivePageId] =
+    useState<WorkspacePreviewPageId>("shell-slots");
+  const activePage =
+    workspacePreviewPages.find((page) => page.id === activePageId) ??
+    workspacePreviewPages[0];
+
   return (
     <div className="flex h-full min-h-0 flex-col bg-[#fbfbfa]">
-      <div className="flex h-11 shrink-0 items-center justify-between gap-3 border-b border-black/10 px-3.5">
-        <div className="min-w-0">
-          <p className="truncate text-sm font-medium text-neutral-950">
-            Assistant Shell Slots
-          </p>
-        </div>
-        <span className="rounded-md bg-black/[0.04] px-2 py-1 text-xs text-neutral-500">
-          Preview
-        </span>
+      <div
+        role="tablist"
+        aria-label="Preview pages"
+        className="flex h-11 shrink-0 items-end gap-1 overflow-x-auto border-b border-black/10 bg-[#f1f1ee] px-2 pt-2"
+      >
+        {workspacePreviewPages.map((page) => {
+          const active = page.id === activePage.id;
+          return (
+            <button
+              key={page.id}
+              type="button"
+              role="tab"
+              aria-selected={active}
+              className={getWorkspacePreviewTabClassName(active)}
+              onClick={() => setActivePageId(page.id)}
+            >
+              {page.tabLabel}
+            </button>
+          );
+        })}
       </div>
       <div className="min-h-0 flex-1 overflow-y-auto px-5 py-5">
         <article className="mx-auto max-w-3xl space-y-5 text-neutral-900">
           <div className="space-y-2.5">
             <p className="text-xs font-medium uppercase tracking-wide text-neutral-400">
-              Product structure note
+              {activePage.eyebrow}
             </p>
             <h1 className="text-3xl font-medium tracking-normal text-neutral-950">
-              Assistant Shell Slots
+              {activePage.title}
             </h1>
             <p className="max-w-2xl text-base leading-7 text-neutral-600">
-              Durable shell regions for the assistant workspace. These terms
-              should stay consistent in product discussion, component naming,
-              and implementation reviews.
+              {activePage.description}
             </p>
           </div>
 
-          <PreviewSection title="Primary Rail">
-            <p>Stable workspace modes and persistent account controls.</p>
-            <PreviewList
-              items={[
-                "Assistant / chat",
-                "Work queue / tasks",
-                "Integrations / tools",
-                "Memory / knowledge",
-                "Settings",
-                "Bottom: theme + user profile"
-              ]}
-            />
-          </PreviewSection>
-
-          <PreviewSection title="Workspace Preview">
-            <p>
-              Optional center preview surface for documents, task artifacts,
-              plans, uploaded files, or other work objects. When present, this
-              slot takes the central workspace area and the chat moves into a
-              right-side work/chat column.
-            </p>
-          </PreviewSection>
-
-          <PreviewSection title="Right Details">
-            <p>Accountability and control inspector.</p>
-            <PreviewList
-              items={[
-                "runtime status",
-                "agent state",
-                "tools/servers involved",
-                "approvals, failures, recovery",
-                "object metadata for the selected item"
-              ]}
-            />
-          </PreviewSection>
+          {activePage.sections.map((section) => (
+            <PreviewSection key={section.title} title={section.title}>
+              <p>{section.body}</p>
+              {section.items && <PreviewList items={section.items} />}
+            </PreviewSection>
+          ))}
         </article>
       </div>
     </div>
+  );
+}
+
+function getWorkspacePreviewTabClassName(active: boolean) {
+  return cn(
+    "relative -mb-px h-9 shrink-0 rounded-t-lg border px-3 text-sm transition-[background-color,border-color,color]",
+    active
+      ? "border-black/10 border-b-[#fbfbfa] bg-[#fbfbfa] text-neutral-950"
+      : "border-black/[0.06] bg-white/25 text-neutral-500 hover:border-black/10 hover:bg-[#fbfbfa]/70 hover:text-neutral-800"
   );
 }
 
