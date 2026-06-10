@@ -71,16 +71,15 @@ export function AssistantAppShell({
           onPanelOpenChange={setPanelOpen}
           onShowDebugChange={onShowDebugChange}
         />
-        <main className="relative z-10 flex min-w-0 flex-1 flex-col overflow-hidden rounded-[1.125rem] border border-white/80 bg-background shadow-[0_0_0_1px_rgba(16,16,15,0.1),0_1px_2px_-1px_rgba(16,16,15,0.1),0_2px_4px_rgba(16,16,15,0.05)] md:ml-[3px]">
-          <ChatTopbar
-            isStreaming={isStreaming}
-            messageCount={messageCount}
-            onNewChat={onNewChat}
-            statusLabel={statusLabel}
-            themeToggle={themeToggle}
-          />
+        <main className="relative z-10 flex min-w-0 flex-1 overflow-hidden rounded-[1.125rem] border border-white/80 bg-background shadow-[0_0_0_1px_rgba(16,16,15,0.1),0_1px_2px_-1px_rgba(16,16,15,0.1),0_2px_4px_rgba(16,16,15,0.05)] md:ml-[3px]">
           <div className="flex min-h-0 flex-1 overflow-hidden">
-            <section className="flex min-w-0 flex-1 flex-col">
+            <section className="flex min-w-0 flex-1 flex-col bg-background">
+              <ChatTopbar
+                isStreaming={isStreaming}
+                messageCount={messageCount}
+                onNewChat={onNewChat}
+                themeToggle={themeToggle}
+              />
               <motion.div
                 className="min-h-0 flex-1 overflow-y-auto"
                 initial={{ opacity: 0, y: 8 }}
@@ -135,18 +134,21 @@ function AssistantDetailsPanel({
   onShowDebugChange: (checked: boolean) => void;
 }) {
   return (
-    <aside className="hidden w-72 shrink-0 flex-col bg-[#f7f7f4] px-5 py-5 lg:flex">
-      <div className="flex items-center justify-between gap-3">
+    <aside className="hidden w-80 shrink-0 flex-col bg-background shadow-[-1px_0_0_rgba(16,16,15,0.08)] lg:flex">
+      <div className="flex h-12 shrink-0 items-center justify-between gap-3 px-5">
         <h2 className="truncate text-sm font-medium text-neutral-950">
-          Assistant details
+          Agent details
         </h2>
-        <span className="shrink-0 rounded-full bg-black/[0.04] px-2 py-0.5 text-xs text-muted-foreground">
-          {statusLabel}
-        </span>
+        <span className="shrink-0 text-sm text-neutral-500">{statusLabel}</span>
       </div>
 
-      <div className="mt-7 min-h-0 flex-1 space-y-7 overflow-y-auto pr-1">
+      <div className="min-h-0 flex-1 overflow-y-auto">
         <DetailsSection title="Runtime">
+          <DetailsRow
+            icon={<ChatCircleDotsIcon size={15} />}
+            label="Status"
+            value={statusLabel}
+          />
           <DetailsRow
             label="Connection"
             value={getConnectionLabel(connected)}
@@ -175,24 +177,16 @@ function AssistantDetailsPanel({
             label="MCP servers"
             value={`${serverCount}`}
           />
-          <div className="pt-2">{integrationControls}</div>
+          <div className="mt-2 px-5">{integrationControls}</div>
         </DetailsSection>
 
         <DetailsSection title="Memory">
-          <div className="flex min-h-8 items-center gap-2 text-sm">
-            <span className="grid size-4 shrink-0 place-items-center text-neutral-400">
-              <BrainIcon size={15} />
-            </span>
-            <span className="min-w-0 flex-1 truncate text-muted-foreground">
-              Debugger
-            </span>
-            <Switch
-              checked={showDebug}
-              onCheckedChange={onShowDebugChange}
-              size="sm"
-              aria-label="Toggle debug mode"
-            />
-          </div>
+          <DetailsSwitchRow
+            checked={showDebug}
+            icon={<BrainIcon size={15} />}
+            label="Debugger"
+            onCheckedChange={onShowDebugChange}
+          />
         </DetailsSection>
       </div>
     </aside>
@@ -207,11 +201,9 @@ function DetailsSection({
   children: ReactNode;
 }) {
   return (
-    <section>
-      <h2 className="mb-2 text-xs font-medium text-muted-foreground">
-        {title}
-      </h2>
-      <div className="space-y-1">{children}</div>
+    <section className="px-5 py-5 shadow-[0_-1px_0_rgba(16,16,15,0.08)] first:shadow-none">
+      <h2 className="mb-3 text-sm font-medium text-neutral-950">{title}</h2>
+      <div className="space-y-0.5">{children}</div>
     </section>
   );
 }
@@ -228,19 +220,44 @@ function DetailsRow({
   dotClassName?: string;
 }) {
   return (
-    <div className="flex min-h-8 items-center gap-2 text-sm">
+    <div className="grid min-h-9 grid-cols-[1rem_minmax(5.25rem,1fr)_minmax(4.5rem,auto)] items-center gap-x-2 text-sm">
       <span className="grid size-4 shrink-0 place-items-center text-neutral-400">
         {icon ??
           (dotClassName && (
             <span className={cn("size-2 rounded-full", dotClassName)} />
           ))}
       </span>
-      <span className="min-w-0 flex-1 truncate text-muted-foreground">
-        {label}
-      </span>
-      <span className="shrink-0 text-right text-neutral-900 tabular-nums">
+      <span className="min-w-0 truncate text-neutral-500">{label}</span>
+      <span className="min-w-0 truncate text-right text-neutral-950 tabular-nums">
         {value}
       </span>
+    </div>
+  );
+}
+
+function DetailsSwitchRow({
+  checked,
+  icon,
+  label,
+  onCheckedChange
+}: {
+  checked: boolean;
+  icon: ReactNode;
+  label: string;
+  onCheckedChange: (checked: boolean) => void;
+}) {
+  return (
+    <div className="grid min-h-9 grid-cols-[1rem_minmax(5.25rem,1fr)_auto] items-center gap-x-2 text-sm">
+      <span className="grid size-4 shrink-0 place-items-center text-neutral-400">
+        {icon}
+      </span>
+      <span className="min-w-0 truncate text-neutral-500">{label}</span>
+      <Switch
+        checked={checked}
+        onCheckedChange={onCheckedChange}
+        size="sm"
+        aria-label="Toggle debug mode"
+      />
     </div>
   );
 }
@@ -806,13 +823,11 @@ function getPanelNavClassName(active: boolean, interactive = false) {
 function ChatTopbar({
   isStreaming,
   messageCount,
-  statusLabel,
   themeToggle,
   onNewChat
 }: {
   isStreaming: boolean;
   messageCount: number;
-  statusLabel: string;
   themeToggle: ReactNode;
   onNewChat: () => void;
 }) {
@@ -823,14 +838,6 @@ function ChatTopbar({
         <h1 className="min-w-0 truncate text-sm font-medium text-neutral-900">
           {messageCount > 0 ? "Current chat" : "New chat"}
         </h1>
-        <span
-          className={cn(
-            "hidden rounded-full px-2 py-0.5 text-xs text-muted-foreground sm:inline-flex",
-            isStreaming && "bg-warning/15 text-warning"
-          )}
-        >
-          {statusLabel}
-        </span>
       </div>
       <div className="flex shrink-0 items-center gap-2">
         {themeToggle}
