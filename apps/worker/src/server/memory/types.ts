@@ -24,7 +24,7 @@ const AuthSubjectTypeSchema = Schema.Literal("user", "agent");
 
 export type AuthSubjectType = Schema.Schema.Type<typeof AuthSubjectTypeSchema>;
 
-export const MemoryScopeGrantSchema = Schema.Struct({
+const MemoryScopeGrantSchema = Schema.Struct({
   scope: MemoryScopeSchema,
   scopeId: Schema.String
 });
@@ -33,7 +33,7 @@ export type MemoryScopeGrant = Schema.Schema.Type<
   typeof MemoryScopeGrantSchema
 >;
 
-export const MemoryRecordActorSchema = Schema.Struct({
+const MemoryRecordActorSchema = Schema.Struct({
   subjectId: Schema.String,
   subjectType: AuthSubjectTypeSchema,
   provider: Schema.String,

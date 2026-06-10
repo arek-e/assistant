@@ -84,37 +84,18 @@ export class LocalAuthIdentityAdapter implements AuthIdentityAdapter {
     env,
     sessionId
   }: AuthIdentityResolutionInput): Promise<MemoryAccessContext> {
+    const localIdentity = createLocalIdentityConfig(env, sessionId);
+
     return createMemoryAccessContext({
-      subjectId: env.AUTH_LOCAL_SUBJECT_ID ?? localMemoryScopeIds.private,
+      subjectId: localIdentity.subjectId,
       subjectType: "user",
       provider: "local",
       displayName: "Local User",
-      sessionId:
-        env.AUTH_LOCAL_SESSION_ID ?? sessionId ?? localMemoryScopeIds.session,
-      organizationId: env.AUTH_LOCAL_ORG_ID ?? localMemoryScopeIds.org,
+      sessionId: localIdentity.sessionId,
+      organizationId: localIdentity.organizationId,
       role: "local-admin",
       permissions: ["memory:read", "memory:write"],
-      grants: [
-        {
-          scope: "private",
-          scopeId: env.AUTH_LOCAL_SUBJECT_ID ?? localMemoryScopeIds.private
-        },
-        {
-          scope: "team",
-          scopeId: env.AUTH_LOCAL_TEAM_ID ?? localMemoryScopeIds.team
-        },
-        {
-          scope: "org",
-          scopeId: env.AUTH_LOCAL_ORG_ID ?? localMemoryScopeIds.org
-        },
-        {
-          scope: "session",
-          scopeId:
-            env.AUTH_LOCAL_SESSION_ID ??
-            sessionId ??
-            localMemoryScopeIds.session
-        }
-      ]
+      grants: createLocalGrants(localIdentity)
     });
   }
 }
@@ -127,28 +108,36 @@ export class WorkOSAuthIdentityAdapter implements AuthIdentityAdapter {
   async resolve(
     input: AuthIdentityResolutionInput
   ): Promise<MemoryAccessContext> {
-    const token =
-      getBearerToken(input.request) ??
-      getQueryToken(input.request, input.env) ??
-      getCookieToken(input.request, input.env);
+    const token = getRequestToken(input);
     const clientId = input.env.WORKOS_CLIENT_ID;
-
     if (token && clientId) {
-      try {
-        const claims = await this.verifyAccessToken(token, {
-          clientId,
-          jwksUrl:
-            input.env.WORKOS_JWKS_URL ??
-            `https://api.workos.com/sso/jwks/${clientId}`
-        });
-
-        return createWorkOSMemoryAccessContext(claims, input.sessionId);
-      } catch {
-        return createAnonymousMemoryAccessContext(input.sessionId);
-      }
+      return this.resolveToken(input, token, clientId);
     }
 
-    if (!getCookieValue(input.request, getWorkOSSessionCookieName(input.env))) {
+    return this.resolveSession(input);
+  }
+
+  private async resolveToken(
+    input: AuthIdentityResolutionInput,
+    token: string,
+    clientId: string
+  ): Promise<MemoryAccessContext> {
+    try {
+      const claims = await this.verifyAccessToken(token, {
+        clientId,
+        jwksUrl: workOSJwksUrl(input.env, clientId)
+      });
+
+      return createWorkOSMemoryAccessContext(claims, input.sessionId);
+    } catch {
+      return createAnonymousMemoryAccessContext(input.sessionId);
+    }
+  }
+
+  private async resolveSession(
+    input: AuthIdentityResolutionInput
+  ): Promise<MemoryAccessContext> {
+    if (!hasWorkOSSessionCookie(input)) {
       return createAnonymousMemoryAccessContext(input.sessionId);
     }
 
@@ -157,9 +146,8 @@ export class WorkOSAuthIdentityAdapter implements AuthIdentityAdapter {
         input.request!,
         input.env
       );
-      if (!sessionResult.authenticated) {
+      if (!sessionResult.authenticated)
         return createAnonymousMemoryAccessContext(input.sessionId);
-      }
 
       return createWorkOSMemoryAccessContext({
         ...claimsFromSession(sessionResult.session),
@@ -169,6 +157,44 @@ export class WorkOSAuthIdentityAdapter implements AuthIdentityAdapter {
       return createAnonymousMemoryAccessContext(input.sessionId);
     }
   }
+}
+
+interface LocalIdentityConfig {
+  subjectId: string;
+  teamId: string;
+  organizationId: string;
+  sessionId: string;
+}
+
+function createLocalIdentityConfig(
+  env: AuthIdentityEnv,
+  sessionId: string | undefined
+): LocalIdentityConfig {
+  return {
+    subjectId: withDefault(
+      env.AUTH_LOCAL_SUBJECT_ID,
+      localMemoryScopeIds.private
+    ),
+    teamId: withDefault(env.AUTH_LOCAL_TEAM_ID, localMemoryScopeIds.team),
+    organizationId: withDefault(env.AUTH_LOCAL_ORG_ID, localMemoryScopeIds.org),
+    sessionId:
+      firstString(env.AUTH_LOCAL_SESSION_ID, sessionId) ??
+      localMemoryScopeIds.session
+  };
+}
+
+function createLocalGrants({
+  subjectId,
+  teamId,
+  organizationId,
+  sessionId
+}: LocalIdentityConfig): MemoryScopeGrant[] {
+  return [
+    { scope: "private", scopeId: subjectId },
+    { scope: "team", scopeId: teamId },
+    { scope: "org", scopeId: organizationId },
+    { scope: "session", scopeId: sessionId }
+  ];
 }
 
 export function createWorkOSMemoryAccessContext(
@@ -235,6 +261,32 @@ function createMemoryAccessContext(
     permissions: [...new Set(input.permissions)],
     grants: dedupeGrants(input.grants)
   };
+}
+
+function getRequestToken({
+  env,
+  request
+}: AuthIdentityResolutionInput): string | null {
+  return (
+    getBearerToken(request) ??
+    getQueryToken(request, env) ??
+    getCookieToken(request, env)
+  );
+}
+
+function workOSJwksUrl(env: AuthIdentityEnv, clientId: string): string {
+  return env.WORKOS_JWKS_URL ?? `https://api.workos.com/sso/jwks/${clientId}`;
+}
+
+function hasWorkOSSessionCookie({
+  env,
+  request
+}: AuthIdentityResolutionInput): boolean {
+  return Boolean(getCookieValue(request, getWorkOSSessionCookieName(env)));
+}
+
+function withDefault(value: string | undefined, fallback: string): string {
+  return firstString(value) ?? fallback;
 }
 
 async function verifyWorkOSToken(

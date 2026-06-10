@@ -1,21 +1,11 @@
 import type { MemoryAccessContext } from "./access";
 import type { RetrievalResult, SearchMemoryOptions } from "./retrieval";
-import type { MemoryScopeGrant } from "./types";
+import type { MemoryRecordActor } from "./types";
 import type { LifecycleStatus, MemoryRecord, MemoryRecordDraft } from "./types";
 
 export interface MemoryDebugSnapshot {
   generatedAt: string;
-  identity: {
-    subjectId: string;
-    subjectType: string;
-    provider: string;
-    displayName: string;
-    sessionId: string;
-    organizationId: string;
-    role: string;
-    permissions: string[];
-    grants: MemoryScopeGrant[];
-  };
+  identity: MemoryRecordActor;
   recordCount: number;
   countsByKind: Record<string, number>;
   countsByStatus: Record<string, number>;

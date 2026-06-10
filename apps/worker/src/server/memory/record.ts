@@ -1,10 +1,13 @@
 import { hashStableValue } from "./hash";
 import { createLocalMemoryAccessContext, toMemoryRecordActor } from "./access";
 import {
+  decodeLifecycleStatus,
+  type LifecycleStatus,
   decodeMemoryRecord,
   type MemoryRecord,
   type MemoryRecordDraft
 } from "./types";
+import type { MemoryAccessContext } from "./access";
 
 export function createMemoryRecord(input: MemoryRecordDraft): MemoryRecord {
   const record = {
@@ -18,6 +21,19 @@ export function createMemoryRecord(input: MemoryRecordDraft): MemoryRecord {
     ...record,
     contentHash,
     recordHash
+  });
+}
+
+export function promoteMemoryRecord(
+  record: MemoryRecord,
+  status: LifecycleStatus,
+  accessContext?: MemoryAccessContext
+): MemoryRecord {
+  return createMemoryRecord({
+    ...record,
+    status: decodeLifecycleStatus(status),
+    actor: accessContext ? toMemoryRecordActor(accessContext) : record.actor,
+    updatedAt: new Date().toISOString()
   });
 }
 

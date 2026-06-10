@@ -1,6 +1,7 @@
 import {
   canAccessMemoryRecord,
   createLocalMemoryAccessContext,
+  toMemoryRecordActor,
   type MemoryAccessContext
 } from "./access";
 import type { MemoryDebugSnapshot } from "./contract";
@@ -17,17 +18,7 @@ export function createMemoryDebugSnapshot(
 
   return {
     generatedAt: new Date().toISOString(),
-    identity: {
-      subjectId: accessContext.subjectId,
-      subjectType: accessContext.subjectType,
-      provider: accessContext.provider,
-      displayName: accessContext.displayName,
-      sessionId: accessContext.sessionId,
-      organizationId: accessContext.organizationId,
-      role: accessContext.role,
-      permissions: [...accessContext.permissions],
-      grants: accessContext.grants.map((grant) => ({ ...grant }))
-    },
+    identity: toMemoryRecordActor(accessContext),
     recordCount: visibleRecords.length,
     countsByKind: countBy(visibleRecords, "kind"),
     countsByStatus: countBy(visibleRecords, "status"),

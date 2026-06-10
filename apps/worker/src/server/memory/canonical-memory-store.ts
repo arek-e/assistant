@@ -3,10 +3,9 @@ import {
   type RetrievalResult,
   type SearchMemoryOptions
 } from "./retrieval";
-import { toMemoryRecordActor, type MemoryAccessContext } from "./access";
-import { createMemoryRecord } from "./record";
+import type { MemoryAccessContext } from "./access";
+import { createMemoryRecord, promoteMemoryRecord } from "./record";
 import {
-  decodeLifecycleStatus,
   type LifecycleStatus,
   type MemoryRecord,
   type MemoryRecordDraft
@@ -56,12 +55,7 @@ export class InMemoryCanonicalMemoryStore implements CanonicalMemoryStore {
     const record = this.records.get(recordId);
     if (!record) return null;
 
-    const promotedRecord = createMemoryRecord({
-      ...record,
-      status: decodeLifecycleStatus(status),
-      actor: accessContext ? toMemoryRecordActor(accessContext) : record.actor,
-      updatedAt: new Date().toISOString()
-    });
+    const promotedRecord = promoteMemoryRecord(record, status, accessContext);
     this.records.set(recordId, promotedRecord);
     return promotedRecord;
   }

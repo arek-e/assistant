@@ -6,24 +6,11 @@ export {
   WorkOSAuthIdentityAdapter,
   type AuthIdentityAdapter,
   type AuthIdentityEnv,
-  type AuthIdentityResolutionInput,
-  type WorkOSAuthIdentityConfig,
-  type WorkOSClaims,
-  type WorkOSTokenVerifier
+  type WorkOSClaims
 } from "./identity";
 export {
   handleAuthRequest,
   requireAuthenticatedAgentRequest,
   type AuthMeResponse
 } from "./routes";
-export {
-  authenticateWorkOSSession,
-  createClearCookieHeader,
-  createCookieHeader,
-  getWorkOSSessionCookieName,
-  isWorkOSAuthConfigured,
-  isWorkOSMode,
-  type WorkOSAuthenticatedSession,
-  type WorkOSSessionEnv,
-  type WorkOSSessionResult
-} from "./workos-session";
+export { type WorkOSSessionEnv } from "./workos-session";

@@ -32,22 +32,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setLoading(true);
     setError(null);
 
-    try {
-      const response = await fetch("/auth/me", {
-        credentials: "same-origin",
-        headers: { accept: "application/json" }
-      });
-      if (!response.ok)
-        throw new Error(`Auth check failed: ${response.status}`);
-
-      const nextSession = (await response.json()) as AuthMeResponse;
-      setSession(isAuthSession(nextSession) ? nextSession : null);
-    } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "Auth check failed");
-      setSession(null);
-    } finally {
-      setLoading(false);
-    }
+    const result = await loadAuthSession();
+    setSession(result.session);
+    setError(result.error);
+    setLoading(false);
   }, []);
 
   useEffect(() => {
@@ -103,4 +91,38 @@ function currentReturnTo(): string {
 
 function isAuthSession(response: AuthMeResponse): response is AuthSession {
   return response.authenticated === true;
+}
+
+interface AuthSessionLoadResult {
+  session: AuthSession | null;
+  error: string | null;
+}
+
+async function loadAuthSession(): Promise<AuthSessionLoadResult> {
+  try {
+    const nextSession = await fetchAuthMe();
+    return {
+      session: isAuthSession(nextSession) ? nextSession : null,
+      error: null
+    };
+  } catch (caught) {
+    return {
+      session: null,
+      error: authErrorMessage(caught)
+    };
+  }
+}
+
+async function fetchAuthMe(): Promise<AuthMeResponse> {
+  const response = await fetch("/auth/me", {
+    credentials: "same-origin",
+    headers: { accept: "application/json" }
+  });
+  if (!response.ok) throw new Error(`Auth check failed: ${response.status}`);
+
+  return (await response.json()) as AuthMeResponse;
+}
+
+function authErrorMessage(caught: unknown): string {
+  return caught instanceof Error ? caught.message : "Auth check failed";
 }

@@ -77,12 +77,8 @@ export function AccountControls({
   session: AuthSession;
   onSignOut: () => void;
 }) {
-  const label =
-    session.user?.name ??
-    session.user?.email ??
-    session.identity?.displayName ??
-    session.identity?.subjectId ??
-    "Signed in";
+  const label = accountLabel(session);
+  const detail = accountDetail(session);
 
   return (
     <div className="flex items-center gap-2">
@@ -91,7 +87,7 @@ export function AccountControls({
           {label}
         </Text>
         <Text size="xs" variant="secondary" className="max-w-full truncate">
-          {session.identity?.role || session.provider}
+          {detail}
         </Text>
       </div>
       <Button variant="outline" size="sm" onClick={onSignOut}>
@@ -99,4 +95,46 @@ export function AccountControls({
       </Button>
     </div>
   );
+}
+
+function accountLabel(session: AuthSession): string {
+  return (
+    [
+      accountUserName(session),
+      accountUserEmail(session),
+      accountIdentityDisplayName(session),
+      accountIdentitySubjectId(session)
+    ].find(isNonEmptyString) ?? "Signed in"
+  );
+}
+
+function accountDetail(session: AuthSession): string {
+  return (
+    [accountIdentityRole(session), session.provider].find(isNonEmptyString) ??
+    ""
+  );
+}
+
+function accountUserName(session: AuthSession): string | undefined {
+  return session.user?.name;
+}
+
+function accountUserEmail(session: AuthSession): string | undefined {
+  return session.user?.email;
+}
+
+function accountIdentityDisplayName(session: AuthSession): string | undefined {
+  return session.identity?.displayName;
+}
+
+function accountIdentitySubjectId(session: AuthSession): string | undefined {
+  return session.identity?.subjectId;
+}
+
+function accountIdentityRole(session: AuthSession): string | undefined {
+  return session.identity?.role;
+}
+
+function isNonEmptyString(value: unknown): value is string {
+  return typeof value === "string" && value.length > 0;
 }

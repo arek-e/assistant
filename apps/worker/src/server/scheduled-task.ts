@@ -12,7 +12,7 @@ export interface ScheduledTaskActor {
   grants: Array<{ scope: string; scopeId: string }>;
 }
 
-export interface ScheduledTaskPayload {
+interface ScheduledTaskPayload {
   description: string;
   actor?: ScheduledTaskActor;
 }

@@ -11,9 +11,8 @@ import {
   toMemoryRecordActor,
   type MemoryAccessContext
 } from "./access";
-import { createMemoryRecord } from "./record";
+import { createMemoryRecord, promoteMemoryRecord } from "./record";
 import {
-  decodeLifecycleStatus,
   decodeMemoryRecord,
   type LifecycleStatus,
   type MemoryRecord,
@@ -169,12 +168,7 @@ export class SqliteCanonicalMemoryStore implements CanonicalMemoryStore {
     const record = this.get(recordId);
     if (!record) return null;
 
-    const promotedRecord = createMemoryRecord({
-      ...record,
-      status: decodeLifecycleStatus(status),
-      actor: accessContext ? toMemoryRecordActor(accessContext) : record.actor,
-      updatedAt: new Date().toISOString()
-    });
+    const promotedRecord = promoteMemoryRecord(record, status, accessContext);
     this.upsert(promotedRecord);
     return promotedRecord;
   }
