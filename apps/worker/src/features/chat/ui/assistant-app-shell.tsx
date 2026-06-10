@@ -12,6 +12,7 @@ import {
   BrainIcon,
   ChatCircleDotsIcon,
   GearIcon,
+  PanelLeftClose,
   PlugsConnectedIcon,
   PlusIcon,
   WrenchIcon
@@ -139,7 +140,12 @@ function AssistantDetailsPanel({
         <h2 className="truncate text-sm font-medium text-neutral-950">
           Agent details
         </h2>
-        <span className="shrink-0 text-sm text-neutral-500">{statusLabel}</span>
+        <span
+          aria-hidden
+          className="grid size-8 shrink-0 place-items-center text-neutral-700"
+        >
+          <PanelLeftClose size={15} />
+        </span>
       </div>
 
       <div className="min-h-0 flex-1 overflow-y-auto">
