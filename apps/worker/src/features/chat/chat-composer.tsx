@@ -36,13 +36,13 @@ export function ChatComposer({
   onRemoveAttachment: (id: string) => void;
 }) {
   return (
-    <div className="border-t border-border bg-card">
+    <div className="mx-auto w-full max-w-3xl">
       <form
         onSubmit={(event) => {
           event.preventDefault();
           onSend();
         }}
-        className="max-w-3xl mx-auto px-5 py-4"
+        className="w-full"
       >
         <input
           ref={fileInputRef}
@@ -58,11 +58,11 @@ export function ChatComposer({
         />
 
         {attachments.length > 0 && (
-          <div className="flex gap-2 mb-2 flex-wrap">
+          <div className="mb-2 flex flex-wrap gap-2">
             {attachments.map((attachment) => (
               <div
                 key={attachment.id}
-                className="relative group rounded-lg border border-border bg-muted overflow-hidden"
+                className="group relative overflow-hidden rounded-lg border border-border bg-muted"
               >
                 <img
                   src={attachment.preview}
@@ -72,7 +72,7 @@ export function ChatComposer({
                 <button
                   type="button"
                   onClick={() => onRemoveAttachment(attachment.id)}
-                  className="absolute top-0.5 right-0.5 rounded-full bg-primary/80 text-primary-foreground p-0.5 opacity-0 group-hover:opacity-100 transition-opacity"
+                  className="absolute right-0.5 top-0.5 rounded-full bg-primary/80 p-0.5 text-primary-foreground opacity-0 transition-opacity group-hover:opacity-100"
                   aria-label={`Remove ${attachment.file.name}`}
                 >
                   <XIcon size={10} />
@@ -82,7 +82,7 @@ export function ChatComposer({
           </div>
         )}
 
-        <div className="flex items-end gap-3 rounded-xl border border-border bg-card p-3 shadow-sm focus-within:ring-2 focus-within:ring-ring focus-within:border-transparent transition-shadow">
+        <div className="flex items-end gap-2 rounded-xl border border-border/90 bg-background p-2 shadow-[0_18px_55px_rgba(0,0,0,0.10),0_1px_0_rgba(0,0,0,0.03)] transition-shadow focus-within:border-neutral-300 focus-within:shadow-[0_22px_70px_rgba(0,0,0,0.14),0_0_0_1px_rgba(0,0,0,0.04)]">
           <Button
             type="button"
             variant="ghost"
@@ -91,7 +91,7 @@ export function ChatComposer({
             icon={<PaperclipIcon size={18} />}
             onClick={() => fileInputRef.current?.click()}
             disabled={!connected || isStreaming}
-            className="mb-0.5"
+            className="mb-0.5 text-muted-foreground"
           />
           <InputArea
             ref={textareaRef}
@@ -112,11 +112,11 @@ export function ChatComposer({
             placeholder={
               attachments.length > 0
                 ? "Add a message or send images..."
-                : "Send a message..."
+                : "Ask Teampitch"
             }
             disabled={!connected || isStreaming}
             rows={1}
-            className="flex-1 ring-0! focus:ring-0! shadow-none! bg-transparent! outline-none! resize-none max-h-40"
+            className="max-h-40 min-h-10 flex-1 resize-none bg-transparent! text-base leading-6 shadow-none! outline-none! ring-0! placeholder:text-neutral-300 focus:ring-0!"
           />
           {isStreaming ? (
             <Button

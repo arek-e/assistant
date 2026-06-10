@@ -11,15 +11,11 @@ import { useAgentChat } from "@cloudflare/ai-chat/react";
 import type { MCPServersState } from "agents";
 import type { ThinkAgent } from "@/server";
 import {
-  BrainIcon,
-  BugIcon,
-  CircleIcon,
   ImageIcon,
   PlugsConnectedIcon,
-  TrashIcon,
   WrenchIcon
 } from "@/components/app/icons";
-import { Badge, Button, Switch, Text } from "@/components/app/ui";
+import { Badge, Button } from "@/components/app/ui";
 import { toastManager } from "@teampitch/ui/components/toast";
 import {
   clipboardFiles,
@@ -36,6 +32,7 @@ import { McpPanel } from "@/features/mcp/mcp-panel";
 import { ThemeToggle } from "@/features/theme/theme-toggle";
 import { ChatComposer } from "./chat-composer";
 import { MessageList } from "./message-list";
+import { AssistantAppShell } from "./ui/assistant-app-shell";
 
 export function Chat({
   auth,
@@ -240,80 +237,73 @@ export function Chat({
     if (textareaRef.current) textareaRef.current.style.height = "auto";
   }, [input, attachments, isStreaming, sendMessage]);
 
+  const integrationControls = (
+    <div className="relative" ref={mcpPanelRef}>
+      <Button
+        variant="secondary"
+        size="sm"
+        icon={<PlugsConnectedIcon size={15} />}
+        onClick={() => setShowMcpPanel(!showMcpPanel)}
+      >
+        MCP servers
+        {mcpToolCount > 0 && (
+          <Badge variant="primary" className="ml-1.5">
+            <WrenchIcon size={10} className="mr-0.5" />
+            {mcpToolCount}
+          </Badge>
+        )}
+      </Button>
+      {showMcpPanel && (
+        <McpPanel
+          mcpState={mcpState}
+          name={mcpName}
+          url={mcpUrl}
+          isAddingServer={isAddingServer}
+          onNameChange={setMcpName}
+          onUrlChange={setMcpUrl}
+          onAddServer={handleAddServer}
+          onClose={() => setShowMcpPanel(false)}
+          onRemoveServer={handleRemoveServer}
+        />
+      )}
+    </div>
+  );
+
   return (
     <div
-      className="flex flex-col h-screen bg-background relative"
+      className="relative h-screen"
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
     >
       {isDragging && <ImageDropOverlay />}
-
-      <header className="px-5 py-4 bg-card border-b border-border">
-        <div className="max-w-3xl mx-auto flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <h1 className="text-lg font-semibold text-foreground">
-              <span className="mr-2">⛅</span>Teampitch
-            </h1>
-            <Badge variant="secondary">
-              <BrainIcon size={12} className="mr-1" />
-              Think
-            </Badge>
-          </div>
-          <div className="flex items-center gap-3">
-            <ConnectionStatus connected={connected} />
-            <AccountControls session={auth} onSignOut={onSignOut} />
-            <div className="flex items-center gap-1.5">
-              <BugIcon size={14} className="text-muted-foreground" />
-              <Switch
-                checked={showDebugDrawer}
-                onCheckedChange={setShowDebugDrawer}
-                size="sm"
-                aria-label="Toggle debugger"
-              />
-            </div>
-            <ThemeToggle />
-            <div className="relative" ref={mcpPanelRef}>
-              <Button
-                variant="secondary"
-                icon={<PlugsConnectedIcon size={16} />}
-                onClick={() => setShowMcpPanel(!showMcpPanel)}
-              >
-                MCP
-                {mcpToolCount > 0 && (
-                  <Badge variant="primary" className="ml-1.5">
-                    <WrenchIcon size={10} className="mr-0.5" />
-                    {mcpToolCount}
-                  </Badge>
-                )}
-              </Button>
-              {showMcpPanel && (
-                <McpPanel
-                  mcpState={mcpState}
-                  name={mcpName}
-                  url={mcpUrl}
-                  isAddingServer={isAddingServer}
-                  onNameChange={setMcpName}
-                  onUrlChange={setMcpUrl}
-                  onAddServer={handleAddServer}
-                  onClose={() => setShowMcpPanel(false)}
-                  onRemoveServer={handleRemoveServer}
-                />
-              )}
-            </div>
-            <Button
-              variant="secondary"
-              icon={<TrashIcon size={16} />}
-              onClick={clearHistory}
-            >
-              Clear
-            </Button>
-          </div>
-        </div>
-      </header>
-
-      <div className="flex-1 overflow-y-auto">
-        <div className="max-w-3xl mx-auto px-5 py-6 space-y-5">
+      <AssistantAppShell
+        connected={connected}
+        isStreaming={isStreaming}
+        showDebug={showDebugDrawer}
+        toolCount={mcpToolCount}
+        integrationControls={integrationControls}
+        themeToggle={<ThemeToggle />}
+        onShowDebugChange={setShowDebugDrawer}
+        onNewChat={clearHistory}
+        composer={
+          <ChatComposer
+            input={input}
+            attachments={attachments}
+            connected={connected}
+            isStreaming={isStreaming}
+            textareaRef={textareaRef}
+            fileInputRef={fileInputRef}
+            onInputChange={setInput}
+            onSend={send}
+            onStop={stop}
+            onAddFiles={addFiles}
+            onPaste={handlePaste}
+            onRemoveAttachment={removeAttachment}
+          />
+        }
+      >
+        <div className="space-y-5">
           <MessageList
             messages={messages}
             isStreaming={isStreaming}
@@ -327,22 +317,7 @@ export function Chat({
           />
           <div ref={messagesEndRef} />
         </div>
-      </div>
-
-      <ChatComposer
-        input={input}
-        attachments={attachments}
-        connected={connected}
-        isStreaming={isStreaming}
-        textareaRef={textareaRef}
-        fileInputRef={fileInputRef}
-        onInputChange={setInput}
-        onSend={send}
-        onStop={stop}
-        onAddFiles={addFiles}
-        onPaste={handlePaste}
-        onRemoveAttachment={removeAttachment}
-      />
+      </AssistantAppShell>
       <MemoryDebugDrawer
         open={showDebugDrawer}
         messages={messages}
@@ -355,27 +330,13 @@ export function Chat({
 
 function ImageDropOverlay() {
   return (
-    <div className="absolute inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm border-2 border-dashed border-primary rounded-xl m-2 pointer-events-none">
+    <div className="pointer-events-none absolute inset-0 z-50 m-2 flex items-center justify-center rounded-xl border-2 border-dashed border-primary bg-background/80 backdrop-blur-sm">
       <div className="flex flex-col items-center gap-2 text-primary">
         <ImageIcon size={40} />
-        <Text variant="heading3" as="span">
+        <span className="text-lg font-semibold text-foreground">
           Drop images here
-        </Text>
+        </span>
       </div>
-    </div>
-  );
-}
-
-function ConnectionStatus({ connected }: { connected: boolean }) {
-  return (
-    <div className="flex items-center gap-1.5">
-      <CircleIcon
-        size={8}
-        className={connected ? "text-success" : "text-destructive"}
-      />
-      <Text size="xs" variant="secondary">
-        {connected ? "Connected" : "Disconnected"}
-      </Text>
     </div>
   );
 }
