@@ -47,7 +47,7 @@ export function AssistantAppShell({
   const statusLabel = getStatusLabel(isStreaming, connected);
 
   return (
-    <div className="h-screen overflow-hidden bg-[#dfe3e1] p-2 text-foreground">
+    <div className="h-screen overflow-hidden bg-[#f2f2ef] p-0.5 text-foreground">
       <div className="flex h-full min-h-0 overflow-visible">
         <DesktopAssistantNav
           connected={connected}
