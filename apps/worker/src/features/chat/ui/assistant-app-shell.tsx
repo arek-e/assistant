@@ -35,6 +35,7 @@ const hiddenProfilePanelMotion = { opacity: 0, scale: 0.98, y: 4 };
 
 type AssistantShellSlots = {
   primaryAndSecondaryNavigation: ReactNode;
+  workspacePreview: ReactNode;
   mainContent: ReactNode;
   rightDetails: ReactNode;
 };
@@ -49,6 +50,7 @@ export function AssistantAppShell({
   children,
   composer,
   connected,
+  workspacePreview,
   isStreaming,
   showDebug,
   toolCount,
@@ -62,6 +64,7 @@ export function AssistantAppShell({
   children: ReactNode;
   composer: ReactNode;
   connected: boolean;
+  workspacePreview?: ReactNode;
   isStreaming: boolean;
   showDebug: boolean;
   toolCount: number;
@@ -75,6 +78,7 @@ export function AssistantAppShell({
   const [panelOpen, setPanelOpen] = useState(true);
   const [detailsPanelOpen, setDetailsPanelOpen] = useState(true);
   const statusLabel = getStatusLabel(isStreaming, connected);
+  const hasWorkspacePreview = Boolean(workspacePreview);
   const shellSlots: AssistantShellSlots = {
     primaryAndSecondaryNavigation: (
       <DesktopAssistantNav
@@ -88,10 +92,16 @@ export function AssistantAppShell({
         themeToggle={themeToggle}
       />
     ),
+    workspacePreview: (
+      <WorkspacePreviewSlot open={hasWorkspacePreview}>
+        {workspacePreview}
+      </WorkspacePreviewSlot>
+    ),
     mainContent: (
       <AssistantMainContentSlot
         composer={composer}
         detailsPanelOpen={detailsPanelOpen}
+        hasWorkspacePreview={hasWorkspacePreview}
         isStreaming={isStreaming}
         messageCount={messageCount}
         onDetailsPanelOpenChange={setDetailsPanelOpen}
@@ -130,6 +140,7 @@ function AssistantShellFrame({ slots }: { slots: AssistantShellSlots }) {
         {slots.primaryAndSecondaryNavigation}
         <main className="relative z-10 flex min-w-0 flex-1 overflow-hidden rounded-[1.125rem] border border-white/80 bg-background shadow-[0_0_0_1px_rgba(16,16,15,0.1),0_1px_2px_-1px_rgba(16,16,15,0.1),0_2px_4px_rgba(16,16,15,0.05)] md:ml-[3px]">
           <div className="flex min-h-0 flex-1 overflow-hidden">
+            {slots.workspacePreview}
             {slots.mainContent}
             {slots.rightDetails}
           </div>
@@ -143,6 +154,7 @@ function AssistantMainContentSlot({
   children,
   composer,
   detailsPanelOpen,
+  hasWorkspacePreview,
   isStreaming,
   messageCount,
   onDetailsPanelOpenChange,
@@ -151,6 +163,7 @@ function AssistantMainContentSlot({
   children: ReactNode;
   composer: ReactNode;
   detailsPanelOpen: boolean;
+  hasWorkspacePreview: boolean;
   isStreaming: boolean;
   messageCount: number;
   onDetailsPanelOpenChange: (open: boolean) => void;
@@ -159,7 +172,7 @@ function AssistantMainContentSlot({
   return (
     <section
       data-shell-slot="main-content"
-      className="flex min-w-0 flex-1 flex-col bg-background"
+      className={getMainContentSlotClassName(hasWorkspacePreview)}
     >
       <ChatTopbar
         detailsPanelOpen={detailsPanelOpen}
@@ -182,6 +195,28 @@ function AssistantMainContentSlot({
         {composer}
       </div>
     </section>
+  );
+}
+
+function WorkspacePreviewSlot({
+  children,
+  open
+}: {
+  children: ReactNode;
+  open: boolean;
+}) {
+  return (
+    <motion.section
+      data-shell-slot="workspace-preview"
+      aria-hidden={!open}
+      inert={!open}
+      className={getWorkspacePreviewSlotClassName(open)}
+      initial={{ opacity: 0, x: -8 }}
+      animate={{ opacity: open ? 1 : 0, x: open ? 0 : -8 }}
+      transition={{ duration: 0.2, ease: [0.22, 1, 0.36, 1] }}
+    >
+      {children}
+    </motion.section>
   );
 }
 
@@ -847,6 +882,21 @@ function getDetailsPanelContentFadeDuration(open: boolean) {
 
 function getDetailsPanelInert(open: boolean) {
   return !open;
+}
+
+function getMainContentSlotClassName(hasWorkspacePreview: boolean) {
+  return cn(
+    "flex min-w-0 flex-1 flex-col bg-background",
+    hasWorkspacePreview &&
+      "xl:w-[min(32rem,38vw)] xl:flex-none xl:border-l xl:border-black/10"
+  );
+}
+
+function getWorkspacePreviewSlotClassName(open: boolean) {
+  return cn(
+    "hidden min-w-0 flex-1 flex-col overflow-hidden border-r border-black/10 bg-background",
+    open && "xl:flex"
+  );
 }
 
 function clampPanelWidth(width: number) {
