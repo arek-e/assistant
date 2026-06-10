@@ -1,16 +1,20 @@
 import {
-  isBlockedLifecycle,
+  finalizeMemorySearch,
   memorySearchTokens,
   scoreMemoryRecord,
   type RetrievalHit,
   type RetrievalResult,
   type SearchMemoryOptions
 } from "./retrieval";
+import type { MemoryAccessContext } from "./access";
+import { createMemoryRecord } from "./record";
 import {
   decodeLifecycleStatus,
   decodeMemoryRecord,
   type LifecycleStatus,
-  type MemoryRecord
+  type MemoryRecord,
+  type MemoryRecordDraft,
+  type MemoryScope
 } from "./types";
 import type { CanonicalMemoryStore, MemoryDebugSnapshot } from "./contract";
 import { createMemoryDebugSnapshot } from "./debug-snapshot";
@@ -42,12 +46,13 @@ export class SqliteCanonicalMemoryStore implements CanonicalMemoryStore {
     this.ensureSchema();
   }
 
-  upsert(record: MemoryRecord): MemoryRecord {
-    const validatedRecord = decodeMemoryRecord(record);
-    const existingRecord = this.get(validatedRecord.id);
-    const recordToSave = existingRecord
-      ? { ...validatedRecord, createdAt: existingRecord.createdAt }
-      : validatedRecord;
+  upsert(record: MemoryRecordDraft): MemoryRecord {
+    const existingRecord = this.get(record.id);
+    const recordToSave = createMemoryRecord(
+      existingRecord
+        ? { ...record, createdAt: existingRecord.createdAt }
+        : record
+    );
 
     this.sql.exec(
       `
@@ -55,6 +60,7 @@ export class SqliteCanonicalMemoryStore implements CanonicalMemoryStore {
           id,
           kind,
           scope,
+          scope_id,
           status,
           title,
           body,
@@ -66,11 +72,14 @@ export class SqliteCanonicalMemoryStore implements CanonicalMemoryStore {
           consumer_rules,
           tags,
           supersedes,
+          content_hash,
+          record_hash,
           record
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ON CONFLICT(id) DO UPDATE SET
           kind = excluded.kind,
           scope = excluded.scope,
+          scope_id = excluded.scope_id,
           status = excluded.status,
           title = excluded.title,
           body = excluded.body,
@@ -81,11 +90,14 @@ export class SqliteCanonicalMemoryStore implements CanonicalMemoryStore {
           consumer_rules = excluded.consumer_rules,
           tags = excluded.tags,
           supersedes = excluded.supersedes,
+          content_hash = excluded.content_hash,
+          record_hash = excluded.record_hash,
           record = excluded.record
       `,
       recordToSave.id,
       recordToSave.kind,
       recordToSave.scope,
+      recordToSave.scopeId,
       recordToSave.status,
       recordToSave.title,
       recordToSave.body,
@@ -97,13 +109,15 @@ export class SqliteCanonicalMemoryStore implements CanonicalMemoryStore {
       JSON.stringify(recordToSave.consumerRules),
       JSON.stringify(recordToSave.tags),
       JSON.stringify(recordToSave.supersedes),
+      recordToSave.contentHash,
+      recordToSave.recordHash,
       JSON.stringify(recordToSave)
     );
     this.upsertFtsRecord(recordToSave);
     return recordToSave;
   }
 
-  seed(records: readonly MemoryRecord[]): void {
+  seed(records: readonly MemoryRecordDraft[]): void {
     records.forEach((record) => this.upsert(record));
   }
 
@@ -120,42 +134,34 @@ export class SqliteCanonicalMemoryStore implements CanonicalMemoryStore {
   }
 
   private decodeRows(rows: MemoryRecordRow[]): MemoryRecord[] {
-    return rows.map((row) => decodeMemoryRecord(parseJson(row.record)));
+    return rows.map((row) => decodeStoredMemoryRecord(row.record));
   }
 
-  search(input: string, options?: SearchMemoryOptions): RetrievalResult {
+  search(
+    input: string,
+    accessContext: MemoryAccessContext,
+    options?: SearchMemoryOptions
+  ): RetrievalResult {
     const limit = options?.limit ?? 5;
     const tokens = memorySearchTokens(input);
     const candidates = combineCandidates([
       ...this.searchSqlCandidates(input, tokens, limit * 3),
       ...this.searchFtsCandidates(input, tokens, limit * 3)
     ]);
-    const sortedCandidates = candidates.sort(compareCandidates);
-    const hits = sortedCandidates
-      .filter(
-        ({ hit }) => options?.includeBlocked || !isBlockedLifecycle(hit.record)
-      )
-      .map(({ hit }) => hit)
-      .slice(0, limit);
-    const lifecycleViolations = hits
-      .filter((hit) => isBlockedLifecycle(hit.record))
-      .map((hit) => hit.record.id);
-    const blockedRecordIds = [
-      ...new Set(
-        sortedCandidates
-          .filter(({ hit }) => isBlockedLifecycle(hit.record))
-          .map(({ hit }) => hit.record.id)
-      )
-    ];
 
-    return { hits, lifecycleViolations, blockedRecordIds };
+    return finalizeMemorySearch(
+      candidates.map(({ hit }) => hit),
+      this.list(),
+      accessContext,
+      options
+    );
   }
 
   promote(recordId: string, status: LifecycleStatus): MemoryRecord | null {
     const record = this.get(recordId);
     if (!record) return null;
 
-    const promotedRecord = decodeMemoryRecord({
+    const promotedRecord = createMemoryRecord({
       ...record,
       status: decodeLifecycleStatus(status),
       updatedAt: new Date().toISOString()
@@ -171,7 +177,7 @@ export class SqliteCanonicalMemoryStore implements CanonicalMemoryStore {
         recordId
       )
       .toArray() as MemoryRecordRow[];
-    return rows[0] ? decodeMemoryRecord(parseJson(rows[0].record)) : null;
+    return rows[0] ? decodeStoredMemoryRecord(rows[0].record) : null;
   }
 
   debugSnapshot(limit = 50): MemoryDebugSnapshot {
@@ -184,6 +190,7 @@ export class SqliteCanonicalMemoryStore implements CanonicalMemoryStore {
         id TEXT PRIMARY KEY,
         kind TEXT NOT NULL,
         scope TEXT NOT NULL,
+        scope_id TEXT NOT NULL,
         status TEXT NOT NULL,
         title TEXT NOT NULL,
         body TEXT NOT NULL,
@@ -195,14 +202,37 @@ export class SqliteCanonicalMemoryStore implements CanonicalMemoryStore {
         consumer_rules TEXT NOT NULL,
         tags TEXT NOT NULL,
         supersedes TEXT NOT NULL,
+        content_hash TEXT NOT NULL,
+        record_hash TEXT NOT NULL,
         record TEXT NOT NULL
       )
     `);
+    this.ensureColumn(
+      "assistant_memory_records",
+      "scope_id",
+      "TEXT NOT NULL DEFAULT 'default-team'"
+    );
+    this.ensureColumn(
+      "assistant_memory_records",
+      "content_hash",
+      "TEXT NOT NULL DEFAULT ''"
+    );
+    this.ensureColumn(
+      "assistant_memory_records",
+      "record_hash",
+      "TEXT NOT NULL DEFAULT ''"
+    );
     this.sql.exec(
       "CREATE INDEX IF NOT EXISTS assistant_memory_status_idx ON assistant_memory_records(status)"
     );
     this.sql.exec(
       "CREATE INDEX IF NOT EXISTS assistant_memory_kind_idx ON assistant_memory_records(kind)"
+    );
+    this.sql.exec(
+      "CREATE INDEX IF NOT EXISTS assistant_memory_scope_idx ON assistant_memory_records(scope, scope_id, status)"
+    );
+    this.sql.exec(
+      "CREATE INDEX IF NOT EXISTS assistant_memory_record_hash_idx ON assistant_memory_records(record_hash)"
     );
     this.sql.exec(`
       CREATE VIRTUAL TABLE IF NOT EXISTS assistant_memory_records_fts
@@ -216,6 +246,19 @@ export class SqliteCanonicalMemoryStore implements CanonicalMemoryStore {
       )
     `);
     this.rebuildFtsIndex();
+  }
+
+  private ensureColumn(
+    table: string,
+    column: string,
+    definition: string
+  ): void {
+    const rows = this.sql.exec(`PRAGMA table_info(${table})`).toArray();
+    const hasColumn = rows.some((row) => row.name === column);
+
+    if (!hasColumn) {
+      this.sql.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`);
+    }
   }
 
   private rebuildFtsIndex(): void {
@@ -299,6 +342,7 @@ export class SqliteCanonicalMemoryStore implements CanonicalMemoryStore {
             WHERE lower(id) LIKE ?
               OR lower(kind) LIKE ?
               OR lower(scope) LIKE ?
+              OR lower(scope_id) LIKE ?
               OR lower(title) LIKE ?
               OR lower(body) LIKE ?
               OR lower(evidence) LIKE ?
@@ -308,6 +352,7 @@ export class SqliteCanonicalMemoryStore implements CanonicalMemoryStore {
               OR lower(supersedes) LIKE ?
             LIMIT ?
           `,
+          pattern,
           pattern,
           pattern,
           pattern,
@@ -371,7 +416,7 @@ export class SqliteCanonicalMemoryStore implements CanonicalMemoryStore {
     scoreBoost: number,
     reason: string
   ): RankedCandidate {
-    const record = decodeMemoryRecord(parseJson(row.record));
+    const record = decodeStoredMemoryRecord(row.record);
     const hit = scoreMemoryRecord(record, tokens);
 
     return {
@@ -388,10 +433,77 @@ function parseJson(value: string): unknown {
   return JSON.parse(value) as unknown;
 }
 
-function compareCandidates(left: RankedCandidate, right: RankedCandidate) {
-  if (right.hit.score !== left.hit.score)
-    return right.hit.score - left.hit.score;
-  return left.hit.record.id.localeCompare(right.hit.record.id);
+function decodeStoredMemoryRecord(value: string): MemoryRecord {
+  const parsed = parseJson(value);
+  const result = decodeMemoryRecordEither(parsed);
+
+  if (result) return result;
+
+  return createMemoryRecord(normalizeLegacyRecord(parsed));
+}
+
+function decodeMemoryRecordEither(value: unknown): MemoryRecord | null {
+  try {
+    return decodeMemoryRecord(value);
+  } catch {
+    return null;
+  }
+}
+
+const legacyScopeAliases: Record<string, MemoryScope> = {
+  private: "private",
+  team: "team",
+  org: "org",
+  session: "session",
+  user: "private",
+  project: "team",
+  repo: "team"
+};
+
+const defaultScopeIds = {
+  private: "local-user",
+  team: "default-team",
+  org: "default-org",
+  session: "local-session"
+} satisfies Record<MemoryScope, string>;
+
+const legacyRecordDefaults = {
+  id: "memory.legacy.invalid",
+  kind: "decision_record",
+  status: "active",
+  title: "Legacy memory record",
+  body: "",
+  evidence: "normalized from legacy local storage",
+  rationale: "legacy record compatibility",
+  createdAt: new Date(0).toISOString(),
+  updatedAt: new Date(0).toISOString(),
+  reEvalTrigger: "when legacy memory is inspected",
+  consumerRules: ["Use only after inspection"],
+  tags: [],
+  supersedes: []
+} satisfies Omit<MemoryRecordDraft, "scope" | "scopeId">;
+
+function normalizeLegacyRecord(value: unknown): MemoryRecordDraft {
+  const record = value as Partial<MemoryRecordDraft> & { scope?: string };
+  const scope = normalizeLegacyScope(record.scope);
+
+  return {
+    ...legacyRecordDefaults,
+    ...record,
+    scope,
+    scopeId: normalizeLegacyScopeId(scope, record.scopeId)
+  };
+}
+
+function normalizeLegacyScope(scope: string | undefined): MemoryScope {
+  return scope ? (legacyScopeAliases[scope] ?? "team") : "team";
+}
+
+function normalizeLegacyScopeId(
+  scope: MemoryScope,
+  scopeId: string | undefined
+): string {
+  return scopeId ?? defaultScopeIds[scope];
 }
 
 function combineCandidates(candidates: RankedCandidate[]): RankedCandidate[] {

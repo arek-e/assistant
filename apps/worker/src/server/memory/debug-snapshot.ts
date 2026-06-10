@@ -10,6 +10,7 @@ export function createMemoryDebugSnapshot(
     recordCount: records.length,
     countsByKind: countBy(records, "kind"),
     countsByStatus: countBy(records, "status"),
+    countsByScope: countBy(records, "scope"),
     records: records.slice(0, limit),
     recentRoutes: records
       .filter((record) => record.kind === "route_record")
@@ -17,7 +18,7 @@ export function createMemoryDebugSnapshot(
   };
 }
 
-function countBy<Key extends "kind" | "status">(
+function countBy<Key extends "kind" | "status" | "scope">(
   records: readonly MemoryRecord[],
   key: Key
 ): Record<string, number> {

@@ -68,7 +68,8 @@ const ExpectedWriteStatusSchema: Schema.Schema<MemoryWriteStatus> =
     "proposed",
     "active",
     "superseded",
-    "rejected"
+    "rejected",
+    "redacted"
   );
 
 export const EvalFixtureSchema = Schema.Struct({
@@ -79,6 +80,7 @@ export const EvalFixtureSchema = Schema.Struct({
   input: Schema.String,
   expectedRecordIds: Schema.Array(Schema.String),
   forbiddenRecordIds: Schema.Array(Schema.String),
+  expectedBlockedRecordIds: Schema.Array(Schema.String),
   expectedToolCalls: Schema.Array(Schema.String),
   forbiddenToolCalls: Schema.Array(Schema.String),
   expectedWriteKind: ExpectedWriteKindSchema,
@@ -108,6 +110,7 @@ export interface EvalResult {
   passed: boolean;
   checks: EvalCheck[];
   retrievedRecordIds: string[];
+  blockedRecordIds: string[];
   writeDecision: MemoryWriteDecision;
   routeDecision: RouteDecision;
   durationMs: number;

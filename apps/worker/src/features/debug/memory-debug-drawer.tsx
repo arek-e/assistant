@@ -40,6 +40,7 @@ interface SnapshotSummaryData {
   routes: number;
   kinds: Record<string, number>;
   statuses: Record<string, number>;
+  scopes: Record<string, number>;
 }
 
 const memoryToolNames = new Set([
@@ -182,6 +183,8 @@ function MemoryPanel({
               <div className="flex flex-wrap items-center gap-2">
                 <Text bold>{record.title}</Text>
                 <Badge variant="secondary">{record.kind}</Badge>
+                <Badge variant="secondary">{record.scope}</Badge>
+                <Badge variant="secondary">{record.scopeId}</Badge>
                 <Badge variant="secondary">{record.status}</Badge>
               </div>
               <Text
@@ -191,6 +194,10 @@ function MemoryPanel({
               >
                 {record.id}
               </Text>
+              <RecordHashLine
+                contentHash={record.contentHash}
+                recordHash={record.recordHash}
+              />
               <Text className="mt-2 block" size="xs" variant="secondary">
                 {record.body}
               </Text>
@@ -221,8 +228,14 @@ function RoutingPanel({
             <Surface key={record.id} className="p-3">
               <div className="flex flex-wrap items-center gap-2">
                 <Text bold>{record.title}</Text>
+                <Badge variant="secondary">{record.scope}</Badge>
+                <Badge variant="secondary">{record.scopeId}</Badge>
                 <Badge variant="secondary">{record.status}</Badge>
               </div>
+              <RecordHashLine
+                contentHash={record.contentHash}
+                recordHash={record.recordHash}
+              />
               <pre className="mt-2 max-h-48 overflow-auto rounded-md bg-muted p-2 text-xs">
                 {record.body}
               </pre>
@@ -266,6 +279,7 @@ function SnapshotSummary({
       <SummaryTile label="Routes" value={summary.routes} />
       <SummaryMap title="Kinds" values={summary.kinds} />
       <SummaryMap title="Statuses" values={summary.statuses} />
+      <SummaryMap title="Scopes" values={summary.scopes} />
     </div>
   );
 }
@@ -278,7 +292,8 @@ function toSnapshotSummary(
       records: 0,
       routes: 0,
       kinds: {},
-      statuses: {}
+      statuses: {},
+      scopes: {}
     };
   }
 
@@ -286,8 +301,24 @@ function toSnapshotSummary(
     records: snapshot.recordCount,
     routes: snapshot.recentRoutes.length,
     kinds: snapshot.countsByKind,
-    statuses: snapshot.countsByStatus
+    statuses: snapshot.countsByStatus,
+    scopes: snapshot.countsByScope
   };
+}
+
+function RecordHashLine({
+  contentHash,
+  recordHash
+}: {
+  contentHash: string;
+  recordHash: string;
+}) {
+  return (
+    <div className="mt-2 grid gap-1 text-xs text-muted-foreground">
+      <span className="font-mono break-all">content: {contentHash}</span>
+      <span className="font-mono break-all">record: {recordHash}</span>
+    </div>
+  );
 }
 
 function SummaryTile({ label, value }: { label: string; value: number }) {

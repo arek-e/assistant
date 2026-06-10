@@ -14,6 +14,7 @@ import {
 } from "./types";
 import {
   type CanonicalMemoryStore,
+  createLocalMemoryAccessContext,
   proposeMemoryWrite,
   routeTask,
   SqliteCanonicalMemoryStore,
@@ -76,7 +77,8 @@ function validateFixture(fixture: unknown): EvalFixture {
 function evaluateFixture(fixture: EvalFixture): EvalResult {
   const startedAt = Date.now();
   const memoryStore = createMemoryStore(fixture);
-  const retrievalResult = memoryStore.search(fixture.input);
+  const accessContext = createLocalMemoryAccessContext();
+  const retrievalResult = memoryStore.search(fixture.input, accessContext);
   const retrievedRecordIds = retrievalResult.hits.map((hit) => hit.record.id);
   const categoryEvaluation = evaluateCategory(
     fixture,
@@ -92,6 +94,7 @@ function evaluateFixture(fixture: EvalFixture): EvalResult {
     passed: checks.every((check) => check.passed),
     checks,
     retrievedRecordIds,
+    blockedRecordIds: retrievalResult.blockedRecordIds,
     writeDecision: categoryEvaluation.writeDecision,
     routeDecision: categoryEvaluation.routeDecision,
     durationMs: Date.now() - startedAt
@@ -188,6 +191,11 @@ function evaluateRetrievalFixture(
       "forbidden records absent",
       fixture.forbiddenRecordIds,
       retrievedRecordIds
+    ),
+    expectEveryRecord(
+      "expected records blocked",
+      fixture.expectedBlockedRecordIds,
+      retrievalResult.blockedRecordIds
     ),
     lifecycleCheck(retrievalResult.lifecycleViolations)
   ];
