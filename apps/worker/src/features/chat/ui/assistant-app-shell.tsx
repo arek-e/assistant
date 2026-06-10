@@ -240,32 +240,32 @@ function PrimaryRail({
   const connectionDotClass = getConnectionDotClass(connected);
 
   return (
-    <aside className="flex h-full w-[4.5rem] shrink-0 flex-col items-center rounded-[1.125rem] bg-[#10100f] py-4 text-white shadow-[0_10px_28px_rgba(16,16,15,0.18)]">
+    <aside className="flex h-full w-16 shrink-0 flex-col items-center rounded-[1.125rem] bg-[#10100f] py-3 text-white shadow-[0_10px_28px_rgba(16,16,15,0.18)]">
       <button
         type="button"
         aria-label="Open assistant panel"
-        className="grid size-10 place-items-center rounded-xl text-white transition-colors hover:bg-white/[0.08] active:scale-95"
+        className="grid size-9 place-items-center rounded-lg text-white transition-colors hover:bg-white/[0.08] active:scale-95"
         onClick={() => onPanelOpenChange(true)}
       >
         <RailMark />
       </button>
 
-      <nav className="mt-9 flex flex-1 flex-col items-center gap-2">
+      <nav className="mt-7 flex flex-1 flex-col items-center gap-1.5">
         <RailButton
           active={panelOpen}
           label="Current chat"
-          icon={<ChatCircleDotsIcon size={18} />}
+          icon={<ChatCircleDotsIcon size={17} />}
           onClick={() => onPanelOpenChange(true)}
         />
         <RailButton
           label="New chat"
-          icon={<PlusIcon size={18} />}
+          icon={<PlusIcon size={17} />}
           onClick={onNewChat}
         />
         <RailButton
           active={showDebug}
           label="Memory debugger"
-          icon={<WrenchIcon size={18} />}
+          icon={<WrenchIcon size={17} />}
           onClick={() => onShowDebugChange(!showDebug)}
         />
       </nav>
@@ -280,7 +280,7 @@ function PrimaryRail({
 
 function RailMark() {
   return (
-    <span aria-hidden className="grid size-6 grid-cols-2 grid-rows-2 gap-0.5">
+    <span aria-hidden className="grid size-5 grid-cols-2 grid-rows-2 gap-0.5">
       <span className="bg-white" />
       <span className="bg-white" />
       <span className="bg-white" />
@@ -369,7 +369,7 @@ function RailButton({
       aria-label={label}
       title={label}
       className={cn(
-        "grid size-9 place-items-center rounded-lg text-white/60 transition-colors hover:bg-white/[0.08] hover:text-white",
+        "grid size-8 place-items-center rounded-md text-white/60 transition-colors hover:bg-white/[0.08] hover:text-white",
         active && "bg-white/[0.13] text-white"
       )}
       onClick={onClick}
