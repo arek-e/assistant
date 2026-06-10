@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { getToolName, isToolUIPart, type UIMessage } from "ai";
 import { code } from "@streamdown/code";
 import { Streamdown } from "streamdown";
@@ -23,6 +24,44 @@ import {
   TimelineNode,
   WorkSummary
 } from "@/features/chat/ui/assistant-timeline";
+
+type ToolActivityKind = "output" | "approval" | "rejected" | "running";
+
+const assistantAvatarStateRules: Array<{
+  state: AgentVisualState;
+  matches: (parts: UIMessage["parts"]) => boolean;
+}> = [
+  { state: "error", matches: (parts) => parts.some(isRejectedToolPart) },
+  { state: "tool", matches: (parts) => parts.some(isRunningToolPart) },
+  {
+    state: "thinking",
+    matches: (parts) => parts.some(isStreamingReasoningPart)
+  }
+];
+
+const toolActivityRules: Array<{
+  kind: ToolActivityKind;
+  matches: (part: UIMessage["parts"][number]) => boolean;
+}> = [
+  {
+    kind: "output",
+    matches: (part) => isToolUIPart(part) && part.state === "output-available"
+  },
+  {
+    kind: "approval",
+    matches: (part) =>
+      isToolUIPart(part) &&
+      "approval" in part &&
+      part.state === "approval-requested"
+  },
+  { kind: "rejected", matches: isRejectedToolPart },
+  {
+    kind: "running",
+    matches: (part) =>
+      isToolUIPart(part) &&
+      (part.state === "input-available" || part.state === "input-streaming")
+  }
+];
 
 const starterPrompts = [
   "What do you remember about this project?",
@@ -140,34 +179,46 @@ function getAssistantAvatarState(
   isStreaming: boolean
 ): AgentVisualState {
   if (message.role !== "assistant") return "idle";
-
-  const hasRejectedTool = message.parts.some(
-    (part) =>
-      isToolUIPart(part) &&
-      (part.state === "output-denied" ||
-        ("approval" in part &&
-          (part.approval as { approved?: boolean })?.approved === false))
+  return (
+    assistantAvatarStateRules.find((rule) => rule.matches(message.parts))
+      ?.state ?? getFallbackAvatarState(isLastAssistant, isStreaming)
   );
-  if (hasRejectedTool) return "error";
+}
 
-  const hasRunningTool = message.parts.some(
-    (part) =>
-      isToolUIPart(part) &&
-      (part.state === "input-available" ||
-        part.state === "input-streaming" ||
-        part.state === "approval-requested")
+function getFallbackAvatarState(
+  isLastAssistant: boolean,
+  isStreaming: boolean
+): AgentVisualState {
+  return isLastAssistant && isStreaming ? "speaking" : "idle";
+}
+
+function isRejectedToolPart(part: UIMessage["parts"][number]) {
+  return isDeniedToolPart(part) || isRejectedApprovalPart(part);
+}
+
+function isDeniedToolPart(part: UIMessage["parts"][number]) {
+  return isToolUIPart(part) && part.state === "output-denied";
+}
+
+function isRejectedApprovalPart(part: UIMessage["parts"][number]) {
+  if (!isToolUIPart(part) || !("approval" in part)) return false;
+  return (part.approval as { approved?: boolean })?.approved === false;
+}
+
+function isRunningToolPart(part: UIMessage["parts"][number]) {
+  if (!isToolUIPart(part)) return false;
+  return (
+    part.state === "input-available" ||
+    part.state === "input-streaming" ||
+    part.state === "approval-requested"
   );
-  if (hasRunningTool) return "tool";
+}
 
-  const hasStreamingReasoning = message.parts.some(
-    (part) =>
-      part.type === "reasoning" &&
-      (part as { state?: string }).state === "streaming"
+function isStreamingReasoningPart(part: UIMessage["parts"][number]) {
+  return (
+    part.type === "reasoning" &&
+    (part as { state?: string }).state === "streaming"
   );
-  if (hasStreamingReasoning) return "thinking";
-
-  if (isLastAssistant && isStreaming) return "speaking";
-  return "idle";
 }
 
 function UserMessageParts({ message }: { message: UIMessage }) {
@@ -220,73 +271,15 @@ function AssistantRun({
 }) {
   const renderActivityNodes = (showDot: boolean) =>
     message.parts
-      .map((part, index) => {
-        if (isToolUIPart(part)) {
-          return (
-            <TimelineNode
-              key={part.toolCallId}
-              variant={toolNodeVariant(part)}
-              showDot={showDot}
-            >
-              <ToolTimelinePart
-                part={part}
-                addToolApprovalResponse={addToolApprovalResponse}
-              />
-            </TimelineNode>
-          );
-        }
-
-        if (
-          part.type === "reasoning" &&
-          (part as { text?: string }).text?.trim()
-        ) {
-          return (
-            <TimelineNode
-              key={`reasoning-${index}`}
-              variant="thinking"
-              showDot={showDot}
-            >
-              <ReasoningPart
-                part={
-                  part as {
-                    type: "reasoning";
-                    text: string;
-                    state?: "streaming" | "done";
-                  }
-                }
-                isStreaming={isStreaming}
-              />
-            </TimelineNode>
-          );
-        }
-
-        if (
-          part.type === "file" &&
-          (part as { mediaType?: string }).mediaType?.startsWith("image/") ===
-            true
-        ) {
-          const filePart = part as Extract<typeof part, { type: "file" }>;
-          return (
-            <TimelineNode
-              key={`file-${index}`}
-              variant="idle"
-              showDot={showDot}
-            >
-              <img
-                src={filePart.url}
-                alt="Attachment"
-                className="max-h-64 rounded-xl border border-border object-contain"
-              />
-            </TimelineNode>
-          );
-        }
-
-        if (part.type === "text") {
-          return null;
-        }
-
-        return null;
-      })
+      .map((part, index) =>
+        renderActivityPart({
+          addToolApprovalResponse,
+          index,
+          isStreaming,
+          part,
+          showDot
+        })
+      )
       .filter(Boolean);
 
   const activityNodes = renderActivityNodes(true);
@@ -343,17 +336,87 @@ function AssistantRun({
   );
 }
 
+function renderActivityPart({
+  part,
+  index,
+  showDot,
+  isStreaming,
+  addToolApprovalResponse
+}: {
+  part: UIMessage["parts"][number];
+  index: number;
+  showDot: boolean;
+  isStreaming: boolean;
+  addToolApprovalResponse: (response: {
+    id: string;
+    approved: boolean;
+  }) => void;
+}) {
+  if (isToolUIPart(part)) {
+    return (
+      <TimelineNode
+        key={part.toolCallId}
+        variant={toolNodeVariant(part)}
+        showDot={showDot}
+      >
+        <ToolTimelinePart
+          part={part}
+          addToolApprovalResponse={addToolApprovalResponse}
+        />
+      </TimelineNode>
+    );
+  }
+
+  if (isTextReasoningPart(part)) {
+    return (
+      <TimelineNode
+        key={`reasoning-${index}`}
+        variant="thinking"
+        showDot={showDot}
+      >
+        <ReasoningPart part={part} isStreaming={isStreaming} />
+      </TimelineNode>
+    );
+  }
+
+  if (isImageFilePart(part)) {
+    return (
+      <TimelineNode key={`file-${index}`} variant="idle" showDot={showDot}>
+        <img
+          src={part.url}
+          alt="Attachment"
+          className="max-h-64 rounded-xl border border-border object-contain"
+        />
+      </TimelineNode>
+    );
+  }
+
+  return null;
+}
+
+function isTextReasoningPart(
+  part: UIMessage["parts"][number]
+): part is { type: "reasoning"; text: string; state?: "streaming" | "done" } {
+  return (
+    part.type === "reasoning" &&
+    Boolean((part as { text?: string }).text?.trim())
+  );
+}
+
+function isImageFilePart(
+  part: UIMessage["parts"][number]
+): part is Extract<UIMessage["parts"][number], { type: "file" }> {
+  return (
+    part.type === "file" &&
+    (part as { mediaType?: string }).mediaType?.startsWith("image/") === true
+  );
+}
+
 function toolNodeVariant(
   part: UIMessage["parts"][number]
 ): "tool" | "success" | "error" {
   if (!isToolUIPart(part)) return "tool";
-  if (
-    part.state === "output-denied" ||
-    ("approval" in part &&
-      (part.approval as { approved?: boolean })?.approved === false)
-  ) {
-    return "error";
-  }
+  if (isRejectedToolPart(part)) return "error";
   if (part.state === "output-available") return "success";
   return "tool";
 }
@@ -371,115 +434,202 @@ function ToolTimelinePart({
   if (!isToolUIPart(part)) return null;
 
   const toolName = getToolName(part);
-  const approvalId =
-    "approval" in part ? (part.approval as { id?: string })?.id : undefined;
+  const activityKind = getToolActivityKind(part);
 
-  if (part.state === "output-available") {
-    return (
-      <ActivityDisclosure
-        defaultOpen={false}
-        header={(open) => (
-          <>
-            <ActivityTitle>
-              <GearIcon size={14} className="text-muted-foreground" />
-              <span className="truncate font-medium">{toolName}</span>
-              <DisclosureCaret open={open}>
-                <CaretDownIcon size={13} />
-              </DisclosureCaret>
-            </ActivityTitle>
-          </>
-        )}
+  return activityKind
+    ? renderToolActivity({
+        activityKind,
+        addToolApprovalResponse,
+        part,
+        toolName
+      })
+    : null;
+}
+
+function getToolActivityKind(part: UIMessage["parts"][number]) {
+  return toolActivityRules.find((rule) => rule.matches(part))?.kind;
+}
+
+function renderToolActivity({
+  activityKind,
+  part,
+  toolName,
+  addToolApprovalResponse
+}: {
+  activityKind: ToolActivityKind;
+  part: UIMessage["parts"][number];
+  toolName: string;
+  addToolApprovalResponse: (response: {
+    id: string;
+    approved: boolean;
+  }) => void;
+}) {
+  const renderers = {
+    approval: () => (
+      <ToolApprovalActivity
+        approvalId={
+          "approval" in part
+            ? (part.approval as { id?: string })?.id
+            : undefined
+        }
+        input={"input" in part ? part.input : undefined}
+        toolName={toolName}
+        addToolApprovalResponse={addToolApprovalResponse}
+      />
+    ),
+    output: () => (
+      <ToolOutputActivity
+        output={"output" in part ? part.output : undefined}
+        toolName={toolName}
+      />
+    ),
+    rejected: () => <ToolRejectedActivity toolName={toolName} />,
+    running: () => <ToolRunningActivity toolName={toolName} />
+  } satisfies Record<ToolActivityKind, () => ReactNode>;
+
+  return renderers[activityKind]();
+}
+
+function ToolOutputActivity({
+  output,
+  toolName
+}: {
+  output: unknown;
+  toolName: string;
+}) {
+  return (
+    <ActivityDisclosure
+      defaultOpen={false}
+      header={(open) => (
+        <ActivityTitle>
+          <GearIcon size={14} className="text-muted-foreground" />
+          <span className="truncate font-medium">{toolName}</span>
+          <DisclosureCaret open={open}>
+            <CaretDownIcon size={13} />
+          </DisclosureCaret>
+        </ActivityTitle>
+      )}
+    >
+      <ActivityTray>
+        <ActivityCodeBlock>{JSON.stringify(output, null, 2)}</ActivityCodeBlock>
+      </ActivityTray>
+    </ActivityDisclosure>
+  );
+}
+
+function ToolApprovalActivity({
+  approvalId,
+  input,
+  toolName,
+  addToolApprovalResponse
+}: {
+  approvalId?: string;
+  input: unknown;
+  toolName: string;
+  addToolApprovalResponse: (response: {
+    id: string;
+    approved: boolean;
+  }) => void;
+}) {
+  return (
+    <ActivityCard approval>
+      <ToolStatusRow
+        icon={<WrenchIcon size={14} className="text-warning" />}
+        label={`Approval: ${toolName}`}
+        badge="Waiting"
+      />
+      <ActivityTray>
+        <ActivityCodeBlock>{JSON.stringify(input, null, 2)}</ActivityCodeBlock>
+        <ToolApprovalActions
+          approvalId={approvalId}
+          addToolApprovalResponse={addToolApprovalResponse}
+        />
+      </ActivityTray>
+    </ActivityCard>
+  );
+}
+
+function ToolRejectedActivity({ toolName }: { toolName: string }) {
+  return (
+    <ActivityCard>
+      <ToolStatusRow
+        icon={<XCircleIcon size={14} className="text-destructive" />}
+        label={toolName}
+        badge="Rejected"
+      />
+    </ActivityCard>
+  );
+}
+
+function ToolRunningActivity({ toolName }: { toolName: string }) {
+  return (
+    <ActivityCard>
+      <ToolStatusRow
+        icon={
+          <GearIcon size={14} className="animate-spin text-muted-foreground" />
+        }
+        label={`Running ${toolName}`}
+        badge="Active"
+      />
+    </ActivityCard>
+  );
+}
+
+function ToolStatusRow({
+  icon,
+  label,
+  badge
+}: {
+  icon: ReactNode;
+  label: string;
+  badge: string;
+}) {
+  return (
+    <div className="flex min-h-9 w-fit max-w-full items-center justify-start gap-[0.55rem] py-[0.2rem] text-xs text-foreground">
+      <ActivityTitle>
+        {icon}
+        <span className="truncate font-medium">{label}</span>
+      </ActivityTitle>
+      <Badge variant="secondary">{badge}</Badge>
+    </div>
+  );
+}
+
+function ToolApprovalActions({
+  approvalId,
+  addToolApprovalResponse
+}: {
+  approvalId?: string;
+  addToolApprovalResponse: (response: {
+    id: string;
+    approved: boolean;
+  }) => void;
+}) {
+  const respond = (approved: boolean) => {
+    if (!approvalId) return;
+    addToolApprovalResponse({ id: approvalId, approved });
+  };
+
+  return (
+    <div className="mt-2 flex gap-2">
+      <Button
+        variant="primary"
+        size="sm"
+        icon={<CheckCircleIcon size={14} />}
+        onClick={() => respond(true)}
       >
-        <ActivityTray>
-          <ActivityCodeBlock>
-            {JSON.stringify(part.output, null, 2)}
-          </ActivityCodeBlock>
-        </ActivityTray>
-      </ActivityDisclosure>
-    );
-  }
-
-  if ("approval" in part && part.state === "approval-requested") {
-    return (
-      <ActivityCard approval>
-        <div className="flex min-h-9 w-fit max-w-full items-center justify-start gap-[0.55rem] py-[0.2rem] text-xs text-foreground">
-          <ActivityTitle>
-            <WrenchIcon size={14} className="text-warning" />
-            <span className="truncate font-medium">Approval: {toolName}</span>
-          </ActivityTitle>
-          <Badge variant="secondary">Waiting</Badge>
-        </div>
-        <ActivityTray>
-          <ActivityCodeBlock>
-            {JSON.stringify(part.input, null, 2)}
-          </ActivityCodeBlock>
-          <div className="mt-2 flex gap-2">
-            <Button
-              variant="primary"
-              size="sm"
-              icon={<CheckCircleIcon size={14} />}
-              onClick={() => {
-                if (approvalId) {
-                  addToolApprovalResponse({ id: approvalId, approved: true });
-                }
-              }}
-            >
-              Approve
-            </Button>
-            <Button
-              variant="secondary"
-              size="sm"
-              icon={<XCircleIcon size={14} />}
-              onClick={() => {
-                if (approvalId) {
-                  addToolApprovalResponse({ id: approvalId, approved: false });
-                }
-              }}
-            >
-              Reject
-            </Button>
-          </div>
-        </ActivityTray>
-      </ActivityCard>
-    );
-  }
-
-  if (
-    part.state === "output-denied" ||
-    ("approval" in part &&
-      (part.approval as { approved?: boolean })?.approved === false)
-  ) {
-    return (
-      <ActivityCard>
-        <div className="flex min-h-9 w-fit max-w-full items-center justify-start gap-[0.55rem] py-[0.2rem] text-xs text-foreground">
-          <ActivityTitle>
-            <XCircleIcon size={14} className="text-destructive" />
-            <span className="truncate font-medium">{toolName}</span>
-          </ActivityTitle>
-          <Badge variant="secondary">Rejected</Badge>
-        </div>
-      </ActivityCard>
-    );
-  }
-
-  if (part.state === "input-available" || part.state === "input-streaming") {
-    return (
-      <ActivityCard>
-        <div className="flex min-h-9 w-fit max-w-full items-center justify-start gap-[0.55rem] py-[0.2rem] text-xs text-foreground">
-          <ActivityTitle>
-            <GearIcon
-              size={14}
-              className="animate-spin text-muted-foreground"
-            />
-            <span className="truncate font-medium">Running {toolName}</span>
-          </ActivityTitle>
-          <Badge variant="secondary">Active</Badge>
-        </div>
-      </ActivityCard>
-    );
-  }
-
-  return null;
+        Approve
+      </Button>
+      <Button
+        variant="secondary"
+        size="sm"
+        icon={<XCircleIcon size={14} />}
+        onClick={() => respond(false)}
+      >
+        Reject
+      </Button>
+    </div>
+  );
 }
 
 function ReasoningPart({

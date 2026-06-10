@@ -55,6 +55,15 @@ const eventByState: Record<AgentVisualState, AgentEvent["type"]> = {
   error: "ERROR"
 };
 
+const visualStateByEvent: Record<AgentEvent["type"], AgentVisualState> = {
+  IDLE: "idle",
+  THINK: "thinking",
+  SPEAK: "speaking",
+  TOOL: "tool",
+  SUCCESS: "success",
+  ERROR: "error"
+};
+
 const avatarSizeClassBySize = {
   sm: "size-[2.65rem]",
   md: "size-16",
@@ -132,20 +141,7 @@ const agentAvatarMachine = setup({
 });
 
 function eventToVisualState(type: AgentEvent["type"]): AgentVisualState {
-  switch (type) {
-    case "THINK":
-      return "thinking";
-    case "SPEAK":
-      return "speaking";
-    case "TOOL":
-      return "tool";
-    case "SUCCESS":
-      return "success";
-    case "ERROR":
-      return "error";
-    case "IDLE":
-      return "idle";
-  }
+  return visualStateByEvent[type];
 }
 
 export function AgentAvatar({
