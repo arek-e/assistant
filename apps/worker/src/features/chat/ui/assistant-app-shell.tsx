@@ -25,6 +25,7 @@ import {
 
 const expandedPanelWidth = 304;
 const collapsedPanelWidth = 0;
+const detailsPanelWidth = 320;
 const panelDragOpenThreshold = 80;
 const panelDragCloseThreshold = 96;
 const panelDragVelocityThreshold = 1600;
@@ -58,6 +59,7 @@ export function AssistantAppShell({
   onNewChat: () => void;
 }) {
   const [panelOpen, setPanelOpen] = useState(true);
+  const [detailsPanelOpen, setDetailsPanelOpen] = useState(true);
   const statusLabel = getStatusLabel(isStreaming, connected);
 
   return (
@@ -76,8 +78,10 @@ export function AssistantAppShell({
           <div className="flex min-h-0 flex-1 overflow-hidden">
             <section className="flex min-w-0 flex-1 flex-col bg-background">
               <ChatTopbar
+                detailsPanelOpen={detailsPanelOpen}
                 isStreaming={isStreaming}
                 messageCount={messageCount}
+                onDetailsPanelOpenChange={setDetailsPanelOpen}
                 onNewChat={onNewChat}
                 themeToggle={themeToggle}
               />
@@ -97,6 +101,7 @@ export function AssistantAppShell({
             </section>
             <AssistantDetailsPanel
               connected={connected}
+              open={detailsPanelOpen}
               isStreaming={isStreaming}
               messageCount={messageCount}
               serverCount={serverCount}
@@ -104,6 +109,7 @@ export function AssistantAppShell({
               statusLabel={statusLabel}
               toolCount={toolCount}
               integrationControls={integrationControls}
+              onOpenChange={setDetailsPanelOpen}
               onShowDebugChange={onShowDebugChange}
             />
           </div>
@@ -115,6 +121,7 @@ export function AssistantAppShell({
 
 function AssistantDetailsPanel({
   connected,
+  open,
   isStreaming,
   messageCount,
   serverCount,
@@ -122,9 +129,11 @@ function AssistantDetailsPanel({
   statusLabel,
   toolCount,
   integrationControls,
+  onOpenChange,
   onShowDebugChange
 }: {
   connected: boolean;
+  open: boolean;
   isStreaming: boolean;
   messageCount: number;
   serverCount: number;
@@ -132,70 +141,90 @@ function AssistantDetailsPanel({
   statusLabel: string;
   toolCount: number;
   integrationControls: ReactNode;
+  onOpenChange: (open: boolean) => void;
   onShowDebugChange: (checked: boolean) => void;
 }) {
   return (
-    <aside className="hidden w-80 shrink-0 flex-col bg-background shadow-[-1px_0_0_rgba(16,16,15,0.08)] lg:flex">
-      <div className="flex h-12 shrink-0 items-center justify-between gap-3 px-5">
-        <h2 className="truncate text-sm font-medium text-neutral-950">
-          Agent details
-        </h2>
-        <span
-          aria-hidden
-          className="grid size-8 shrink-0 place-items-center text-neutral-700"
-        >
-          <PanelLeftClose size={15} />
-        </span>
-      </div>
+    <motion.aside
+      aria-hidden={!open}
+      className="hidden h-full shrink-0 overflow-hidden bg-background lg:block"
+      initial={false}
+      animate={{
+        width: getDetailsPanelWidth(open),
+        boxShadow: getDetailsPanelShadow(open)
+      }}
+      transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
+    >
+      <motion.div
+        inert={getDetailsPanelInert(open)}
+        className="flex h-full w-80 flex-col"
+        initial={false}
+        animate={{ opacity: getDetailsPanelContentOpacity(open) }}
+        transition={{ duration: getDetailsPanelContentFadeDuration(open) }}
+      >
+        <div className="flex h-12 shrink-0 items-center justify-between gap-3 px-5">
+          <h2 className="truncate text-sm font-medium text-neutral-950">
+            Agent details
+          </h2>
+          <button
+            type="button"
+            aria-label="Collapse details panel"
+            className="relative grid size-8 shrink-0 place-items-center rounded-md text-neutral-700 transition-[background-color,scale] hover:bg-black/5 active:scale-[0.96] before:absolute before:-inset-1 before:content-['']"
+            onClick={() => onOpenChange(false)}
+          >
+            <PanelLeftClose size={15} />
+          </button>
+        </div>
 
-      <div className="min-h-0 flex-1 overflow-y-auto">
-        <DetailsSection title="Runtime">
-          <DetailsRow
-            icon={<ChatCircleDotsIcon size={15} />}
-            label="Status"
-            value={statusLabel}
-          />
-          <DetailsRow
-            label="Connection"
-            value={getConnectionLabel(connected)}
-            dotClassName={getConnectionDotClass(connected)}
-          />
-          <DetailsRow
-            label="Agent"
-            value={getAgentLabel(isStreaming)}
-            dotClassName={getAgentDotClass(isStreaming)}
-          />
-          <DetailsRow
-            icon={<ChatCircleDotsIcon size={15} />}
-            label="Messages"
-            value={`${messageCount}`}
-          />
-        </DetailsSection>
+        <div className="min-h-0 flex-1 overflow-y-auto">
+          <DetailsSection title="Runtime">
+            <DetailsRow
+              icon={<ChatCircleDotsIcon size={15} />}
+              label="Status"
+              value={statusLabel}
+            />
+            <DetailsRow
+              label="Connection"
+              value={getConnectionLabel(connected)}
+              dotClassName={getConnectionDotClass(connected)}
+            />
+            <DetailsRow
+              label="Agent"
+              value={getAgentLabel(isStreaming)}
+              dotClassName={getAgentDotClass(isStreaming)}
+            />
+            <DetailsRow
+              icon={<ChatCircleDotsIcon size={15} />}
+              label="Messages"
+              value={`${messageCount}`}
+            />
+          </DetailsSection>
 
-        <DetailsSection title="Integrations">
-          <DetailsRow
-            icon={<WrenchIcon size={15} />}
-            label="MCP tools"
-            value={`${toolCount}`}
-          />
-          <DetailsRow
-            icon={<PlugsConnectedIcon size={15} />}
-            label="MCP servers"
-            value={`${serverCount}`}
-          />
-          <div className="mt-2 px-5">{integrationControls}</div>
-        </DetailsSection>
+          <DetailsSection title="Integrations">
+            <DetailsRow
+              icon={<WrenchIcon size={15} />}
+              label="MCP tools"
+              value={`${toolCount}`}
+            />
+            <DetailsRow
+              icon={<PlugsConnectedIcon size={15} />}
+              label="MCP servers"
+              value={`${serverCount}`}
+            />
+            <div className="mt-2 px-5">{integrationControls}</div>
+          </DetailsSection>
 
-        <DetailsSection title="Memory">
-          <DetailsSwitchRow
-            checked={showDebug}
-            icon={<BrainIcon size={15} />}
-            label="Debugger"
-            onCheckedChange={onShowDebugChange}
-          />
-        </DetailsSection>
-      </div>
-    </aside>
+          <DetailsSection title="Memory">
+            <DetailsSwitchRow
+              checked={showDebug}
+              icon={<BrainIcon size={15} />}
+              label="Debugger"
+              onCheckedChange={onShowDebugChange}
+            />
+          </DetailsSection>
+        </div>
+      </motion.div>
+    </motion.aside>
   );
 }
 
@@ -617,6 +646,26 @@ function getPanelWidth(panelOpen: boolean) {
   return panelOpen ? expandedPanelWidth : collapsedPanelWidth;
 }
 
+function getDetailsPanelWidth(open: boolean) {
+  return open ? detailsPanelWidth : collapsedPanelWidth;
+}
+
+function getDetailsPanelShadow(open: boolean) {
+  return open ? "-1px 0 0 rgba(16,16,15,0.08)" : "0 0 0 rgba(16,16,15,0)";
+}
+
+function getDetailsPanelContentOpacity(open: boolean) {
+  return open ? 1 : 0;
+}
+
+function getDetailsPanelContentFadeDuration(open: boolean) {
+  return open ? 0.16 : 0.1;
+}
+
+function getDetailsPanelInert(open: boolean) {
+  return !open;
+}
+
 function clampPanelWidth(width: number) {
   return Math.min(expandedPanelWidth, Math.max(collapsedPanelWidth, width));
 }
@@ -827,13 +876,17 @@ function getPanelNavClassName(active: boolean, interactive = false) {
 }
 
 function ChatTopbar({
+  detailsPanelOpen,
   isStreaming,
   messageCount,
+  onDetailsPanelOpenChange,
   themeToggle,
   onNewChat
 }: {
+  detailsPanelOpen: boolean;
   isStreaming: boolean;
   messageCount: number;
+  onDetailsPanelOpenChange: (open: boolean) => void;
   themeToggle: ReactNode;
   onNewChat: () => void;
 }) {
@@ -846,6 +899,16 @@ function ChatTopbar({
         </h1>
       </div>
       <div className="flex shrink-0 items-center gap-2">
+        {!detailsPanelOpen && (
+          <button
+            type="button"
+            aria-label="Open details panel"
+            className="relative grid size-8 shrink-0 place-items-center rounded-md text-neutral-700 transition-[background-color,scale] hover:bg-black/5 active:scale-[0.96] before:absolute before:-inset-1 before:content-['']"
+            onClick={() => onDetailsPanelOpenChange(true)}
+          >
+            <PanelLeftClose size={15} className="scale-x-[-1]" />
+          </button>
+        )}
         {themeToggle}
         <Button
           variant="secondary"
