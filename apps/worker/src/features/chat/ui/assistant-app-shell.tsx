@@ -902,7 +902,7 @@ function getMainContentBodyClassName(hasWorkspacePreview: boolean) {
   return cn(
     "min-h-0 flex-1 overflow-hidden",
     hasWorkspacePreview
-      ? "flex flex-col p-0 xl:flex-row xl:gap-3 xl:p-3"
+      ? "flex flex-col p-0 xl:flex-row xl:gap-3 xl:overflow-visible xl:p-3"
       : "flex flex-col"
   );
 }
@@ -911,7 +911,7 @@ function getChatColumnClassName(hasWorkspacePreview: boolean) {
   return cn(
     "flex min-h-0 flex-col bg-background",
     hasWorkspacePreview
-      ? "min-w-0 flex-1 overflow-hidden xl:w-[min(27rem,34vw)] xl:min-w-[23rem] xl:flex-none xl:border-l xl:border-black/10 xl:pl-3"
+      ? "min-w-0 flex-1 overflow-hidden xl:w-[min(27rem,34vw)] xl:min-w-[23rem] xl:flex-none xl:overflow-visible xl:pl-1"
       : "min-w-0 flex-1"
   );
 }
@@ -929,7 +929,7 @@ function getComposerDockClassName(hasWorkspacePreview: boolean) {
   return cn(
     "shrink-0 bg-gradient-to-t from-background via-background to-background/0",
     hasWorkspacePreview
-      ? "px-4 pb-5 pt-3 sm:px-8 xl:px-0 xl:pb-1 xl:pt-2"
+      ? "px-4 pb-5 pt-3 sm:px-8 xl:-mx-1 xl:px-1 xl:pb-3 xl:pt-2"
       : "px-4 pb-5 pt-3 sm:px-8"
   );
 }
