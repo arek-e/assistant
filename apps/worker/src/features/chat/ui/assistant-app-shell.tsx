@@ -63,7 +63,7 @@ export function AssistantAppShell({
           onPanelOpenChange={setPanelOpen}
           onShowDebugChange={onShowDebugChange}
         />
-        <main className="relative z-10 flex min-w-0 flex-1 flex-col overflow-hidden rounded-[1.125rem] border border-white/80 bg-background shadow-[0_12px_34px_rgba(16,16,15,0.08)] md:ml-[3px]">
+        <main className="relative z-10 flex min-w-0 flex-1 flex-col overflow-hidden rounded-[1.125rem] border border-white/80 bg-background shadow-[0_0_0_1px_rgba(16,16,15,0.1),0_1px_2px_-1px_rgba(16,16,15,0.1),0_2px_4px_rgba(16,16,15,0.05)] md:ml-[3px]">
           <ChatTopbar
             isStreaming={isStreaming}
             messageCount={messageCount}
