@@ -16,7 +16,7 @@ export function createMemoryRecord(input: MemoryRecordDraft): MemoryRecord {
   });
 }
 
-export function hashMemoryContent(record: MemoryRecordDraft): string {
+function hashMemoryContent(record: MemoryRecordDraft): string {
   return hashStableValue({
     kind: record.kind,
     title: record.title,
@@ -30,7 +30,7 @@ export function hashMemoryContent(record: MemoryRecordDraft): string {
   });
 }
 
-export function hashMemoryRecord(
+function hashMemoryRecord(
   record: MemoryRecordDraft & { contentHash: string }
 ): string {
   return hashStableValue({

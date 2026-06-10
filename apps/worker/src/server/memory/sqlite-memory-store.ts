@@ -13,7 +13,8 @@ import {
   decodeMemoryRecord,
   type LifecycleStatus,
   type MemoryRecord,
-  type MemoryRecordDraft
+  type MemoryRecordDraft,
+  type MemoryScope
 } from "./types";
 import type { CanonicalMemoryStore, MemoryDebugSnapshot } from "./contract";
 import { createMemoryDebugSnapshot } from "./debug-snapshot";
@@ -449,58 +450,60 @@ function decodeMemoryRecordEither(value: unknown): MemoryRecord | null {
   }
 }
 
+const legacyScopeAliases: Record<string, MemoryScope> = {
+  private: "private",
+  team: "team",
+  org: "org",
+  session: "session",
+  user: "private",
+  project: "team",
+  repo: "team"
+};
+
+const defaultScopeIds = {
+  private: "local-user",
+  team: "default-team",
+  org: "default-org",
+  session: "local-session"
+} satisfies Record<MemoryScope, string>;
+
+const legacyRecordDefaults = {
+  id: "memory.legacy.invalid",
+  kind: "decision_record",
+  status: "active",
+  title: "Legacy memory record",
+  body: "",
+  evidence: "normalized from legacy local storage",
+  rationale: "legacy record compatibility",
+  createdAt: new Date(0).toISOString(),
+  updatedAt: new Date(0).toISOString(),
+  reEvalTrigger: "when legacy memory is inspected",
+  consumerRules: ["Use only after inspection"],
+  tags: [],
+  supersedes: []
+} satisfies Omit<MemoryRecordDraft, "scope" | "scopeId">;
+
 function normalizeLegacyRecord(value: unknown): MemoryRecordDraft {
   const record = value as Partial<MemoryRecordDraft> & { scope?: string };
   const scope = normalizeLegacyScope(record.scope);
 
   return {
-    id: record.id ?? "memory.legacy.invalid",
-    kind: record.kind ?? "decision_record",
+    ...legacyRecordDefaults,
+    ...record,
     scope,
-    scopeId: record.scopeId ?? defaultScopeId(scope),
-    status: record.status ?? "active",
-    title: record.title ?? "Legacy memory record",
-    body: record.body ?? "",
-    evidence: record.evidence ?? "normalized from legacy local storage",
-    rationale: record.rationale ?? "legacy record compatibility",
-    createdAt: record.createdAt ?? new Date(0).toISOString(),
-    updatedAt: record.updatedAt ?? new Date(0).toISOString(),
-    reEvalTrigger: record.reEvalTrigger ?? "when legacy memory is inspected",
-    consumerRules: record.consumerRules ?? ["Use only after inspection"],
-    tags: record.tags ?? [],
-    supersedes: record.supersedes ?? []
+    scopeId: normalizeLegacyScopeId(scope, record.scopeId)
   };
 }
 
-function normalizeLegacyScope(
-  scope: string | undefined
-): MemoryRecord["scope"] {
-  switch (scope) {
-    case "private":
-    case "team":
-    case "org":
-    case "session":
-      return scope;
-    case "user":
-      return "private";
-    case "project":
-    case "repo":
-    default:
-      return "team";
-  }
+function normalizeLegacyScope(scope: string | undefined): MemoryScope {
+  return scope ? (legacyScopeAliases[scope] ?? "team") : "team";
 }
 
-function defaultScopeId(scope: MemoryRecord["scope"]): string {
-  switch (scope) {
-    case "private":
-      return "local-user";
-    case "team":
-      return "default-team";
-    case "org":
-      return "default-org";
-    case "session":
-      return "local-session";
-  }
+function normalizeLegacyScopeId(
+  scope: MemoryScope,
+  scopeId: string | undefined
+): string {
+  return scopeId ?? defaultScopeIds[scope];
 }
 
 function combineCandidates(candidates: RankedCandidate[]): RankedCandidate[] {

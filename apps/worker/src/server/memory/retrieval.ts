@@ -159,7 +159,7 @@ export function finalizeMemorySearch(
   };
 }
 
-export function isBlockedLifecycle(record: MemoryRecord) {
+function isBlockedLifecycle(record: MemoryRecord) {
   return record.status !== "active";
 }
 

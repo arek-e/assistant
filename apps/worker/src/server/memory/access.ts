@@ -10,7 +10,7 @@ export interface MemoryAccessContext {
   grants: readonly MemoryScopeGrant[];
 }
 
-export const localMemoryScopeIds = {
+const localMemoryScopeIds = {
   private: "local-user",
   team: "default-team",
   org: "default-org",
