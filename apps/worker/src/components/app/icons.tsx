@@ -3,30 +3,19 @@ import {
   ArrowDown01Icon,
   Attachment01Icon,
   BrainIcon as BrainIconData,
-  Briefcase01Icon,
   Bug01Icon,
-  Calendar03Icon,
   Cancel01Icon,
   CancelCircleIcon,
-  ChatSearchIcon,
   ChatBotIcon,
   CheckmarkCircle01Icon,
-  CheckListIcon as CheckListIconData,
-  Clock01Icon,
-  ContactIcon as ContactIconData,
   Delete02Icon,
-  Home03Icon,
   Image01Icon,
-  Link01Icon,
   Login01Icon,
   McpServerIcon,
-  MoreHorizontalIcon as MoreHorizontalIconData,
   Moon02Icon,
   Navigation03Icon,
-  Note01Icon,
   PanelLeftCloseIcon,
   PanelRightIcon,
-  Search01Icon,
   Settings01Icon,
   StopIcon as StopIconData,
   Sun03Icon,
@@ -64,16 +53,5 @@ export const XIcon = createIcon(Cancel01Icon);
 export const WrenchIcon = createIcon(Wrench01Icon);
 export const PaperclipIcon = createIcon(Attachment01Icon);
 export const ImageIcon = createIcon(Image01Icon);
-export const BriefcaseIcon = createIcon(Briefcase01Icon);
-export const CalendarIcon = createIcon(Calendar03Icon);
-export const CheckListIcon = createIcon(CheckListIconData);
-export const ClockIcon = createIcon(Clock01Icon);
-export const ContactIcon = createIcon(ContactIconData);
-export const HomeIcon = createIcon(Home03Icon);
-export const LinkIcon = createIcon(Link01Icon);
-export const MoreHorizontalIcon = createIcon(MoreHorizontalIconData);
-export const NoteIcon = createIcon(Note01Icon);
 export const PanelLeftClose = createIcon(PanelLeftCloseIcon);
 export const PanelRight = createIcon(PanelRightIcon);
-export const SearchIcon = createIcon(Search01Icon);
-export const ChatSearch = createIcon(ChatSearchIcon);

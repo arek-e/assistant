@@ -93,7 +93,7 @@ export function MessageList({
             Teampitch
           </div>
           <h2 className="text-2xl font-medium tracking-normal text-foreground">
-            Ask about notes, meetings, tasks, or connected tools.
+            Ask about this project, memory, tools, or what I can do here.
           </h2>
           <div className="mt-7 flex flex-wrap gap-2">
             {starterPrompts.map((prompt) => (

@@ -114,6 +114,7 @@ export function Chat({
 
   const isStreaming = status === "streaming" || status === "submitted";
   const mcpToolCount = mcpState.tools.length;
+  const mcpServerCount = Object.keys(mcpState.servers).length;
 
   useEffect(() => {
     if (!showMcpPanel) return;
@@ -282,6 +283,8 @@ export function Chat({
         isStreaming={isStreaming}
         showDebug={showDebugDrawer}
         toolCount={mcpToolCount}
+        serverCount={mcpServerCount}
+        messageCount={messages.length}
         integrationControls={integrationControls}
         themeToggle={<ThemeToggle />}
         onShowDebugChange={setShowDebugDrawer}
