@@ -1,4 +1,5 @@
 import type { MCPServersState } from "agents";
+
 import {
   PlugsConnectedIcon,
   PlusIcon,
@@ -34,17 +35,15 @@ export function McpPanel({
   const toolCount = mcpState.tools.length;
 
   return (
-    <div className="absolute right-0 top-full mt-2 w-96 z-50">
-      <Surface className="rounded-xl ring ring-border shadow-lg p-4 space-y-4">
+    <div className="absolute top-full right-0 z-50 mt-2 w-96">
+      <Surface className="space-y-4 rounded-xl p-4 shadow-lg ring ring-border">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <PlugsConnectedIcon size={16} className="text-primary" />
             <Text size="sm" bold>
               MCP Servers
             </Text>
-            {serverEntries.length > 0 && (
-              <Badge variant="secondary">{serverEntries.length}</Badge>
-            )}
+            {serverEntries.length > 0 && <Badge variant="secondary">{serverEntries.length}</Badge>}
           </div>
           <Button
             variant="ghost"
@@ -69,7 +68,7 @@ export function McpPanel({
             onChange={(event) => onNameChange(event.target.value)}
             aria-label="MCP server name"
             placeholder="Server name"
-            className="w-full px-3 py-1.5 text-sm rounded-lg border border-border bg-card text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+            className="w-full rounded-lg border border-border bg-card px-3 py-1.5 text-sm text-foreground placeholder:text-muted-foreground focus:ring-1 focus:ring-ring focus:outline-none"
           />
           <div className="flex gap-2">
             <input
@@ -78,7 +77,7 @@ export function McpPanel({
               onChange={(event) => onUrlChange(event.target.value)}
               aria-label="MCP server URL"
               placeholder="https://mcp.example.com"
-              className="flex-1 px-3 py-1.5 text-sm rounded-lg border border-border bg-card text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring font-mono"
+              className="flex-1 rounded-lg border border-border bg-card px-3 py-1.5 font-mono text-sm text-foreground placeholder:text-muted-foreground focus:ring-1 focus:ring-ring focus:outline-none"
             />
             <Button
               type="submit"
@@ -93,15 +92,15 @@ export function McpPanel({
         </form>
 
         {serverEntries.length > 0 && (
-          <div className="space-y-2 max-h-60 overflow-y-auto">
+          <div className="max-h-60 space-y-2 overflow-y-auto">
             {serverEntries.map(([id, server]) => (
               <div
                 key={id}
-                className="flex items-start justify-between p-2.5 rounded-lg border border-border"
+                className="flex items-start justify-between rounded-lg border border-border p-2.5"
               >
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2">
-                    <span className="text-sm font-medium text-foreground truncate">
+                    <span className="truncate text-sm font-medium text-foreground">
                       {server.name}
                     </span>
                     <Badge
@@ -116,27 +115,21 @@ export function McpPanel({
                       {server.state}
                     </Badge>
                   </div>
-                  <span className="text-xs font-mono text-muted-foreground truncate block mt-0.5">
+                  <span className="mt-0.5 block truncate font-mono text-xs text-muted-foreground">
                     {server.server_url}
                   </span>
                   {server.state === "failed" && server.error && (
-                    <span className="text-xs text-red-500 block mt-0.5">
-                      {server.error}
-                    </span>
+                    <span className="mt-0.5 block text-xs text-red-500">{server.error}</span>
                   )}
                 </div>
-                <div className="flex items-center gap-1 shrink-0 ml-2">
+                <div className="ml-2 flex shrink-0 items-center gap-1">
                   {server.state === "authenticating" && server.auth_url && (
                     <Button
                       variant="primary"
                       size="sm"
                       icon={<SignInIcon size={12} />}
                       onClick={() =>
-                        window.open(
-                          server.auth_url as string,
-                          "oauth",
-                          "width=600,height=800"
-                        )
+                        window.open(server.auth_url as string, "oauth", "width=600,height=800")
                       }
                     >
                       Auth
@@ -157,12 +150,11 @@ export function McpPanel({
         )}
 
         {toolCount > 0 && (
-          <div className="pt-2 border-t border-border">
+          <div className="border-t border-border pt-2">
             <div className="flex items-center gap-2">
               <WrenchIcon size={14} className="text-muted-foreground" />
               <span className="text-xs text-muted-foreground">
-                {toolCount} tool{toolCount !== 1 ? "s" : ""} available from MCP
-                servers
+                {toolCount} tool{toolCount !== 1 ? "s" : ""} available from MCP servers
               </span>
             </div>
           </div>

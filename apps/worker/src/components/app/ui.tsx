@@ -1,4 +1,5 @@
 import { forwardRef, type ComponentProps, type ReactNode } from "react";
+
 import { Badge as CossBadge } from "@teampitch/ui/components/badge";
 import { Button as CossButton } from "@teampitch/ui/components/button";
 import { Card } from "@teampitch/ui/components/card";
@@ -30,27 +31,12 @@ export function Button({
   ...props
 }: ButtonProps) {
   const cossVariant =
-    variant === "primary"
-      ? "default"
-      : variant === "outline"
-        ? "outline"
-        : variant;
+    variant === "primary" ? "default" : variant === "outline" ? "outline" : variant;
   const cossSize =
-    shape === "square"
-      ? size === "sm"
-        ? "icon-sm"
-        : "icon"
-      : size === "md"
-        ? "default"
-        : size;
+    shape === "square" ? (size === "sm" ? "icon-sm" : "icon") : size === "md" ? "default" : size;
 
   return (
-    <CossButton
-      className={className}
-      size={cossSize}
-      variant={cossVariant}
-      {...props}
-    >
+    <CossButton className={className} size={cossSize} variant={cossVariant} {...props}>
       {icon}
       {children}
     </CossButton>
@@ -67,10 +53,7 @@ export function Badge({
   children: ReactNode;
 }) {
   return (
-    <CossBadge
-      className={className}
-      variant={variant === "primary" ? "default" : variant}
-    >
+    <CossBadge className={className} variant={variant === "primary" ? "default" : variant}>
       {children}
     </CossBadge>
   );
@@ -163,11 +146,5 @@ export function Switch({
   size?: "sm";
   "aria-label": string;
 }) {
-  return (
-    <CossSwitch
-      aria-label={ariaLabel}
-      checked={checked}
-      onCheckedChange={onCheckedChange}
-    />
-  );
+  return <CossSwitch aria-label={ariaLabel} checked={checked} onCheckedChange={onCheckedChange} />;
 }

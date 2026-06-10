@@ -1,5 +1,5 @@
-import { JSONSchema, Schema } from "effect";
 import { jsonSchema } from "ai";
+import { JSONSchema, Schema } from "effect";
 
 export function effectInputSchema<A, I>(schema: Schema.Schema<A, I, never>) {
   return jsonSchema<A>(JSONSchema.make(schema), {

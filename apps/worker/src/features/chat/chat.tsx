@@ -1,3 +1,6 @@
+import { useAgentChat } from "@cloudflare/ai-chat/react";
+import type { MCPServersState } from "agents";
+import { useAgent } from "agents/react";
 import {
   useCallback,
   useEffect,
@@ -6,10 +9,7 @@ import {
   type ClipboardEvent,
   type DragEvent
 } from "react";
-import { useAgent } from "agents/react";
-import { useAgentChat } from "@cloudflare/ai-chat/react";
-import type { MCPServersState } from "agents";
-import type { ThinkAgent } from "@/server";
+
 import {
   BrainIcon,
   BugIcon,
@@ -20,7 +20,6 @@ import {
   WrenchIcon
 } from "@/components/app/icons";
 import { Badge, Button, Switch, Text } from "@/components/app/ui";
-import { toastManager } from "@teampitch/ui/components/toast";
 import {
   clipboardFiles,
   createAttachment,
@@ -32,6 +31,9 @@ import {
 import { MemoryDebugDrawer } from "@/features/debug/memory-debug-drawer";
 import { McpPanel } from "@/features/mcp/mcp-panel";
 import { ThemeToggle } from "@/features/theme/theme-toggle";
+import type { ThinkAgent } from "@/server";
+import { toastManager } from "@teampitch/ui/components/toast";
+
 import { ChatComposer } from "./chat-composer";
 import { MessageList } from "./message-list";
 
@@ -60,10 +62,7 @@ export function Chat() {
     agent: "ThinkAgent",
     onOpen: useCallback(() => setConnected(true), []),
     onClose: useCallback(() => setConnected(false), []),
-    onError: useCallback(
-      (error: Event) => console.error("WebSocket error:", error),
-      []
-    ),
+    onError: useCallback((error: Event) => console.error("WebSocket error:", error), []),
     onMcpUpdate: useCallback((state: MCPServersState) => {
       setMcpState(state);
     }, []),
@@ -82,30 +81,21 @@ export function Chat() {
     }, [])
   });
 
-  const {
-    messages,
-    sendMessage,
-    clearHistory,
-    addToolApprovalResponse,
-    stop,
-    status
-  } = useAgentChat({
-    agent,
-    onToolCall: async (event) => {
-      if (
-        "addToolOutput" in event &&
-        event.toolCall.toolName === "getUserTimezone"
-      ) {
-        event.addToolOutput({
-          toolCallId: event.toolCall.toolCallId,
-          output: {
-            timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-            localTime: new Date().toLocaleTimeString()
-          }
-        });
+  const { messages, sendMessage, clearHistory, addToolApprovalResponse, stop, status } =
+    useAgentChat({
+      agent,
+      onToolCall: async (event) => {
+        if ("addToolOutput" in event && event.toolCall.toolName === "getUserTimezone") {
+          event.addToolOutput({
+            toolCallId: event.toolCall.toolCallId,
+            output: {
+              timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+              localTime: new Date().toLocaleTimeString()
+            }
+          });
+        }
       }
-    }
-  });
+    });
 
   const isStreaming = status === "streaming" || status === "submitted";
   const mcpToolCount = mcpState.tools.length;
@@ -114,10 +104,7 @@ export function Chat() {
     if (!showMcpPanel) return;
 
     function handleClickOutside(event: MouseEvent) {
-      if (
-        mcpPanelRef.current &&
-        !mcpPanelRef.current.contains(event.target as Node)
-      ) {
+      if (mcpPanelRef.current && !mcpPanelRef.current.contains(event.target as Node)) {
         setShowMcpPanel(false);
       }
     }
@@ -136,7 +123,7 @@ export function Chat() {
     }
   }, [isStreaming]);
 
-  const handleAddServer = async () => {
+  const handleAddServer = useCallback(async () => {
     if (!mcpName.trim() || !mcpUrl.trim()) return;
     setIsAddingServer(true);
     try {
@@ -148,15 +135,18 @@ export function Chat() {
     } finally {
       setIsAddingServer(false);
     }
-  };
+  }, [agent.stub, mcpName, mcpUrl]);
 
-  const handleRemoveServer = async (serverId: string) => {
-    try {
-      await agent.stub.removeServer(serverId);
-    } catch (error) {
-      console.error("Failed to remove MCP server:", error);
-    }
-  };
+  const handleRemoveServer = useCallback(
+    async (serverId: string) => {
+      try {
+        await agent.stub.removeServer(serverId);
+      } catch (error) {
+        console.error("Failed to remove MCP server:", error);
+      }
+    },
+    [agent.stub]
+  );
 
   const addFiles = useCallback((files: FileList | File[]) => {
     const images = imageFiles(files);
@@ -189,8 +179,7 @@ export function Chat() {
       event.preventDefault();
       event.stopPropagation();
       setIsDragging(false);
-      if (event.dataTransfer.files.length > 0)
-        addFiles(event.dataTransfer.files);
+      if (event.dataTransfer.files.length > 0) addFiles(event.dataTransfer.files);
     },
     [addFiles]
   );
@@ -211,8 +200,7 @@ export function Chat() {
     setInput("");
 
     const parts: Array<
-      | { type: "text"; text: string }
-      | { type: "file"; mediaType: string; url: string }
+      { type: "text"; text: string } | { type: "file"; mediaType: string; url: string }
     > = [];
     if (text) parts.push({ type: "text", text });
 
@@ -228,21 +216,57 @@ export function Chat() {
     releaseAttachmentPreviews(attachments);
     setAttachments([]);
 
-    sendMessage({ role: "user", parts });
+    await sendMessage({ role: "user", parts });
     if (textareaRef.current) textareaRef.current.style.height = "auto";
   }, [input, attachments, isStreaming, sendMessage]);
 
+  const sendStarterPrompt = useCallback(
+    (prompt: string) => {
+      void sendMessage({
+        role: "user",
+        parts: [{ type: "text", text: prompt }]
+      });
+    },
+    [sendMessage]
+  );
+
+  const clearChatHistory = useCallback(() => {
+    clearHistory();
+  }, [clearHistory]);
+
+  const stopStreaming = useCallback(() => {
+    void stop();
+  }, [stop]);
+
+  const addMcpServer = useCallback(() => {
+    void handleAddServer();
+  }, [handleAddServer]);
+
+  const removeMcpServer = useCallback(
+    (serverId: string) => {
+      void handleRemoveServer(serverId);
+    },
+    [handleRemoveServer]
+  );
+
+  const respondToToolApproval = useCallback(
+    (response: Parameters<typeof addToolApprovalResponse>[0]) => {
+      void addToolApprovalResponse(response);
+    },
+    [addToolApprovalResponse]
+  );
+
   return (
     <div
-      className="flex flex-col h-screen bg-background relative"
+      className="relative flex h-screen flex-col bg-background"
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
     >
       {isDragging && <ImageDropOverlay />}
 
-      <header className="px-5 py-4 bg-card border-b border-border">
-        <div className="max-w-3xl mx-auto flex items-center justify-between">
+      <header className="border-b border-border bg-card px-5 py-4">
+        <div className="mx-auto flex max-w-3xl items-center justify-between">
           <div className="flex items-center gap-3">
             <h1 className="text-lg font-semibold text-foreground">
               <span className="mr-2">⛅</span>Teampitch
@@ -286,17 +310,13 @@ export function Chat() {
                   isAddingServer={isAddingServer}
                   onNameChange={setMcpName}
                   onUrlChange={setMcpUrl}
-                  onAddServer={handleAddServer}
+                  onAddServer={addMcpServer}
                   onClose={() => setShowMcpPanel(false)}
-                  onRemoveServer={handleRemoveServer}
+                  onRemoveServer={removeMcpServer}
                 />
               )}
             </div>
-            <Button
-              variant="secondary"
-              icon={<TrashIcon size={16} />}
-              onClick={clearHistory}
-            >
+            <Button variant="secondary" icon={<TrashIcon size={16} />} onClick={clearChatHistory}>
               Clear
             </Button>
           </div>
@@ -304,17 +324,12 @@ export function Chat() {
       </header>
 
       <div className="flex-1 overflow-y-auto">
-        <div className="max-w-3xl mx-auto px-5 py-6 space-y-5">
+        <div className="mx-auto max-w-3xl space-y-5 px-5 py-6">
           <MessageList
             messages={messages}
             isStreaming={isStreaming}
-            onStarterPrompt={(prompt) =>
-              sendMessage({
-                role: "user",
-                parts: [{ type: "text", text: prompt }]
-              })
-            }
-            addToolApprovalResponse={addToolApprovalResponse}
+            onStarterPrompt={sendStarterPrompt}
+            addToolApprovalResponse={respondToToolApproval}
           />
           <div ref={messagesEndRef} />
         </div>
@@ -328,8 +343,8 @@ export function Chat() {
         textareaRef={textareaRef}
         fileInputRef={fileInputRef}
         onInputChange={setInput}
-        onSend={send}
-        onStop={stop}
+        onSend={() => void send()}
+        onStop={stopStreaming}
         onAddFiles={addFiles}
         onPaste={handlePaste}
         onRemoveAttachment={removeAttachment}
@@ -346,7 +361,7 @@ export function Chat() {
 
 function ImageDropOverlay() {
   return (
-    <div className="absolute inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm border-2 border-dashed border-primary rounded-xl m-2 pointer-events-none">
+    <div className="pointer-events-none absolute inset-0 z-50 m-2 flex items-center justify-center rounded-xl border-2 border-dashed border-primary bg-background/80 backdrop-blur-sm">
       <div className="flex flex-col items-center gap-2 text-primary">
         <ImageIcon size={40} />
         <Text variant="heading3" as="span">
@@ -360,10 +375,7 @@ function ImageDropOverlay() {
 function ConnectionStatus({ connected }: { connected: boolean }) {
   return (
     <div className="flex items-center gap-1.5">
-      <CircleIcon
-        size={8}
-        className={connected ? "text-success" : "text-destructive"}
-      />
+      <CircleIcon size={8} className={connected ? "text-success" : "text-destructive"} />
       <Text size="xs" variant="secondary">
         {connected ? "Connected" : "Disconnected"}
       </Text>

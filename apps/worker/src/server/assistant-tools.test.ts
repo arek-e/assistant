@@ -1,10 +1,9 @@
 import { describe, expect, test } from "bun:test";
+
 import type { Schedule } from "agents";
 import type { ToolSet } from "ai";
-import {
-  createAssistantTools,
-  type AssistantToolContext
-} from "./assistant-tools";
+
+import { createAssistantTools, type AssistantToolContext } from "./assistant-tools";
 
 function createToolContext(overrides: Partial<AssistantToolContext> = {}) {
   const scheduled: Array<{
@@ -32,9 +31,7 @@ function createToolContext(overrides: Partial<AssistantToolContext> = {}) {
   return { context, scheduled, cancelled, schedules };
 }
 
-function toolOptions<T extends (...args: never[]) => unknown>(
-  _tool: T
-): Parameters<T>[1] {
+function toolOptions<T extends (...args: never[]) => unknown>(_tool: T): Parameters<T>[1] {
   return {} as Parameters<T>[1];
 }
 
@@ -68,16 +65,12 @@ describe("createAssistantTools", () => {
     expect(execute).toBeDefined();
     if (!execute) throw new Error("calculate tool is missing execute");
 
-    await expect(
-      execute({ a: 6, b: 7, operator: "*" }, toolOptions(execute))
-    ).resolves.toEqual({
+    await expect(execute({ a: 6, b: 7, operator: "*" }, toolOptions(execute))).resolves.toEqual({
       expression: "6 * 7",
       result: 42
     });
 
-    await expect(
-      execute({ a: 6, b: 0, operator: "/" }, toolOptions(execute))
-    ).resolves.toEqual({
+    await expect(execute({ a: 6, b: 0, operator: "/" }, toolOptions(execute))).resolves.toEqual({
       error: "Division by zero"
     });
   });
@@ -92,16 +85,10 @@ describe("createAssistantTools", () => {
     }
 
     await expect(
-      needsApproval(
-        { a: 1001, b: 1, operator: "+" },
-        toolOptions(needsApproval)
-      )
+      needsApproval({ a: 1001, b: 1, operator: "+" }, toolOptions(needsApproval))
     ).resolves.toBe(true);
     await expect(
-      needsApproval(
-        { a: 1000, b: 1, operator: "+" },
-        toolOptions(needsApproval)
-      )
+      needsApproval({ a: 1000, b: 1, operator: "+" }, toolOptions(needsApproval))
     ).resolves.toBe(false);
   });
 
@@ -158,12 +145,10 @@ describe("createAssistantTools", () => {
       throw new Error("scheduled task tools are missing execute");
     }
 
-    await expect(listTasks({}, toolOptions(listTasks))).resolves.toEqual(
-      schedules
+    await expect(listTasks({}, toolOptions(listTasks))).resolves.toEqual(schedules);
+    await expect(cancelTask({ taskId: "task-1" }, toolOptions(cancelTask))).resolves.toBe(
+      "Task task-1 cancelled."
     );
-    await expect(
-      cancelTask({ taskId: "task-1" }, toolOptions(cancelTask))
-    ).resolves.toBe("Task task-1 cancelled.");
 
     expect(cancelled).toEqual(["task-1"]);
   });

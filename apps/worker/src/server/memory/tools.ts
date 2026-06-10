@@ -1,7 +1,9 @@
-import { Schema } from "effect";
 import { tool, type ToolSet } from "ai";
+import { Schema } from "effect";
+
 import { effectInputSchema } from "@/server/effect-schema";
 import { routeTask, type RouteDecision } from "@/server/routing/effort-router";
+
 import {
   createLocalMemoryAccessContext,
   findMemoryScopeId,
@@ -207,10 +209,7 @@ export function createMemoryPrimitiveTools(
 }
 
 function toMemoryRecord(
-  input: Omit<
-    MemoryRecordDraft,
-    "createdAt" | "updatedAt" | "contentHash" | "recordHash"
-  >
+  input: Omit<MemoryRecordDraft, "createdAt" | "updatedAt" | "contentHash" | "recordHash">
 ): MemoryRecordDraft {
   const now = new Date().toISOString();
 
@@ -250,8 +249,7 @@ function toRouteRecord(
     rationale: route.reason,
     createdAt: now,
     updatedAt: now,
-    reEvalTrigger:
-      "when a user corrects the route, cost, latency, or required effort",
+    reEvalTrigger: "when a user corrects the route, cost, latency, or required effort",
     consumerRules: [
       "Use for debugging and route evaluation only",
       "Do not present route records as durable product decisions"
@@ -262,9 +260,7 @@ function toRouteRecord(
 }
 
 function truncate(value: string, maxLength: number) {
-  return value.length <= maxLength
-    ? value
-    : `${value.slice(0, Math.max(0, maxLength - 3))}...`;
+  return value.length <= maxLength ? value : `${value.slice(0, Math.max(0, maxLength - 3))}...`;
 }
 
 function hashString(value: string) {

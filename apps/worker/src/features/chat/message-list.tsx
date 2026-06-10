@@ -1,7 +1,8 @@
-import type { ReactNode } from "react";
-import { getToolName, isToolUIPart, type UIMessage } from "ai";
 import { code } from "@streamdown/code";
+import { getToolName, isToolUIPart, type UIMessage } from "ai";
+import type { ReactNode } from "react";
 import { Streamdown } from "streamdown";
+
 import {
   BrainIcon,
   CaretDownIcon,
@@ -50,16 +51,13 @@ const toolActivityRules: Array<{
   {
     kind: "approval",
     matches: (part) =>
-      isToolUIPart(part) &&
-      "approval" in part &&
-      part.state === "approval-requested"
+      isToolUIPart(part) && "approval" in part && part.state === "approval-requested"
   },
   { kind: "rejected", matches: isRejectedToolPart },
   {
     kind: "running",
     matches: (part) =>
-      isToolUIPart(part) &&
-      (part.state === "input-available" || part.state === "input-streaming")
+      isToolUIPart(part) && (part.state === "input-available" || part.state === "input-streaming")
   }
 ];
 
@@ -79,10 +77,7 @@ export function MessageList({
   messages: UIMessage[];
   isStreaming: boolean;
   onStarterPrompt: (prompt: string) => void;
-  addToolApprovalResponse: (response: {
-    id: string;
-    approved: boolean;
-  }) => void;
+  addToolApprovalResponse: (response: { id: string; approved: boolean }) => void;
 }) {
   if (messages.length === 0) {
     return (
@@ -115,9 +110,7 @@ export function MessageList({
           key={message.id}
           message={message}
           isStreaming={isStreaming}
-          isLastAssistant={
-            message.role === "assistant" && index === messages.length - 1
-          }
+          isLastAssistant={message.role === "assistant" && index === messages.length - 1}
           addToolApprovalResponse={addToolApprovalResponse}
         />
       ))}
@@ -134,17 +127,10 @@ function MessageView({
   message: UIMessage;
   isStreaming: boolean;
   isLastAssistant: boolean;
-  addToolApprovalResponse: (response: {
-    id: string;
-    approved: boolean;
-  }) => void;
+  addToolApprovalResponse: (response: { id: string; approved: boolean }) => void;
 }) {
   const isUser = message.role === "user";
-  const avatarState = getAssistantAvatarState(
-    message,
-    isLastAssistant,
-    isStreaming
-  );
+  const avatarState = getAssistantAvatarState(message, isLastAssistant, isStreaming);
 
   return (
     <div className="space-y-2">
@@ -169,15 +155,12 @@ function getAssistantAvatarState(
 ): AgentVisualState {
   if (message.role !== "assistant") return "idle";
   return (
-    assistantAvatarStateRules.find((rule) => rule.matches(message.parts))
-      ?.state ?? getFallbackAvatarState(isLastAssistant, isStreaming)
+    assistantAvatarStateRules.find((rule) => rule.matches(message.parts))?.state ??
+    getFallbackAvatarState(isLastAssistant, isStreaming)
   );
 }
 
-function getFallbackAvatarState(
-  isLastAssistant: boolean,
-  isStreaming: boolean
-): AgentVisualState {
+function getFallbackAvatarState(isLastAssistant: boolean, isStreaming: boolean): AgentVisualState {
   return isLastAssistant && isStreaming ? "speaking" : "idle";
 }
 
@@ -204,42 +187,40 @@ function isRunningToolPart(part: UIMessage["parts"][number]) {
 }
 
 function isStreamingReasoningPart(part: UIMessage["parts"][number]) {
-  return (
-    part.type === "reasoning" &&
-    (part as { state?: string }).state === "streaming"
-  );
+  return part.type === "reasoning" && (part as { state?: string }).state === "streaming";
 }
 
 function UserMessageParts({ message }: { message: UIMessage }) {
+  const textKeyCounts = new Map<string, number>();
+
   return (
     <>
-      {message.parts
-        .filter(
-          (part): part is Extract<typeof part, { type: "file" }> =>
-            part.type === "file" &&
-            (part as { mediaType?: string }).mediaType?.startsWith("image/") ===
-              true
-        )
-        .map((part, index) => (
-          <div key={`file-${index}`} className="flex justify-end">
-            <img
-              src={part.url}
-              alt="Attachment"
-              className="max-h-64 rounded-xl border border-border object-contain"
-            />
-          </div>
-        ))}
+      {message.parts.flatMap((part) =>
+        isImageFilePart(part)
+          ? [
+              <div key={`file-${part.url}`} className="flex justify-end">
+                <img
+                  src={part.url}
+                  alt="Attachment"
+                  className="max-h-64 rounded-xl border border-border object-contain"
+                />
+              </div>
+            ]
+          : []
+      )}
 
-      {message.parts
-        .filter((part) => part.type === "text")
-        .map((part, index) => (
-          <TextPart
-            key={index}
-            text={(part as { type: "text"; text: string }).text}
-            isUser
-            isAnimating={false}
-          />
-        ))}
+      {message.parts.flatMap((part) =>
+        part.type === "text"
+          ? [
+              <TextPart
+                key={uniqueContentKey("text", (part as { text: string }).text, textKeyCounts)}
+                text={(part as { type: "text"; text: string }).text}
+                isUser
+                isAnimating={false}
+              />
+            ]
+          : []
+      )}
     </>
   );
 }
@@ -253,43 +234,42 @@ function AssistantRun({
   message: UIMessage;
   avatarState: AgentVisualState;
   isStreaming: boolean;
-  addToolApprovalResponse: (response: {
-    id: string;
-    approved: boolean;
-  }) => void;
+  addToolApprovalResponse: (response: { id: string; approved: boolean }) => void;
 }) {
-  const renderActivityNodes = (showDot: boolean) =>
-    message.parts
-      .map((part, index) =>
-        renderActivityPart({
-          addToolApprovalResponse,
-          index,
-          isStreaming,
-          part,
-          showDot
-        })
-      )
-      .filter(Boolean);
+  const finalTextKeyCounts = new Map<string, number>();
+  const activityNodes = renderActivityNodes({
+    addToolApprovalResponse,
+    isStreaming,
+    message,
+    showDot: true
+  });
+  const summaryActivityNodes = renderActivityNodes({
+    addToolApprovalResponse,
+    isStreaming,
+    message,
+    showDot: false
+  });
 
-  const activityNodes = renderActivityNodes(true);
-
-  const finalNodes = message.parts
-    .map((part, index) => {
-      if (part.type === "text") {
-        return (
-          <TimelineNode key={`text-${index}`} variant="speaking">
+  const finalNodes = message.parts.flatMap((part) =>
+    part.type === "text"
+      ? [
+          <TimelineNode
+            key={uniqueContentKey(
+              "final-text",
+              (part as { text: string }).text,
+              finalTextKeyCounts
+            )}
+            variant="speaking"
+          >
             <TextPart
               text={(part as { type: "text"; text: string }).text}
               isUser={false}
               isAnimating={isStreaming}
             />
           </TimelineNode>
-        );
-      }
-
-      return null;
-    })
-    .filter(Boolean);
+        ]
+      : []
+  );
 
   const shouldCollapseActivity = !isStreaming && activityNodes.length > 0;
   const nodes = shouldCollapseActivity
@@ -311,7 +291,7 @@ function AssistantRun({
               </>
             )}
           >
-            <WorkSummary>{renderActivityNodes(false)}</WorkSummary>
+            <WorkSummary>{summaryActivityNodes}</WorkSummary>
           </ActivityDisclosure>
         </TimelineNode>,
         ...finalNodes
@@ -320,49 +300,33 @@ function AssistantRun({
 
   if (nodes.length === 0) return null;
 
-  return (
-    <AssistantTimeline avatarState={avatarState}>{nodes}</AssistantTimeline>
-  );
+  return <AssistantTimeline avatarState={avatarState}>{nodes}</AssistantTimeline>;
 }
 
 function renderActivityPart({
   part,
-  index,
+  partKey,
   showDot,
   isStreaming,
   addToolApprovalResponse
 }: {
   part: UIMessage["parts"][number];
-  index: number;
+  partKey: string;
   showDot: boolean;
   isStreaming: boolean;
-  addToolApprovalResponse: (response: {
-    id: string;
-    approved: boolean;
-  }) => void;
+  addToolApprovalResponse: (response: { id: string; approved: boolean }) => void;
 }) {
   if (isToolUIPart(part)) {
     return (
-      <TimelineNode
-        key={part.toolCallId}
-        variant={toolNodeVariant(part)}
-        showDot={showDot}
-      >
-        <ToolTimelinePart
-          part={part}
-          addToolApprovalResponse={addToolApprovalResponse}
-        />
+      <TimelineNode key={partKey} variant={toolNodeVariant(part)} showDot={showDot}>
+        <ToolTimelinePart part={part} addToolApprovalResponse={addToolApprovalResponse} />
       </TimelineNode>
     );
   }
 
   if (isTextReasoningPart(part)) {
     return (
-      <TimelineNode
-        key={`reasoning-${index}`}
-        variant="thinking"
-        showDot={showDot}
-      >
+      <TimelineNode key={partKey} variant="thinking" showDot={showDot}>
         <ReasoningPart part={part} isStreaming={isStreaming} />
       </TimelineNode>
     );
@@ -370,7 +334,7 @@ function renderActivityPart({
 
   if (isImageFilePart(part)) {
     return (
-      <TimelineNode key={`file-${index}`} variant="idle" showDot={showDot}>
+      <TimelineNode key={partKey} variant="idle" showDot={showDot}>
         <img
           src={part.url}
           alt="Attachment"
@@ -383,13 +347,82 @@ function renderActivityPart({
   return null;
 }
 
+function renderActivityNodes({
+  message,
+  showDot,
+  isStreaming,
+  addToolApprovalResponse
+}: {
+  message: UIMessage;
+  showDot: boolean;
+  isStreaming: boolean;
+  addToolApprovalResponse: (response: { id: string; approved: boolean }) => void;
+}) {
+  const contentKeyCounts = new Map<string, number>();
+
+  return message.parts.flatMap((part) => {
+    const node = renderActivityPart({
+      addToolApprovalResponse,
+      isStreaming,
+      part,
+      partKey: partRenderKey(part, contentKeyCounts),
+      showDot
+    });
+    return node ? [node] : [];
+  });
+}
+
+function partRenderKey(part: UIMessage["parts"][number], contentKeyCounts: Map<string, number>) {
+  if (isToolUIPart(part)) return part.toolCallId;
+  return contentPartRenderKey(part, contentKeyCounts);
+}
+
+function contentPartRenderKey(
+  part: UIMessage["parts"][number],
+  contentKeyCounts: Map<string, number>
+) {
+  if (isImageFilePart(part)) return `file-${part.url}`;
+  return textPartRenderKey(part, contentKeyCounts);
+}
+
+function textPartRenderKey(
+  part: UIMessage["parts"][number],
+  contentKeyCounts: Map<string, number>
+) {
+  if (isTextReasoningPart(part)) {
+    return uniqueContentKey("reasoning", part.text, contentKeyCounts);
+  }
+  if (part.type === "text") {
+    return uniqueContentKey(
+      "text",
+      (part as { type: "text"; text: string }).text,
+      contentKeyCounts
+    );
+  }
+  return `part-${part.type}`;
+}
+
+function uniqueContentKey(prefix: string, content: string, contentKeyCounts: Map<string, number>) {
+  const baseKey = `${prefix}-${hashKey(content)}`;
+  const occurrence = contentKeyCounts.get(baseKey) ?? 0;
+  contentKeyCounts.set(baseKey, occurrence + 1);
+  return `${baseKey}-${occurrence}`;
+}
+
+function hashKey(value: string) {
+  let hash = 0;
+
+  for (const character of value) {
+    hash = (hash * 31 + character.charCodeAt(0)) >>> 0;
+  }
+
+  return hash.toString(36);
+}
+
 function isTextReasoningPart(
   part: UIMessage["parts"][number]
 ): part is { type: "reasoning"; text: string; state?: "streaming" | "done" } {
-  return (
-    part.type === "reasoning" &&
-    Boolean((part as { text?: string }).text?.trim())
-  );
+  return part.type === "reasoning" && Boolean((part as { text?: string }).text?.trim());
 }
 
 function isImageFilePart(
@@ -401,9 +434,7 @@ function isImageFilePart(
   );
 }
 
-function toolNodeVariant(
-  part: UIMessage["parts"][number]
-): "tool" | "success" | "error" {
+function toolNodeVariant(part: UIMessage["parts"][number]): "tool" | "success" | "error" {
   if (!isToolUIPart(part)) return "tool";
   if (isRejectedToolPart(part)) return "error";
   if (part.state === "output-available") return "success";
@@ -415,10 +446,7 @@ function ToolTimelinePart({
   addToolApprovalResponse
 }: {
   part: UIMessage["parts"][number];
-  addToolApprovalResponse: (response: {
-    id: string;
-    approved: boolean;
-  }) => void;
+  addToolApprovalResponse: (response: { id: string; approved: boolean }) => void;
 }) {
   if (!isToolUIPart(part)) return null;
 
@@ -448,29 +476,19 @@ function renderToolActivity({
   activityKind: ToolActivityKind;
   part: UIMessage["parts"][number];
   toolName: string;
-  addToolApprovalResponse: (response: {
-    id: string;
-    approved: boolean;
-  }) => void;
+  addToolApprovalResponse: (response: { id: string; approved: boolean }) => void;
 }) {
   const renderers = {
     approval: () => (
       <ToolApprovalActivity
-        approvalId={
-          "approval" in part
-            ? (part.approval as { id?: string })?.id
-            : undefined
-        }
+        approvalId={"approval" in part ? (part.approval as { id?: string })?.id : undefined}
         input={"input" in part ? part.input : undefined}
         toolName={toolName}
         addToolApprovalResponse={addToolApprovalResponse}
       />
     ),
     output: () => (
-      <ToolOutputActivity
-        output={"output" in part ? part.output : undefined}
-        toolName={toolName}
-      />
+      <ToolOutputActivity output={"output" in part ? part.output : undefined} toolName={toolName} />
     ),
     rejected: () => <ToolRejectedActivity toolName={toolName} />,
     running: () => <ToolRunningActivity toolName={toolName} />
@@ -479,13 +497,7 @@ function renderToolActivity({
   return renderers[activityKind]();
 }
 
-function ToolOutputActivity({
-  output,
-  toolName
-}: {
-  output: unknown;
-  toolName: string;
-}) {
+function ToolOutputActivity({ output, toolName }: { output: unknown; toolName: string }) {
   return (
     <ActivityDisclosure
       defaultOpen={false}
@@ -515,10 +527,7 @@ function ToolApprovalActivity({
   approvalId?: string;
   input: unknown;
   toolName: string;
-  addToolApprovalResponse: (response: {
-    id: string;
-    approved: boolean;
-  }) => void;
+  addToolApprovalResponse: (response: { id: string; approved: boolean }) => void;
 }) {
   return (
     <ActivityCard approval>
@@ -554,9 +563,7 @@ function ToolRunningActivity({ toolName }: { toolName: string }) {
   return (
     <ActivityCard>
       <ToolStatusRow
-        icon={
-          <GearIcon size={14} className="animate-spin text-muted-foreground" />
-        }
+        icon={<GearIcon size={14} className="animate-spin text-muted-foreground" />}
         label={`Running ${toolName}`}
         badge="Active"
       />
@@ -564,15 +571,7 @@ function ToolRunningActivity({ toolName }: { toolName: string }) {
   );
 }
 
-function ToolStatusRow({
-  icon,
-  label,
-  badge
-}: {
-  icon: ReactNode;
-  label: string;
-  badge: string;
-}) {
+function ToolStatusRow({ icon, label, badge }: { icon: ReactNode; label: string; badge: string }) {
   return (
     <div className="flex min-h-9 w-fit max-w-full items-center justify-start gap-[0.55rem] py-[0.2rem] text-xs text-foreground">
       <ActivityTitle>
@@ -589,10 +588,7 @@ function ToolApprovalActions({
   addToolApprovalResponse
 }: {
   approvalId?: string;
-  addToolApprovalResponse: (response: {
-    id: string;
-    approved: boolean;
-  }) => void;
+  addToolApprovalResponse: (response: { id: string; approved: boolean }) => void;
 }) {
   const respond = (approved: boolean) => {
     if (!approvalId) return;

@@ -1,10 +1,6 @@
 import type { ClipboardEvent, RefObject } from "react";
-import {
-  PaperclipIcon,
-  PaperPlaneRightIcon,
-  StopIcon,
-  XIcon
-} from "@/components/app/icons";
+
+import { PaperclipIcon, PaperPlaneRightIcon, StopIcon, XIcon } from "@/components/app/icons";
 import { Button, InputArea } from "@/components/app/ui";
 import type { Attachment } from "@/features/attachments/attachments";
 
@@ -42,7 +38,7 @@ export function ChatComposer({
           event.preventDefault();
           onSend();
         }}
-        className="max-w-3xl mx-auto px-5 py-4"
+        className="mx-auto max-w-3xl px-5 py-4"
       >
         <input
           ref={fileInputRef}
@@ -58,11 +54,11 @@ export function ChatComposer({
         />
 
         {attachments.length > 0 && (
-          <div className="flex gap-2 mb-2 flex-wrap">
+          <div className="mb-2 flex flex-wrap gap-2">
             {attachments.map((attachment) => (
               <div
                 key={attachment.id}
-                className="relative group rounded-lg border border-border bg-muted overflow-hidden"
+                className="group relative overflow-hidden rounded-lg border border-border bg-muted"
               >
                 <img
                   src={attachment.preview}
@@ -72,7 +68,7 @@ export function ChatComposer({
                 <button
                   type="button"
                   onClick={() => onRemoveAttachment(attachment.id)}
-                  className="absolute top-0.5 right-0.5 rounded-full bg-primary/80 text-primary-foreground p-0.5 opacity-0 group-hover:opacity-100 transition-opacity"
+                  className="absolute top-0.5 right-0.5 rounded-full bg-primary/80 p-0.5 text-primary-foreground opacity-0 transition-opacity group-hover:opacity-100"
                   aria-label={`Remove ${attachment.file.name}`}
                 >
                   <XIcon size={10} />
@@ -82,7 +78,7 @@ export function ChatComposer({
           </div>
         )}
 
-        <div className="flex items-end gap-3 rounded-xl border border-border bg-card p-3 shadow-sm focus-within:ring-2 focus-within:ring-ring focus-within:border-transparent transition-shadow">
+        <div className="flex items-end gap-3 rounded-xl border border-border bg-card p-3 shadow-sm transition-shadow focus-within:border-transparent focus-within:ring-2 focus-within:ring-ring">
           <Button
             type="button"
             variant="ghost"
@@ -110,13 +106,11 @@ export function ChatComposer({
             }}
             onPaste={onPaste}
             placeholder={
-              attachments.length > 0
-                ? "Add a message or send images..."
-                : "Send a message..."
+              attachments.length > 0 ? "Add a message or send images..." : "Send a message..."
             }
             disabled={!connected || isStreaming}
             rows={1}
-            className="flex-1 ring-0! focus:ring-0! shadow-none! bg-transparent! outline-none! resize-none max-h-40"
+            className="max-h-40 flex-1 resize-none bg-transparent! shadow-none! ring-0! outline-none! focus:ring-0!"
           />
           {isStreaming ? (
             <Button
@@ -134,9 +128,7 @@ export function ChatComposer({
               variant="primary"
               shape="square"
               aria-label="Send message"
-              disabled={
-                (!input.trim() && attachments.length === 0) || !connected
-              }
+              disabled={(!input.trim() && attachments.length === 0) || !connected}
               icon={<PaperPlaneRightIcon size={18} />}
               className="mb-0.5"
             />

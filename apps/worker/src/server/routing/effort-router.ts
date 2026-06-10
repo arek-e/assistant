@@ -39,10 +39,7 @@ const TOOL_TASK_WORDS = new Set([
   "wire"
 ]);
 
-export function routeTask(
-  input: string,
-  retrievalResult: RetrievalResult
-): RouteDecision {
+export function routeTask(input: string, retrievalResult: RetrievalResult): RouteDecision {
   const tokens = new Set(tokenize(input));
   const hasToolWord = [...tokens].some((token) => TOOL_TASK_WORDS.has(token));
   const hasAnswerWord = [...tokens].some((token) => ANSWER_WORDS.has(token));

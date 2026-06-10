@@ -1,24 +1,23 @@
 import { Think, type Session } from "@cloudflare/think";
-import { createWorkersAI } from "workers-ai-provider";
 import { callable, type Schedule } from "agents";
 import type { ToolSet } from "ai";
+import { createWorkersAI } from "workers-ai-provider";
+
 import { getAssistantSystemPrompt } from "@/server/assistant-prompt";
 import { createAssistantTools } from "@/server/assistant-tools";
-import { createScheduledTaskMessage } from "@/server/scheduled-task";
 import {
+  type CanonicalMemoryStore,
   createMemoryPrimitiveTools,
   SqliteCanonicalMemoryStore
 } from "@/server/memory";
-import type { CanonicalMemoryStore } from "@/server/memory";
+import { createScheduledTaskMessage } from "@/server/scheduled-task";
 
 export class ThinkAgent extends Think<Env> {
   maxSteps = 6;
   private memoryStore?: CanonicalMemoryStore;
 
   getModel() {
-    return createWorkersAI({ binding: this.env.AI })(
-      "@cf/moonshotai/kimi-k2.6"
-    );
+    return createWorkersAI({ binding: this.env.AI })("@cf/moonshotai/kimi-k2.6");
   }
 
   getSystemPrompt() {

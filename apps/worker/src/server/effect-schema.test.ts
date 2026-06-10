@@ -1,5 +1,7 @@
 import { describe, expect, test } from "bun:test";
+
 import { Schema } from "effect";
+
 import { effectInputSchema } from "./effect-schema";
 
 describe("effectInputSchema", () => {

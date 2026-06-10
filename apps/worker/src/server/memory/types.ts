@@ -12,9 +12,7 @@ const MemoryRecordKindSchema = Schema.Literal(
   "route_record"
 );
 
-export type MemoryRecordKind = Schema.Schema.Type<
-  typeof MemoryRecordKindSchema
->;
+export type MemoryRecordKind = Schema.Schema.Type<typeof MemoryRecordKindSchema>;
 
 const MemoryScopeSchema = Schema.Literal("private", "team", "org", "session");
 
@@ -53,10 +51,7 @@ export const MemoryRecordSchema = Schema.Struct({
 
 export type MemoryRecord = Schema.Schema.Type<typeof MemoryRecordSchema>;
 
-export type MemoryRecordDraft = Omit<
-  MemoryRecord,
-  "contentHash" | "recordHash"
-> & {
+export type MemoryRecordDraft = Omit<MemoryRecord, "contentHash" | "recordHash"> & {
   contentHash?: string;
   recordHash?: string;
 };

@@ -12,9 +12,7 @@ export function createMemoryDebugSnapshot(
     countsByStatus: countBy(records, "status"),
     countsByScope: countBy(records, "scope"),
     records: records.slice(0, limit),
-    recentRoutes: records
-      .filter((record) => record.kind === "route_record")
-      .slice(0, 10)
+    recentRoutes: records.filter((record) => record.kind === "route_record").slice(0, 10)
   };
 }
 

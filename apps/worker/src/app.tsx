@@ -1,9 +1,7 @@
 import { Suspense } from "react";
-import {
-  AnchoredToastProvider,
-  ToastProvider
-} from "@teampitch/ui/components/toast";
+
 import { Chat } from "@/features/chat/chat";
+import { AnchoredToastProvider, ToastProvider } from "@teampitch/ui/components/toast";
 
 export default function App() {
   return (
@@ -11,7 +9,7 @@ export default function App() {
       <AnchoredToastProvider>
         <Suspense
           fallback={
-            <div className="flex items-center justify-center h-screen text-muted-foreground">
+            <div className="flex h-screen items-center justify-center text-muted-foreground">
               Loading...
             </div>
           }

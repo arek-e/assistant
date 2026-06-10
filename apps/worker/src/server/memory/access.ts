@@ -38,10 +38,7 @@ export function canAccessMemoryRecord(
   );
 }
 
-export function findMemoryScopeId(
-  accessContext: MemoryAccessContext,
-  scope: MemoryScope
-): string {
+export function findMemoryScopeId(accessContext: MemoryAccessContext, scope: MemoryScope): string {
   return (
     accessContext.grants.find((grant) => grant.scope === scope)?.scopeId ??
     localMemoryScopeIds[scope]

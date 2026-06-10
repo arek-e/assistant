@@ -1,9 +1,5 @@
 import { hashStableValue } from "./hash";
-import {
-  decodeMemoryRecord,
-  type MemoryRecord,
-  type MemoryRecordDraft
-} from "./types";
+import { decodeMemoryRecord, type MemoryRecord, type MemoryRecordDraft } from "./types";
 
 export function createMemoryRecord(input: MemoryRecordDraft): MemoryRecord {
   const contentHash = hashMemoryContent(input);
@@ -30,9 +26,7 @@ function hashMemoryContent(record: MemoryRecordDraft): string {
   });
 }
 
-function hashMemoryRecord(
-  record: MemoryRecordDraft & { contentHash: string }
-): string {
+function hashMemoryRecord(record: MemoryRecordDraft & { contentHash: string }): string {
   return hashStableValue({
     id: record.id,
     kind: record.kind,

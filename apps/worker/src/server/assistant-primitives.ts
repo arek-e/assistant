@@ -1,8 +1,5 @@
 export { InMemoryCanonicalMemoryStore } from "./memory/canonical-memory-store";
-export {
-  type CanonicalMemoryStore,
-  type MemoryDebugSnapshot
-} from "./memory/contract";
+export { type CanonicalMemoryStore, type MemoryDebugSnapshot } from "./memory/contract";
 export {
   createLocalMemoryAccessContext,
   type MemoryAccessContext,

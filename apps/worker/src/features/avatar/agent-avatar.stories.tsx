@@ -1,10 +1,7 @@
-import type { ComponentProps } from "react";
 import type { Meta, StoryObj } from "@storybook/react-vite";
-import {
-  AgentAvatar,
-  AgentAvatarShowcase,
-  type AgentVisualState
-} from "./agent-avatar";
+import type { ComponentProps } from "react";
+
+import { AgentAvatar, AgentAvatarShowcase, type AgentVisualState } from "./agent-avatar";
 
 const states = [
   "idle",
@@ -65,9 +62,7 @@ export const StateSheet: Story = {
       {states.map((state) => (
         <div key={state} className="grid justify-items-center gap-2">
           <AgentAvatar state={state} size="lg" />
-          <span className="font-mono text-xs uppercase text-muted-foreground">
-            {state}
-          </span>
+          <span className="font-mono text-xs text-muted-foreground uppercase">{state}</span>
         </div>
       ))}
     </div>

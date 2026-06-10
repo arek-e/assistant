@@ -31,11 +31,9 @@ function cyrb53(value: string, seed = 0) {
   }
 
   first =
-    Math.imul(first ^ (first >>> 16), 2246822507) ^
-    Math.imul(second ^ (second >>> 13), 3266489909);
+    Math.imul(first ^ (first >>> 16), 2246822507) ^ Math.imul(second ^ (second >>> 13), 3266489909);
   second =
-    Math.imul(second ^ (second >>> 16), 2246822507) ^
-    Math.imul(first ^ (first >>> 13), 3266489909);
+    Math.imul(second ^ (second >>> 16), 2246822507) ^ Math.imul(first ^ (first >>> 13), 3266489909);
 
   return 4294967296 * (2097151 & second) + (first >>> 0);
 }

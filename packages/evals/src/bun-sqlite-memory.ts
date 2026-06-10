@@ -1,4 +1,5 @@
 import { Database } from "bun:sqlite";
+
 import type {
   MemorySqlCursor,
   MemorySqlStorage,
@@ -17,10 +18,7 @@ class BunMemorySqlStorage implements MemorySqlStorage {
     const normalizedParams = params.map(normalizeSqlValue);
 
     if (returnsRows(query)) {
-      const rows = statement.all(...normalizedParams) as Record<
-        string,
-        MemorySqlValue
-      >[];
+      const rows = statement.all(...normalizedParams) as Record<string, MemorySqlValue>[];
       return { toArray: () => rows };
     }
 

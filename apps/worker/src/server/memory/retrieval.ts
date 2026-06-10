@@ -1,8 +1,4 @@
-import {
-  canAccessMemoryRecord,
-  scopePrecedence,
-  type MemoryAccessContext
-} from "./access";
+import { canAccessMemoryRecord, scopePrecedence, type MemoryAccessContext } from "./access";
 import { hashStableValue } from "./hash";
 import type { MemoryRecord } from "./types";
 
@@ -102,9 +98,12 @@ export function searchMemoryRecords(
   options: SearchMemoryOptions = {}
 ): RetrievalResult {
   const inputTokens = memorySearchTokens(input);
-  const scoredHits = records
-    .map((record) => scoreMemoryRecord(record, inputTokens))
-    .filter((hit) => hit.score > 0);
+  const scoredHits: RetrievalHit[] = [];
+
+  for (const record of records) {
+    const hit = scoreMemoryRecord(record, inputTokens);
+    if (hit.score > 0) scoredHits.push(hit);
+  }
 
   return finalizeMemorySearch(scoredHits, records, accessContext, options);
 }
@@ -117,19 +116,13 @@ export function finalizeMemorySearch(
 ): RetrievalResult {
   const sortedHits = combineHits(candidates).sort(compareHits);
   const activeAccessibleCandidates = sortedHits.filter(
-    (hit) =>
-      canAccessMemoryRecord(hit.record, accessContext) &&
-      !isBlockedLifecycle(hit.record)
+    (hit) => canAccessMemoryRecord(hit.record, accessContext) && !isBlockedLifecycle(hit.record)
   );
   const blockedRecords: BlockedMemoryRecord[] = [];
   const hits: RetrievalHit[] = [];
 
   sortedHits.forEach((hit) => {
-    const blockedReason = getBlockedReason(
-      hit.record,
-      accessContext,
-      activeAccessibleCandidates
-    );
+    const blockedReason = getBlockedReason(hit.record, accessContext, activeAccessibleCandidates);
 
     if (blockedReason) {
       blockedRecords.push(toBlockedMemoryRecord(hit.record, blockedReason));
@@ -143,12 +136,11 @@ export function finalizeMemorySearch(
     }
   });
 
-  const lifecycleViolations = hits
-    .filter((hit) => isBlockedLifecycle(hit.record))
-    .map((hit) => hit.record.id);
-  const blockedRecordIds = [
-    ...new Set(blockedRecords.map((record) => record.id))
-  ];
+  const lifecycleViolations: string[] = [];
+  for (const hit of hits) {
+    if (isBlockedLifecycle(hit.record)) lifecycleViolations.push(hit.record.id);
+  }
+  const blockedRecordIds = [...new Set(blockedRecords.map((record) => record.id))];
 
   return {
     hits,
@@ -175,10 +167,7 @@ export function memorySearchTokens(value: string) {
   return [...new Set(tokenize(value))];
 }
 
-export function scoreMemoryRecord(
-  record: MemoryRecord,
-  inputTokens: string[]
-): RetrievalHit {
+export function scoreMemoryRecord(record: MemoryRecord, inputTokens: string[]): RetrievalHit {
   const recordText = searchableText(record).toLowerCase();
   const recordTokens = new Set(memorySearchTokens(recordText));
   const tokenScores = inputTokens.map((token) =>
@@ -190,10 +179,7 @@ export function scoreMemoryRecord(
   return {
     record,
     score: baseScore + statusScore.score,
-    reasons: [
-      ...tokenScores.flatMap((item) => item.reasons),
-      ...statusScore.reasons
-    ]
+    reasons: [...tokenScores.flatMap((item) => item.reasons), ...statusScore.reasons]
   };
 }
 
@@ -254,8 +240,7 @@ function scoreStatus(record: MemoryRecord, baseScore: number) {
 
 function compareHits(left: RetrievalHit, right: RetrievalHit) {
   if (right.score !== left.score) return right.score - left.score;
-  const scopeDelta =
-    scopePrecedence(right.record.scope) - scopePrecedence(left.record.scope);
+  const scopeDelta = scopePrecedence(right.record.scope) - scopePrecedence(left.record.scope);
   if (scopeDelta !== 0) return scopeDelta;
   return left.record.id.localeCompare(right.record.id);
 }
@@ -274,9 +259,7 @@ function combineHits(candidates: readonly RetrievalHit[]): RetrievalHit[] {
     }
 
     existing.score = Math.max(existing.score, candidate.score);
-    existing.reasons = [
-      ...new Set([...existing.reasons, ...candidate.reasons])
-    ];
+    existing.reasons = [...new Set([...existing.reasons, ...candidate.reasons])];
   });
 
   return [...byId.values()];
@@ -311,8 +294,7 @@ function recordsConflict(left: MemoryRecord, right: MemoryRecord): boolean {
   return (
     left.supersedes.includes(right.id) ||
     right.supersedes.includes(left.id) ||
-    (left.kind === right.kind &&
-      normalizeTitle(left.title) === normalizeTitle(right.title))
+    (left.kind === right.kind && normalizeTitle(left.title) === normalizeTitle(right.title))
   );
 }
 
@@ -335,9 +317,7 @@ function toBlockedMemoryRecord(
   };
 }
 
-function dedupeBlockedRecords(
-  records: readonly BlockedMemoryRecord[]
-): BlockedMemoryRecord[] {
+function dedupeBlockedRecords(records: readonly BlockedMemoryRecord[]): BlockedMemoryRecord[] {
   return [...new Map(records.map((record) => [record.id, record])).values()];
 }
 
@@ -367,25 +347,21 @@ function createScopeRoots(
 ): RetrievalScopeRoot[] {
   const groups = new Map<string, MemoryRecord[]>();
 
-  records
-    .filter(
-      (record) =>
-        canAccessMemoryRecord(record, accessContext) &&
-        !isBlockedLifecycle(record)
-    )
-    .forEach((record) => {
-      const key = `${record.scope}:${record.scopeId}`;
-      const group = groups.get(key) ?? [];
-      group.push(record);
-      groups.set(key, group);
-    });
+  for (const record of records) {
+    if (!canAccessMemoryRecord(record, accessContext) || isBlockedLifecycle(record)) {
+      continue;
+    }
+
+    const key = `${record.scope}:${record.scopeId}`;
+    const group = groups.get(key) ?? [];
+    group.push(record);
+    groups.set(key, group);
+  }
 
   return [...groups.values()]
     .map((group) => {
       const [first] = group;
-      const sortedRecords = group.sort((left, right) =>
-        left.id.localeCompare(right.id)
-      );
+      const sortedRecords = group.sort((left, right) => left.id.localeCompare(right.id));
       const recordIds = sortedRecords.map((record) => record.id);
       const recordHashes = sortedRecords.map((record) => record.recordHash);
 
@@ -401,8 +377,7 @@ function createScopeRoots(
       };
     })
     .sort((left, right) => {
-      const scopeDelta =
-        scopePrecedence(right.scope) - scopePrecedence(left.scope);
+      const scopeDelta = scopePrecedence(right.scope) - scopePrecedence(left.scope);
       if (scopeDelta !== 0) return scopeDelta;
       return left.scopeId.localeCompare(right.scopeId);
     });

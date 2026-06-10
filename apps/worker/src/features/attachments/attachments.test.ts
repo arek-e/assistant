@@ -1,9 +1,6 @@
 import { describe, expect, test } from "bun:test";
-import {
-  imageFiles,
-  releaseAttachmentPreviews,
-  type Attachment
-} from "./attachments";
+
+import { imageFiles, releaseAttachmentPreviews, type Attachment } from "./attachments";
 
 describe("attachment helpers", () => {
   test("keeps only image files", () => {

@@ -1,9 +1,10 @@
 import type { Schedule } from "agents";
 import { scheduleSchema } from "agents/schedule";
-import { Schema } from "effect";
-import { Effect } from "effect";
 import { tool, type ToolSet } from "ai";
+import { Effect, Schema } from "effect";
+
 import { getDemoWeather } from "@/effects";
+
 import { effectInputSchema } from "./effect-schema";
 
 const weatherInputSchema = effectInputSchema(
@@ -49,10 +50,7 @@ export interface AssistantToolContext {
   cancelSchedule(taskId: string): void;
 }
 
-export function createAssistantTools(
-  context: AssistantToolContext,
-  mcpTools: ToolSet
-) {
+export function createAssistantTools(context: AssistantToolContext, mcpTools: ToolSet) {
   return {
     ...mcpTools,
 
@@ -74,8 +72,7 @@ export function createAssistantTools(
       description:
         "Perform a math calculation with two numbers. Requires user approval for large numbers.",
       inputSchema: calculateInputSchema,
-      needsApproval: async ({ a, b }) =>
-        Math.abs(a) > 1000 || Math.abs(b) > 1000,
+      needsApproval: async ({ a, b }) => Math.abs(a) > 1000 || Math.abs(b) > 1000,
       execute: async ({ a, b, operator }) => {
         const ops: Record<string, (x: number, y: number) => number> = {
           "+": (x, y) => x + y,
