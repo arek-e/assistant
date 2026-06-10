@@ -33,6 +33,18 @@ const panelDragDeadzone = 4;
 const visibleProfilePanelMotion = { opacity: 1, scale: 1, y: 0 };
 const hiddenProfilePanelMotion = { opacity: 0, scale: 0.98, y: 4 };
 
+type AssistantShellSlots = {
+  primaryAndSecondaryNavigation: ReactNode;
+  mainContent: ReactNode;
+  rightDetails: ReactNode;
+};
+
+type DesktopNavigationSlots = {
+  primaryRail: ReactNode;
+  secondaryNav: ReactNode;
+  resizeBoundary: ReactNode;
+};
+
 export function AssistantAppShell({
   children,
   composer,
@@ -63,61 +75,113 @@ export function AssistantAppShell({
   const [panelOpen, setPanelOpen] = useState(true);
   const [detailsPanelOpen, setDetailsPanelOpen] = useState(true);
   const statusLabel = getStatusLabel(isStreaming, connected);
+  const shellSlots: AssistantShellSlots = {
+    primaryAndSecondaryNavigation: (
+      <DesktopAssistantNav
+        connected={connected}
+        messageCount={messageCount}
+        panelOpen={panelOpen}
+        showDebug={showDebug}
+        onNewChat={onNewChat}
+        onPanelOpenChange={setPanelOpen}
+        onShowDebugChange={onShowDebugChange}
+        themeToggle={themeToggle}
+      />
+    ),
+    mainContent: (
+      <AssistantMainContentSlot
+        composer={composer}
+        detailsPanelOpen={detailsPanelOpen}
+        isStreaming={isStreaming}
+        messageCount={messageCount}
+        onDetailsPanelOpenChange={setDetailsPanelOpen}
+        onNewChat={onNewChat}
+      >
+        {children}
+      </AssistantMainContentSlot>
+    ),
+    rightDetails: (
+      <AssistantDetailsPanel
+        connected={connected}
+        open={detailsPanelOpen}
+        isStreaming={isStreaming}
+        messageCount={messageCount}
+        serverCount={serverCount}
+        showDebug={showDebug}
+        statusLabel={statusLabel}
+        toolCount={toolCount}
+        integrationControls={integrationControls}
+        onOpenChange={setDetailsPanelOpen}
+        onShowDebugChange={onShowDebugChange}
+      />
+    )
+  };
 
+  return <AssistantShellFrame slots={shellSlots} />;
+}
+
+function AssistantShellFrame({ slots }: { slots: AssistantShellSlots }) {
   return (
-    <div className="h-screen overflow-hidden bg-[#f2f2ef] p-[3px] text-foreground">
+    <div
+      data-shell-slot="app-shell"
+      className="h-screen overflow-hidden bg-[#f2f2ef] p-[3px] text-foreground"
+    >
       <div className="flex h-full min-h-0 overflow-visible">
-        <DesktopAssistantNav
-          connected={connected}
-          messageCount={messageCount}
-          panelOpen={panelOpen}
-          showDebug={showDebug}
-          onNewChat={onNewChat}
-          onPanelOpenChange={setPanelOpen}
-          onShowDebugChange={onShowDebugChange}
-          themeToggle={themeToggle}
-        />
+        {slots.primaryAndSecondaryNavigation}
         <main className="relative z-10 flex min-w-0 flex-1 overflow-hidden rounded-[1.125rem] border border-white/80 bg-background shadow-[0_0_0_1px_rgba(16,16,15,0.1),0_1px_2px_-1px_rgba(16,16,15,0.1),0_2px_4px_rgba(16,16,15,0.05)] md:ml-[3px]">
           <div className="flex min-h-0 flex-1 overflow-hidden">
-            <section className="flex min-w-0 flex-1 flex-col bg-background">
-              <ChatTopbar
-                detailsPanelOpen={detailsPanelOpen}
-                isStreaming={isStreaming}
-                messageCount={messageCount}
-                onDetailsPanelOpenChange={setDetailsPanelOpen}
-                onNewChat={onNewChat}
-              />
-              <motion.div
-                className="min-h-0 flex-1 overflow-y-auto"
-                initial={{ opacity: 0, y: 8 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.2, ease: [0.22, 1, 0.36, 1] }}
-              >
-                <div className="mx-auto w-full max-w-3xl px-5 pb-10 pt-10 sm:px-8 lg:pt-16">
-                  {children}
-                </div>
-              </motion.div>
-              <div className="shrink-0 bg-gradient-to-t from-background via-background to-background/0 px-4 pb-5 pt-3 sm:px-8">
-                {composer}
-              </div>
-            </section>
-            <AssistantDetailsPanel
-              connected={connected}
-              open={detailsPanelOpen}
-              isStreaming={isStreaming}
-              messageCount={messageCount}
-              serverCount={serverCount}
-              showDebug={showDebug}
-              statusLabel={statusLabel}
-              toolCount={toolCount}
-              integrationControls={integrationControls}
-              onOpenChange={setDetailsPanelOpen}
-              onShowDebugChange={onShowDebugChange}
-            />
+            {slots.mainContent}
+            {slots.rightDetails}
           </div>
         </main>
       </div>
     </div>
+  );
+}
+
+function AssistantMainContentSlot({
+  children,
+  composer,
+  detailsPanelOpen,
+  isStreaming,
+  messageCount,
+  onDetailsPanelOpenChange,
+  onNewChat
+}: {
+  children: ReactNode;
+  composer: ReactNode;
+  detailsPanelOpen: boolean;
+  isStreaming: boolean;
+  messageCount: number;
+  onDetailsPanelOpenChange: (open: boolean) => void;
+  onNewChat: () => void;
+}) {
+  return (
+    <section
+      data-shell-slot="main-content"
+      className="flex min-w-0 flex-1 flex-col bg-background"
+    >
+      <ChatTopbar
+        detailsPanelOpen={detailsPanelOpen}
+        isStreaming={isStreaming}
+        messageCount={messageCount}
+        onDetailsPanelOpenChange={onDetailsPanelOpenChange}
+        onNewChat={onNewChat}
+      />
+      <motion.div
+        className="min-h-0 flex-1 overflow-y-auto"
+        initial={{ opacity: 0, y: 8 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.2, ease: [0.22, 1, 0.36, 1] }}
+      >
+        <div className="mx-auto w-full max-w-3xl px-5 pb-10 pt-10 sm:px-8 lg:pt-16">
+          {children}
+        </div>
+      </motion.div>
+      <div className="shrink-0 bg-gradient-to-t from-background via-background to-background/0 px-4 pb-5 pt-3 sm:px-8">
+        {composer}
+      </div>
+    </section>
   );
 }
 
@@ -148,6 +212,7 @@ function AssistantDetailsPanel({
 }) {
   return (
     <motion.aside
+      data-shell-slot="right-details"
       aria-hidden={!open}
       className="hidden h-full shrink-0 overflow-hidden bg-background lg:block"
       initial={false}
@@ -323,9 +388,8 @@ function DesktopAssistantNav({
   const dragStartPanelWidthRef = useRef(getPanelWidth(panelOpen));
   const renderedPanelWidth = dragPanelWidth ?? getPanelWidth(panelOpen);
   const isPanelDragging = dragPanelWidth !== null;
-
-  return (
-    <div className="relative z-20 hidden h-full shrink-0 md:flex">
+  const navigationSlots: DesktopNavigationSlots = {
+    primaryRail: (
       <PrimaryRail
         connected={connected}
         panelOpen={panelOpen}
@@ -333,66 +397,19 @@ function DesktopAssistantNav({
         onNewChat={onNewChat}
         onPanelOpenChange={onPanelOpenChange}
       />
-      <motion.aside
-        aria-hidden={!panelOpen}
-        className="h-full overflow-hidden bg-transparent"
-        animate={{ width: renderedPanelWidth }}
-        transition={
-          isPanelDragging
-            ? { duration: 0 }
-            : { duration: 0.22, ease: [0.22, 1, 0.36, 1] }
-        }
-      >
-        <motion.div
-          className="flex h-full w-[19rem] flex-col p-3"
-          animate={{ opacity: getPanelContentOpacity(renderedPanelWidth) }}
-          transition={isPanelDragging ? { duration: 0 } : { duration: 0.12 }}
-        >
-          <div className="mb-4 flex h-9 items-center px-1">
-            <div className="flex min-w-0 items-center gap-2">
-              <AgentAvatar state={avatarState} size="sm" />
-              <div className="min-w-0 truncate text-sm font-medium text-neutral-900">
-                Teampitch
-              </div>
-            </div>
-          </div>
-
-          <div className="min-h-0 flex-1 space-y-5 overflow-y-auto pr-1">
-            <NavSection title="Chats">
-              <PanelNavLabel
-                active
-                icon={<ChatCircleDotsIcon size={16} />}
-                label="Current chat"
-                value={formatMessageCount(messageCount)}
-              />
-              <PanelAction
-                icon={<PlusIcon size={16} />}
-                label="New chat"
-                onClick={onNewChat}
-              />
-            </NavSection>
-
-            <NavSection title="Workspace">
-              <PanelNavLabel
-                icon={<PlugsConnectedIcon size={16} />}
-                label="Integrations"
-              />
-              <PanelNavLabel icon={<WrenchIcon size={16} />} label="Tools" />
-              <PanelNavButton
-                active={showDebug}
-                icon={<BrainIcon size={16} />}
-                label="Memory"
-                onClick={() => onShowDebugChange(!showDebug)}
-              />
-            </NavSection>
-
-            <NavSection title="System">
-              <PanelNavLabel icon={<GearIcon size={16} />} label="Settings" />
-            </NavSection>
-          </div>
-        </motion.div>
-      </motion.aside>
-
+    ),
+    secondaryNav: (
+      <SecondaryNavigationSlot
+        avatarState={avatarState}
+        isPanelDragging={isPanelDragging}
+        messageCount={messageCount}
+        renderedPanelWidth={renderedPanelWidth}
+        showDebug={showDebug}
+        onNewChat={onNewChat}
+        onShowDebugChange={onShowDebugChange}
+      />
+    ),
+    resizeBoundary: (
       <PanelBoundary
         panelOpen={panelOpen}
         onPanelOpenChange={onPanelOpenChange}
@@ -415,7 +432,100 @@ function DesktopAssistantNav({
           setDragPanelWidth(getPanelWidth(panelOpen));
         }}
       />
+    )
+  };
+
+  return <DesktopNavigationFrame slots={navigationSlots} />;
+}
+
+function DesktopNavigationFrame({ slots }: { slots: DesktopNavigationSlots }) {
+  return (
+    <div className="relative z-20 hidden h-full shrink-0 md:flex">
+      {slots.primaryRail}
+      {slots.secondaryNav}
+      {slots.resizeBoundary}
     </div>
+  );
+}
+
+function SecondaryNavigationSlot({
+  avatarState,
+  isPanelDragging,
+  messageCount,
+  renderedPanelWidth,
+  showDebug,
+  onNewChat,
+  onShowDebugChange
+}: {
+  avatarState: AgentVisualState;
+  isPanelDragging: boolean;
+  messageCount: number;
+  renderedPanelWidth: number;
+  showDebug: boolean;
+  onNewChat: () => void;
+  onShowDebugChange: (checked: boolean) => void;
+}) {
+  return (
+    <motion.aside
+      data-shell-slot="secondary-nav"
+      aria-hidden={renderedPanelWidth === collapsedPanelWidth}
+      className="h-full overflow-hidden bg-transparent"
+      animate={{ width: renderedPanelWidth }}
+      transition={
+        isPanelDragging
+          ? { duration: 0 }
+          : { duration: 0.22, ease: [0.22, 1, 0.36, 1] }
+      }
+    >
+      <motion.div
+        className="flex h-full w-[19rem] flex-col p-3"
+        animate={{ opacity: getPanelContentOpacity(renderedPanelWidth) }}
+        transition={isPanelDragging ? { duration: 0 } : { duration: 0.12 }}
+      >
+        <div className="mb-4 flex h-9 items-center px-1">
+          <div className="flex min-w-0 items-center gap-2">
+            <AgentAvatar state={avatarState} size="sm" />
+            <div className="min-w-0 truncate text-sm font-medium text-neutral-900">
+              Teampitch
+            </div>
+          </div>
+        </div>
+
+        <div className="min-h-0 flex-1 space-y-5 overflow-y-auto pr-1">
+          <NavSection title="Chats">
+            <PanelNavLabel
+              active
+              icon={<ChatCircleDotsIcon size={16} />}
+              label="Current chat"
+              value={formatMessageCount(messageCount)}
+            />
+            <PanelAction
+              icon={<PlusIcon size={16} />}
+              label="New chat"
+              onClick={onNewChat}
+            />
+          </NavSection>
+
+          <NavSection title="Workspace">
+            <PanelNavLabel
+              icon={<PlugsConnectedIcon size={16} />}
+              label="Integrations"
+            />
+            <PanelNavLabel icon={<WrenchIcon size={16} />} label="Tools" />
+            <PanelNavButton
+              active={showDebug}
+              icon={<BrainIcon size={16} />}
+              label="Memory"
+              onClick={() => onShowDebugChange(!showDebug)}
+            />
+          </NavSection>
+
+          <NavSection title="System">
+            <PanelNavLabel icon={<GearIcon size={16} />} label="Settings" />
+          </NavSection>
+        </div>
+      </motion.div>
+    </motion.aside>
   );
 }
 
@@ -435,7 +545,10 @@ function PrimaryRail({
   const connectionDotClass = getConnectionDotClass(connected);
 
   return (
-    <aside className="relative flex h-full w-16 shrink-0 flex-col items-center rounded-[1.125rem] bg-[#10100f] py-3 text-white shadow-[0_10px_28px_rgba(16,16,15,0.18)]">
+    <aside
+      data-shell-slot="primary-rail"
+      className="relative flex h-full w-16 shrink-0 flex-col items-center rounded-[1.125rem] bg-[#10100f] py-3 text-white shadow-[0_10px_28px_rgba(16,16,15,0.18)]"
+    >
       <button
         type="button"
         aria-label="Open assistant panel"
