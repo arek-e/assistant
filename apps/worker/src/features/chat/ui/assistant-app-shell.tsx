@@ -899,16 +899,6 @@ function ChatTopbar({
         </h1>
       </div>
       <div className="flex shrink-0 items-center gap-2">
-        {!detailsPanelOpen && (
-          <button
-            type="button"
-            aria-label="Open details panel"
-            className="relative grid size-8 shrink-0 place-items-center rounded-md text-neutral-700 transition-[background-color,scale] hover:bg-black/5 active:scale-[0.96] before:absolute before:-inset-1 before:content-['']"
-            onClick={() => onDetailsPanelOpenChange(true)}
-          >
-            <PanelLeftClose size={15} className="scale-x-[-1]" />
-          </button>
-        )}
         {themeToggle}
         <Button
           variant="secondary"
@@ -919,6 +909,16 @@ function ChatTopbar({
         >
           New chat
         </Button>
+        {!detailsPanelOpen && (
+          <button
+            type="button"
+            aria-label="Open details panel"
+            className="relative grid size-8 shrink-0 place-items-center rounded-md text-neutral-700 transition-[background-color,scale] hover:bg-black/5 active:scale-[0.96] before:absolute before:-inset-1 before:content-['']"
+            onClick={() => onDetailsPanelOpenChange(true)}
+          >
+            <PanelLeftClose size={15} className="scale-x-[-1]" />
+          </button>
+        )}
       </div>
     </header>
   );
