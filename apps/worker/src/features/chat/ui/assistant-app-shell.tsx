@@ -2,6 +2,7 @@ import {
   useEffect,
   useRef,
   useState,
+  type CSSProperties,
   type MouseEvent as ReactMouseEvent,
   type PointerEvent as ReactPointerEvent,
   type ReactNode
@@ -30,6 +31,9 @@ const panelDragOpenThreshold = 80;
 const panelDragCloseThreshold = 96;
 const panelDragVelocityThreshold = 1600;
 const panelDragDeadzone = 4;
+const defaultPreviewChatColumnWidth = 432;
+const minPreviewChatColumnWidth = 360;
+const maxPreviewChatColumnWidth = 520;
 const visibleProfilePanelMotion = { opacity: 1, scale: 1, y: 0 };
 const hiddenProfilePanelMotion = { opacity: 0, scale: 0.98, y: 4 };
 
@@ -167,6 +171,12 @@ function AssistantMainContentSlot({
   onNewChat: () => void;
   workspacePreview?: ReactNode;
 }) {
+  const [previewChatColumnWidth, setPreviewChatColumnWidth] = useState(
+    defaultPreviewChatColumnWidth
+  );
+  const [isPreviewChatResizing, setIsPreviewChatResizing] = useState(false);
+  const previewChatDragStartWidthRef = useRef(defaultPreviewChatColumnWidth);
+
   return (
     <section
       data-shell-slot="main-content"
@@ -185,7 +195,33 @@ function AssistantMainContentSlot({
             {workspacePreview}
           </WorkspacePreviewSlot>
         )}
-        <div className={getChatColumnClassName(hasWorkspacePreview)}>
+        {hasWorkspacePreview && (
+          <PreviewChatResizeHandle
+            resizing={isPreviewChatResizing}
+            onResizeStart={() => {
+              previewChatDragStartWidthRef.current = previewChatColumnWidth;
+              setIsPreviewChatResizing(true);
+            }}
+            onResize={(offsetX) => {
+              setPreviewChatColumnWidth(
+                clampPreviewChatColumnWidth(
+                  previewChatDragStartWidthRef.current - offsetX
+                )
+              );
+            }}
+            onResizeEnd={() => setIsPreviewChatResizing(false)}
+          />
+        )}
+        <div
+          className={getChatColumnClassName(
+            hasWorkspacePreview,
+            isPreviewChatResizing
+          )}
+          style={getChatColumnStyle(
+            hasWorkspacePreview,
+            previewChatColumnWidth
+          )}
+        >
           <motion.div
             className="min-h-0 flex-1 overflow-y-auto"
             initial={{ opacity: 0, y: 8 }}
@@ -227,6 +263,189 @@ function WorkspacePreviewSlot({
     >
       {children}
     </motion.section>
+  );
+}
+
+function PreviewChatResizeHandle({
+  onResize,
+  onResizeEnd,
+  onResizeStart,
+  resizing
+}: {
+  onResize: (offsetX: number) => void;
+  onResizeEnd: () => void;
+  onResizeStart: () => void;
+  resizing: boolean;
+}) {
+  return (
+    <ResizeBoundaryHandle
+      ariaLabel="Resize chat panel"
+      containerClassName="relative z-30 hidden h-full w-0 shrink-0 xl:block"
+      handleClassName={getPreviewChatResizeHandleClassName(resizing)}
+      onDrag={onResize}
+      onDragEnd={() => onResizeEnd()}
+      onDragStart={onResizeStart}
+    />
+  );
+}
+
+function ResizeBoundaryHandle({
+  ariaLabel,
+  containerClassName = "relative z-30 h-full w-0 shrink-0",
+  handleClassName,
+  onClick,
+  onDrag,
+  onDragEnd,
+  onDragStart
+}: {
+  ariaLabel: string;
+  containerClassName?: string;
+  handleClassName: string;
+  onClick?: () => void;
+  onDrag: (offsetX: number) => void;
+  onDragEnd: (offsetX: number, velocityX: number) => void;
+  onDragStart: () => void;
+}) {
+  const draggingRef = useRef(false);
+  const dragStartXRef = useRef(0);
+  const dragMovedRef = useRef(false);
+  const lastDragSampleRef = useRef({ time: 0, x: 0 });
+  const dragVelocityXRef = useRef(0);
+  const dragCleanupRef = useRef<null | (() => void)>(null);
+
+  useEffect(() => {
+    return () => {
+      dragCleanupRef.current?.();
+    };
+  }, []);
+
+  function handlePointerDown(event: ReactPointerEvent<HTMLButtonElement>) {
+    if (event.button !== 0) return;
+
+    event.preventDefault();
+    const target = event.currentTarget;
+    const pointerId = event.pointerId;
+
+    beginResizeDrag(event.clientX);
+    safelySetPointerCapture(target, pointerId);
+
+    const handleWindowPointerMove = (windowEvent: PointerEvent) => {
+      if (windowEvent.pointerId !== pointerId) return;
+      updateResizeDrag(windowEvent.clientX);
+    };
+
+    const handleWindowPointerEnd = (windowEvent: PointerEvent) => {
+      if (windowEvent.pointerId !== pointerId) return;
+      finishResizeDrag(windowEvent.clientX, target, pointerId);
+    };
+
+    window.addEventListener("pointermove", handleWindowPointerMove);
+    window.addEventListener("pointerup", handleWindowPointerEnd);
+    window.addEventListener("pointercancel", handleWindowPointerEnd);
+
+    dragCleanupRef.current = () => {
+      window.removeEventListener("pointermove", handleWindowPointerMove);
+      window.removeEventListener("pointerup", handleWindowPointerEnd);
+      window.removeEventListener("pointercancel", handleWindowPointerEnd);
+      dragCleanupRef.current = null;
+    };
+  }
+
+  function handleMouseDown(event: ReactMouseEvent<HTMLButtonElement>) {
+    if (event.button !== 0 || draggingRef.current) return;
+
+    event.preventDefault();
+    const target = event.currentTarget;
+
+    beginResizeDrag(event.clientX);
+
+    const handleWindowMouseMove = (windowEvent: MouseEvent) => {
+      updateResizeDrag(windowEvent.clientX);
+    };
+
+    const handleWindowMouseEnd = (windowEvent: MouseEvent) => {
+      finishResizeDrag(windowEvent.clientX, target);
+    };
+
+    window.addEventListener("mousemove", handleWindowMouseMove);
+    window.addEventListener("mouseup", handleWindowMouseEnd);
+
+    dragCleanupRef.current = () => {
+      window.removeEventListener("mousemove", handleWindowMouseMove);
+      window.removeEventListener("mouseup", handleWindowMouseEnd);
+      dragCleanupRef.current = null;
+    };
+  }
+
+  function beginResizeDrag(clientX: number) {
+    dragCleanupRef.current?.();
+    draggingRef.current = true;
+    dragMovedRef.current = false;
+    dragStartXRef.current = clientX;
+    lastDragSampleRef.current = { time: performance.now(), x: clientX };
+    dragVelocityXRef.current = 0;
+    onDragStart();
+  }
+
+  function updateResizeDrag(clientX: number) {
+    if (!draggingRef.current) return;
+
+    const offsetX = clientX - dragStartXRef.current;
+    const now = performance.now();
+    const lastSample = lastDragSampleRef.current;
+    const elapsedSeconds = Math.max((now - lastSample.time) / 1000, 0.001);
+
+    dragVelocityXRef.current = (clientX - lastSample.x) / elapsedSeconds;
+    lastDragSampleRef.current = { time: now, x: clientX };
+
+    if (Math.abs(offsetX) > panelDragDeadzone) {
+      dragMovedRef.current = true;
+    }
+
+    onDrag(offsetX);
+  }
+
+  function finishResizeDrag(
+    clientX: number,
+    target: HTMLButtonElement,
+    pointerId?: number
+  ) {
+    if (!draggingRef.current) return;
+
+    updateResizeDrag(clientX);
+    const offsetX = clientX - dragStartXRef.current;
+
+    draggingRef.current = false;
+    dragCleanupRef.current?.();
+    onDragEnd(offsetX, dragVelocityXRef.current);
+    if (pointerId !== undefined) {
+      safelyReleasePointerCapture(target, pointerId);
+    }
+  }
+
+  function handleClick(event: ReactMouseEvent<HTMLButtonElement>) {
+    if (dragMovedRef.current) {
+      dragMovedRef.current = false;
+      event.preventDefault();
+      return;
+    }
+
+    onClick?.();
+  }
+
+  return (
+    <div className={containerClassName}>
+      <button
+        type="button"
+        aria-label={ariaLabel}
+        className="group absolute left-0 top-0 h-full w-8 -translate-x-1/2 cursor-col-resize touch-none select-none outline-none"
+        onClick={handleClick}
+        onMouseDown={handleMouseDown}
+        onPointerDown={handlePointerDown}
+      >
+        <span aria-hidden className={handleClassName} />
+      </button>
+    </div>
   );
 }
 
@@ -718,150 +937,16 @@ function PanelBoundary({
   onPanelOpenChange: (open: boolean) => void;
 }) {
   const toggleLabel = getPanelToggleLabel(panelOpen);
-  const draggingRef = useRef(false);
-  const dragStartXRef = useRef(0);
-  const dragMovedRef = useRef(false);
-  const lastDragSampleRef = useRef({ time: 0, x: 0 });
-  const dragVelocityXRef = useRef(0);
-  const dragCleanupRef = useRef<null | (() => void)>(null);
-
-  useEffect(() => {
-    return () => {
-      dragCleanupRef.current?.();
-    };
-  }, []);
-
-  function handlePointerDown(event: ReactPointerEvent<HTMLButtonElement>) {
-    if (event.button !== 0) return;
-
-    event.preventDefault();
-    const target = event.currentTarget;
-    const pointerId = event.pointerId;
-
-    beginPanelDrag(event.clientX);
-    safelySetPointerCapture(target, pointerId);
-
-    const handleWindowPointerMove = (windowEvent: PointerEvent) => {
-      if (windowEvent.pointerId !== pointerId) return;
-      updatePointerDrag(windowEvent.clientX);
-    };
-
-    const handleWindowPointerEnd = (windowEvent: PointerEvent) => {
-      if (windowEvent.pointerId !== pointerId) return;
-      finishPointerDrag(windowEvent.clientX, target, pointerId);
-    };
-
-    window.addEventListener("pointermove", handleWindowPointerMove);
-    window.addEventListener("pointerup", handleWindowPointerEnd);
-    window.addEventListener("pointercancel", handleWindowPointerEnd);
-
-    dragCleanupRef.current = () => {
-      window.removeEventListener("pointermove", handleWindowPointerMove);
-      window.removeEventListener("pointerup", handleWindowPointerEnd);
-      window.removeEventListener("pointercancel", handleWindowPointerEnd);
-      dragCleanupRef.current = null;
-    };
-  }
-
-  function handleMouseDown(event: ReactMouseEvent<HTMLButtonElement>) {
-    if (event.button !== 0 || draggingRef.current) return;
-
-    event.preventDefault();
-    const target = event.currentTarget;
-
-    beginPanelDrag(event.clientX);
-
-    const handleWindowMouseMove = (windowEvent: MouseEvent) => {
-      updatePointerDrag(windowEvent.clientX);
-    };
-
-    const handleWindowMouseEnd = (windowEvent: MouseEvent) => {
-      finishPointerDrag(windowEvent.clientX, target);
-    };
-
-    window.addEventListener("mousemove", handleWindowMouseMove);
-    window.addEventListener("mouseup", handleWindowMouseEnd);
-
-    dragCleanupRef.current = () => {
-      window.removeEventListener("mousemove", handleWindowMouseMove);
-      window.removeEventListener("mouseup", handleWindowMouseEnd);
-      dragCleanupRef.current = null;
-    };
-  }
-
-  function beginPanelDrag(clientX: number) {
-    const now = performance.now();
-
-    dragCleanupRef.current?.();
-    draggingRef.current = true;
-    dragMovedRef.current = false;
-    dragStartXRef.current = clientX;
-    lastDragSampleRef.current = { time: now, x: clientX };
-    dragVelocityXRef.current = 0;
-    onPanelDragStart();
-  }
-
-  function updatePointerDrag(clientX: number) {
-    if (!draggingRef.current) return;
-
-    const offsetX = clientX - dragStartXRef.current;
-    const now = performance.now();
-    const lastSample = lastDragSampleRef.current;
-    const elapsedSeconds = Math.max((now - lastSample.time) / 1000, 0.001);
-
-    dragVelocityXRef.current = (clientX - lastSample.x) / elapsedSeconds;
-    lastDragSampleRef.current = { time: now, x: clientX };
-
-    if (Math.abs(offsetX) > panelDragDeadzone) {
-      dragMovedRef.current = true;
-    }
-
-    onPanelDrag(offsetX);
-  }
-
-  function finishPointerDrag(
-    clientX: number,
-    target: HTMLButtonElement,
-    pointerId?: number
-  ) {
-    if (!draggingRef.current) return;
-
-    const offsetX = clientX - dragStartXRef.current;
-
-    draggingRef.current = false;
-    dragCleanupRef.current?.();
-    onPanelDragEnd(offsetX, dragVelocityXRef.current);
-    if (pointerId !== undefined) {
-      safelyReleasePointerCapture(target, pointerId);
-    }
-  }
-
-  function handleClick(event: ReactMouseEvent<HTMLButtonElement>) {
-    if (dragMovedRef.current) {
-      dragMovedRef.current = false;
-      event.preventDefault();
-      return;
-    }
-
-    onPanelOpenChange(!panelOpen);
-  }
 
   return (
-    <div className="relative z-30 h-full w-0 shrink-0">
-      <button
-        type="button"
-        aria-label={toggleLabel}
-        className="group absolute left-0 top-0 h-full w-8 -translate-x-1/2 cursor-col-resize touch-none select-none outline-none"
-        onClick={handleClick}
-        onMouseDown={handleMouseDown}
-        onPointerDown={handlePointerDown}
-      >
-        <span
-          aria-hidden
-          className="absolute left-[calc(50%+0.25rem)] top-1/2 h-7 w-1 -translate-y-1/2 rounded-full bg-neutral-400/70 opacity-0 shadow-[0_1px_3px_rgba(16,16,15,0.16)] transition-[height,background-color,opacity,box-shadow] duration-150 group-hover:h-8 group-hover:bg-neutral-500/75 group-hover:opacity-100 group-hover:shadow-[0_1px_5px_rgba(16,16,15,0.18)] group-focus-visible:opacity-100 group-focus-visible:ring-2 group-focus-visible:ring-ring/35"
-        />
-      </button>
-    </div>
+    <ResizeBoundaryHandle
+      ariaLabel={toggleLabel}
+      handleClassName="absolute left-[calc(50%+0.25rem)] top-1/2 h-7 w-1 -translate-y-1/2 rounded-full bg-neutral-400/70 opacity-0 shadow-[0_1px_3px_rgba(16,16,15,0.16)] transition-[height,background-color,opacity,box-shadow] duration-150 group-hover:h-8 group-hover:bg-neutral-500/75 group-hover:opacity-100 group-hover:shadow-[0_1px_5px_rgba(16,16,15,0.18)] group-focus-visible:opacity-100 group-focus-visible:ring-2 group-focus-visible:ring-ring/35"
+      onClick={() => onPanelOpenChange(!panelOpen)}
+      onDrag={onPanelDrag}
+      onDragEnd={onPanelDragEnd}
+      onDragStart={onPanelDragStart}
+    />
   );
 }
 
@@ -902,18 +987,37 @@ function getMainContentBodyClassName(hasWorkspacePreview: boolean) {
   return cn(
     "min-h-0 flex-1 overflow-hidden",
     hasWorkspacePreview
-      ? "flex flex-col p-0 xl:flex-row xl:gap-3 xl:overflow-visible xl:p-3"
+      ? "flex flex-col p-0 xl:flex-row xl:gap-0 xl:overflow-visible xl:p-3"
       : "flex flex-col"
   );
 }
 
-function getChatColumnClassName(hasWorkspacePreview: boolean) {
+function getChatColumnClassName(
+  hasWorkspacePreview: boolean,
+  isResizing = false
+) {
   return cn(
     "flex min-h-0 flex-col bg-background",
     hasWorkspacePreview
-      ? "min-w-0 flex-1 overflow-hidden xl:w-[min(27rem,34vw)] xl:min-w-[23rem] xl:flex-none xl:overflow-visible xl:pl-1"
+      ? [
+          "min-w-0 flex-1 overflow-hidden xl:w-[var(--preview-chat-width)] xl:min-w-[22.5rem] xl:flex-none xl:overflow-visible xl:pl-3",
+          isResizing
+            ? "xl:transition-none"
+            : "xl:transition-[width] xl:duration-200 xl:ease-out"
+        ]
       : "min-w-0 flex-1"
   );
+}
+
+function getChatColumnStyle(
+  hasWorkspacePreview: boolean,
+  previewChatColumnWidth: number
+) {
+  if (!hasWorkspacePreview) return undefined;
+
+  return {
+    "--preview-chat-width": `${previewChatColumnWidth}px`
+  } as CSSProperties;
 }
 
 function getChatStreamClassName(hasWorkspacePreview: boolean) {
@@ -941,8 +1045,23 @@ function getWorkspacePreviewSlotClassName(open: boolean) {
   );
 }
 
+function getPreviewChatResizeHandleClassName(resizing: boolean) {
+  return cn(
+    "absolute left-1/2 top-1/2 h-7 w-1 -translate-y-1/2 rounded-full bg-neutral-400/70 opacity-0 shadow-[0_1px_3px_rgba(16,16,15,0.16)] transition-[height,background-color,opacity,box-shadow] duration-150 group-hover:h-8 group-hover:bg-neutral-500/75 group-hover:opacity-100 group-hover:shadow-[0_1px_5px_rgba(16,16,15,0.18)] group-focus-visible:opacity-100 group-focus-visible:ring-2 group-focus-visible:ring-ring/35",
+    resizing &&
+      "h-8 bg-neutral-500/75 opacity-100 shadow-[0_1px_5px_rgba(16,16,15,0.18)]"
+  );
+}
+
 function clampPanelWidth(width: number) {
   return Math.min(expandedPanelWidth, Math.max(collapsedPanelWidth, width));
+}
+
+function clampPreviewChatColumnWidth(width: number) {
+  return Math.min(
+    maxPreviewChatColumnWidth,
+    Math.max(minPreviewChatColumnWidth, width)
+  );
 }
 
 function getPanelContentOpacity(width: number) {
