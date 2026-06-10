@@ -1,23 +1,16 @@
-import { Schema } from "effect";
 import {
   searchMemoryRecords,
   type RetrievalResult,
   type SearchMemoryOptions
 } from "./retrieval";
 import {
-  LifecycleStatusSchema,
-  MemoryRecordSchema,
+  decodeLifecycleStatus,
+  decodeMemoryRecord,
   type LifecycleStatus,
   type MemoryRecord
 } from "./types";
-
-export interface CanonicalMemoryStore {
-  upsert(record: MemoryRecord): MemoryRecord;
-  seed(records: readonly MemoryRecord[]): void;
-  list(): MemoryRecord[];
-  search(input: string, options?: SearchMemoryOptions): RetrievalResult;
-  promote(recordId: string, status: LifecycleStatus): MemoryRecord | null;
-}
+import type { CanonicalMemoryStore, MemoryDebugSnapshot } from "./contract";
+import { createMemoryDebugSnapshot } from "./debug-snapshot";
 
 export class InMemoryCanonicalMemoryStore implements CanonicalMemoryStore {
   private readonly records = new Map<string, MemoryRecord>();
@@ -56,24 +49,8 @@ export class InMemoryCanonicalMemoryStore implements CanonicalMemoryStore {
     this.records.set(recordId, promotedRecord);
     return promotedRecord;
   }
-}
 
-function decodeMemoryRecord(record: MemoryRecord): MemoryRecord {
-  const result = Schema.decodeUnknownEither(MemoryRecordSchema)(record);
-
-  if (result._tag === "Right") {
-    return result.right;
+  debugSnapshot(limit = 50): MemoryDebugSnapshot {
+    return createMemoryDebugSnapshot(this.list(), limit);
   }
-
-  throw new Error(result.left.message);
-}
-
-function decodeLifecycleStatus(status: LifecycleStatus): LifecycleStatus {
-  const result = Schema.decodeUnknownEither(LifecycleStatusSchema)(status);
-
-  if (result._tag === "Right") {
-    return result.right;
-  }
-
-  throw new Error(result.left.message);
 }

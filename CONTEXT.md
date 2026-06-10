@@ -48,6 +48,10 @@ _Avoid_: User route chip, visible routing UI
 A developer-facing drawer or popover that exposes the Routing Audit Trail. It can later be controlled by a feature flag, but may be visible by default during the prototype phase.
 _Avoid_: Main routing UI, user-facing route picker
 
+**Memory Debug Drawer**:
+A developer-facing drawer that exposes durable memory records, retrieval evidence, blocked lifecycle candidates, memory tool calls, and route records. It exists to make the invisible assistant primitives auditable during the prototype phase.
+_Avoid_: User-facing memory feed, analytics dashboard
+
 **Effort Router**:
 The component that decides how much machinery a task deserves. It routes the task mode, target agent, reasoning effort, budget, approval level, and evaluation tags before or during execution.
 _Avoid_: Model picker, reasoning toggle
@@ -77,7 +81,7 @@ The repository-level package that declares workspaces and delegates scripts to a
 _Avoid_: App package, dependency dumping ground
 
 **Worker App**:
-The deployable Cloudflare Worker workspace containing Wrangler config, Worker entrypoint, Agent classes, React client, and app-specific evals. It is currently `apps/worker`.
+The deployable Cloudflare Worker workspace containing Wrangler config, Worker entrypoint, Agent classes, React client, and Worker-specific tests. It is currently `apps/worker`.
 _Avoid_: Backend folder, server-only package
 
 **Shared UI Package**:
@@ -95,6 +99,14 @@ _Avoid_: Shared grab bag, utilities package
 **Canonical Memory Store**:
 The app-owned source of truth for durable typed records. Think context, search memory, and any future vector index should be projections from this store, not independent memory silos.
 _Avoid_: Vector DB as source of truth, chat transcript store
+
+**Canonical Memory Store Interface**:
+The seam callers depend on when they read, write, promote, retrieve, or inspect Memory Records. It should hide whether the implementation uses Durable Object SQLite, Vectorize, a remote store, or an in-memory test adapter.
+_Avoid_: SQLite class as product contract, storage-specific calls in tools
+
+**Memory Store Adapter**:
+A concrete implementation of the Canonical Memory Store Interface. The current adapters are Durable Object SQLite for the Think Prototype and in-memory storage for tests.
+_Avoid_: Parallel memory silo, untyped storage helper
 
 **Retrieval Ladder**:
 The ordered retrieval strategy for memory and project knowledge: active context first, typed SQL lookup second, FTS5 lexical search third, workspace grep/bash fourth, and vector or graph retrieval only after evals prove they are needed.

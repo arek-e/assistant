@@ -72,13 +72,11 @@ const starterPrompts = [
 
 export function MessageList({
   messages,
-  showDebug,
   isStreaming,
   onStarterPrompt,
   addToolApprovalResponse
 }: {
   messages: UIMessage[];
-  showDebug: boolean;
   isStreaming: boolean;
   onStarterPrompt: (prompt: string) => void;
   addToolApprovalResponse: (response: {
@@ -116,7 +114,6 @@ export function MessageList({
         <MessageView
           key={message.id}
           message={message}
-          showDebug={showDebug}
           isStreaming={isStreaming}
           isLastAssistant={
             message.role === "assistant" && index === messages.length - 1
@@ -130,13 +127,11 @@ export function MessageList({
 
 function MessageView({
   message,
-  showDebug,
   isStreaming,
   isLastAssistant,
   addToolApprovalResponse
 }: {
   message: UIMessage;
-  showDebug: boolean;
   isStreaming: boolean;
   isLastAssistant: boolean;
   addToolApprovalResponse: (response: {
@@ -153,12 +148,6 @@ function MessageView({
 
   return (
     <div className="space-y-2">
-      {showDebug && (
-        <pre className="text-[11px] text-muted-foreground bg-muted rounded-lg p-3 overflow-auto max-h-64">
-          {JSON.stringify(message, null, 2)}
-        </pre>
-      )}
-
       {isUser ? (
         <UserMessageParts message={message} />
       ) : (

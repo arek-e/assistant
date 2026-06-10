@@ -18,7 +18,7 @@ export type MemoryRecordKind = Schema.Schema.Type<
 
 const MemoryScopeSchema = Schema.Literal("user", "project", "repo", "session");
 
-export const LifecycleStatusSchema = Schema.Literal(
+const LifecycleStatusSchema = Schema.Literal(
   "draft",
   "proposed",
   "active",
@@ -46,3 +46,23 @@ export const MemoryRecordSchema = Schema.Struct({
 });
 
 export type MemoryRecord = Schema.Schema.Type<typeof MemoryRecordSchema>;
+
+export function decodeMemoryRecord(record: unknown): MemoryRecord {
+  const result = Schema.decodeUnknownEither(MemoryRecordSchema)(record);
+
+  if (result._tag === "Right") {
+    return result.right;
+  }
+
+  throw new Error(result.left.message);
+}
+
+export function decodeLifecycleStatus(status: unknown): LifecycleStatus {
+  const result = Schema.decodeUnknownEither(LifecycleStatusSchema)(status);
+
+  if (result._tag === "Right") {
+    return result.right;
+  }
+
+  throw new Error(result.left.message);
+}

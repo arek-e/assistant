@@ -9,10 +9,11 @@ import {
   createMemoryPrimitiveTools,
   SqliteCanonicalMemoryStore
 } from "@/server/memory";
+import type { CanonicalMemoryStore } from "@/server/memory";
 
 export class ThinkAgent extends Think<Env> {
   maxSteps = 6;
-  private memoryStore?: SqliteCanonicalMemoryStore;
+  private memoryStore?: CanonicalMemoryStore;
 
   getModel() {
     return createWorkersAI({ binding: this.env.AI })(
@@ -63,13 +64,18 @@ Memory rules:
     await this.removeMcpServer(serverId);
   }
 
+  @callable()
+  async getMemoryDebugSnapshot() {
+    return this.getMemoryStore().debugSnapshot();
+  }
+
   async executeTask(description: string, _task: Schedule<string>) {
     console.log(`Executing scheduled task: ${description}`);
 
     this.broadcast(JSON.stringify(createScheduledTaskMessage(description)));
   }
 
-  private getMemoryStore() {
+  private getMemoryStore(): CanonicalMemoryStore {
     this.memoryStore ??= new SqliteCanonicalMemoryStore(this.ctx.storage.sql);
     return this.memoryStore;
   }
