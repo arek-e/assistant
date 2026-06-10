@@ -44,6 +44,7 @@ export interface RetrievalHit {
 export interface RetrievalResult {
   hits: RetrievalHit[];
   lifecycleViolations: string[];
+  blockedRecordIds: string[];
 }
 
 export interface SearchMemoryOptions {
@@ -56,9 +57,9 @@ export function searchMemoryRecords(
   input: string,
   options: SearchMemoryOptions = {}
 ): RetrievalResult {
-  const inputTokens = uniqueTokens(input);
+  const inputTokens = memorySearchTokens(input);
   const scoredHits = records
-    .map((record) => scoreRecord(record, inputTokens))
+    .map((record) => scoreMemoryRecord(record, inputTokens))
     .filter((hit) => hit.score > 0);
   const hits = scoredHits
     .filter((hit) => options.includeBlocked || !isBlockedLifecycle(hit.record))
@@ -67,11 +68,14 @@ export function searchMemoryRecords(
   const lifecycleViolations = hits
     .filter((hit) => isBlockedLifecycle(hit.record))
     .map((hit) => hit.record.id);
+  const blockedRecordIds = scoredHits
+    .filter((hit) => isBlockedLifecycle(hit.record))
+    .map((hit) => hit.record.id);
 
-  return { hits, lifecycleViolations };
+  return { hits, lifecycleViolations, blockedRecordIds };
 }
 
-function isBlockedLifecycle(record: MemoryRecord) {
+export function isBlockedLifecycle(record: MemoryRecord) {
   return record.status === "rejected" || record.status === "superseded";
 }
 
@@ -83,16 +87,16 @@ function tokenize(value: string) {
     .filter((token) => token.length > 1 && !STOP_WORDS.has(token));
 }
 
-function uniqueTokens(value: string) {
+export function memorySearchTokens(value: string) {
   return [...new Set(tokenize(value))];
 }
 
-function scoreRecord(
+export function scoreMemoryRecord(
   record: MemoryRecord,
   inputTokens: string[]
 ): RetrievalHit {
   const recordText = searchableText(record).toLowerCase();
-  const recordTokens = new Set(uniqueTokens(recordText));
+  const recordTokens = new Set(memorySearchTokens(recordText));
   const tokenScores = inputTokens.map((token) =>
     scoreToken(record, recordText, recordTokens, token)
   );

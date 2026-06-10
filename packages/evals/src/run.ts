@@ -3,6 +3,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { Schema } from "effect";
 import { fixtures } from "./fixtures";
+import { createEvalMemorySqlStorage } from "./bun-sqlite-memory";
 import {
   EvalFixtureSchema,
   type EvalCheck,
@@ -12,11 +13,13 @@ import {
   type RouteDecision
 } from "./types";
 import {
-  InMemoryCanonicalMemoryStore,
+  type CanonicalMemoryStore,
   proposeMemoryWrite,
+  routeTask,
+  SqliteCanonicalMemoryStore,
+  type MemoryRecord,
   type RetrievalResult
-} from "../src/server/memory";
-import { routeTask } from "../src/server/routing/effort-router";
+} from "@teampitch/worker/server/assistant-primitives";
 
 const emptyWriteDecision: MemoryWriteDecision = {
   shouldWrite: false,
@@ -42,7 +45,7 @@ interface CategoryEvaluation {
 
 interface EvaluationContext {
   fixture: EvalFixture;
-  memoryStore: InMemoryCanonicalMemoryStore;
+  memoryStore: CanonicalMemoryStore;
   retrievalResult: RetrievalResult;
   retrievedRecordIds: readonly string[];
 }
@@ -95,13 +98,17 @@ function evaluateFixture(fixture: EvalFixture): EvalResult {
   };
 }
 
-function createMemoryStore(fixture: EvalFixture): InMemoryCanonicalMemoryStore {
-  return new InMemoryCanonicalMemoryStore(fixture.seedRecords);
+function createMemoryStore(fixture: EvalFixture): CanonicalMemoryStore {
+  const memoryStore = new SqliteCanonicalMemoryStore(
+    createEvalMemorySqlStorage()
+  );
+  memoryStore.seed(fixture.seedRecords);
+  return memoryStore;
 }
 
 function evaluateCategory(
   fixture: EvalFixture,
-  memoryStore: InMemoryCanonicalMemoryStore,
+  memoryStore: CanonicalMemoryStore,
   retrievalResult: RetrievalResult,
   retrievedRecordIds: readonly string[]
 ): CategoryEvaluation {
@@ -115,7 +122,7 @@ function evaluateCategory(
 
 function evaluateLifecycleFixture(
   fixture: EvalFixture,
-  memoryStore: InMemoryCanonicalMemoryStore
+  memoryStore: CanonicalMemoryStore
 ): CategoryEvaluation {
   const promotedRecord = promoteFixtureRecord(fixture, memoryStore);
 
@@ -131,7 +138,7 @@ function evaluateLifecycleFixture(
 
 function promoteFixtureRecord(
   fixture: EvalFixture,
-  memoryStore: InMemoryCanonicalMemoryStore
+  memoryStore: CanonicalMemoryStore
 ) {
   if (fixture.promotionStatus === "none") return null;
   return memoryStore.promote(
@@ -142,7 +149,7 @@ function promoteFixtureRecord(
 
 function recordPromotedCheck(
   fixture: EvalFixture,
-  promotedRecord: ReturnType<InMemoryCanonicalMemoryStore["promote"]>
+  promotedRecord: MemoryRecord | null
 ): EvalCheck {
   return {
     name: "record promoted",
@@ -155,7 +162,7 @@ function recordPromotedCheck(
 
 function promotedStatusCheck(
   fixture: EvalFixture,
-  promotedRecord: ReturnType<InMemoryCanonicalMemoryStore["promote"]>
+  promotedRecord: MemoryRecord | null
 ): EvalCheck {
   return {
     name: "expected promoted status",
@@ -339,7 +346,7 @@ function expectNoRecords(
 }
 
 function writeTrace(results: EvalResult[]) {
-  const repoRoot = dirname(dirname(fileURLToPath(import.meta.url)));
+  const repoRoot = join(dirname(fileURLToPath(import.meta.url)), "../../..");
   const traceDir = join(repoRoot, ".evals");
   mkdirSync(traceDir, { recursive: true });
   writeFileSync(

@@ -57,6 +57,21 @@
         "wrangler": "^4.99.0",
       },
     },
+    "packages/evals": {
+      "name": "@teampitch/evals",
+      "version": "1.0.0",
+      "dependencies": {
+        "@teampitch/worker": "workspace:*",
+        "effect": "^3.21.3",
+      },
+      "devDependencies": {
+        "@types/bun": "^1.3.14",
+        "@types/node": "^25.9.2",
+        "oxfmt": "^0.54.0",
+        "oxlint": "^1.69.0",
+        "typescript": "^6.0.3",
+      },
+    },
     "packages/ui": {
       "name": "@teampitch/ui",
       "version": "1.0.0",
@@ -641,6 +656,8 @@
     "@tailwindcss/oxide-win32-x64-msvc": ["@tailwindcss/oxide-win32-x64-msvc@4.3.0", "", { "os": "win32", "cpu": "x64" }, "sha512-Mvrf2kXW/yeW/OTezZlCGOirXRcUuLIBx/5Y12BaPM7wJoryG6dfS/NJL8aBPqtTEx/Vm4T4vKzFUcKDT+TKUA=="],
 
     "@tailwindcss/vite": ["@tailwindcss/vite@4.3.0", "", { "dependencies": { "@tailwindcss/node": "4.3.0", "@tailwindcss/oxide": "4.3.0", "tailwindcss": "4.3.0" }, "peerDependencies": { "vite": "^5.2.0 || ^6 || ^7 || ^8" } }, "sha512-t6J3OrB5Fc0ExuhohouH0fWUGMYL6PTLhW+E7zIk/pdbnJARZDCwjBznFnkh5ynRnIRSI4YjtTH0t6USjJISrw=="],
+
+    "@teampitch/evals": ["@teampitch/evals@workspace:packages/evals"],
 
     "@teampitch/ui": ["@teampitch/ui@workspace:packages/ui"],
 

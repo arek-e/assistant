@@ -1,10 +1,12 @@
 ---
-status: proposed
+status: accepted
 ---
 
 # Start with SQLite and FTS5 retrieval
 
 We will use an app-owned Durable Object SQLite store as the Canonical Memory Store for the first Think Prototype. Durable memory records will be typed, lifecycle-aware, and indexed for exact SQL lookup plus FTS5 lexical search. Think context blocks and any future search memory will be projections from this canonical store.
+
+Callers depend on the Canonical Memory Store Interface, not the SQLite adapter. SQLite is the current Memory Store Adapter behind that seam; future Vectorize, graph, or remote-memory work must either project from this store or satisfy the same interface after a new ADR accepts the source-of-truth change.
 
 This means we are not starting with a vector database as the source of truth. Vectorize may be added later, but only as a hybrid retrieval layer when evals show repeated semantic recall failures that SQL, FTS5, and workspace grep cannot handle cleanly.
 

@@ -2,15 +2,16 @@
 
 Personal Cloudflare-hosted assistant workspace.
 
-The repo follows Turborepo-style directory conventions with plain Bun workspaces. Turbo is intentionally not installed yet; Bun workspaces are enough while there is one deployable app and one shared UI package.
+The repo follows Turborepo-style directory conventions with plain Bun workspaces. Turbo is intentionally not installed yet; Bun workspaces are enough while there is one deployable app and a small set of shared packages.
 
 ## Apps
 
-- `apps/worker`: Cloudflare Worker, Agents runtime, React client, Wrangler config, and primitive evals.
+- `apps/worker`: Cloudflare Worker, Agents runtime, React client, and Wrangler config.
 
 ## Packages
 
 - `packages/ui`: shared Coss UI primitives, shared UI hooks, and UI utilities consumed by `apps/worker`.
+- `packages/evals`: assistant primitive eval harness for memory, retrieval, routing, and lifecycle behavior.
 
 ## Commands
 
@@ -37,12 +38,13 @@ apps/
     src/server/routing/
     src/features/
     src/components/app/
-    evals/
 packages/
   ui/
     src/components/ui/
     src/hooks/
     src/lib/
+  evals/
+    src/
 docs/
   adr/
   brainstorms/
@@ -52,5 +54,5 @@ docs/
 
 - Cloudflare Agent classes live in `apps/worker/src/server/agents`.
 - The Worker entry stays thin at `apps/worker/src/server.ts`.
-- Memory, routing, and eval primitives stay app-local until they need to be shared.
+- Memory and routing primitives stay in `apps/worker/src/server`; `packages/evals` imports them through explicit Worker package exports.
 - Coss UI primitives live in `packages/ui`; Teampitch-specific composition and icons stay in `apps/worker/src/components/app`.

@@ -19,11 +19,11 @@
     "types": "bun run --filter @teampitch/worker types",
     "hooks:install": "lefthook install",
     "test": "bun run --filter @teampitch/worker test",
-    "evals": "bun run --filter @teampitch/worker evals",
+    "evals": "bun run --filter @teampitch/evals evals",
     "test:all": "bun run test && bun run evals",
     "format": "oxfmt --write .",
     "format:check": "oxfmt --check .",
-    "lint": "bun run --filter @teampitch/ui lint && bun run --filter @teampitch/worker lint",
+    "lint": "bun run --filter @teampitch/ui lint && bun run --filter @teampitch/worker lint && bun run --filter @teampitch/evals lint",
     "health": "fallow --summary",
     "health:full": "fallow",
     "health:score": "fallow health --score --hotspots --targets",
@@ -31,7 +31,7 @@
     "dead-code": "fallow dead-code",
     "dupes": "fallow dupes",
     "audit": "fallow audit --format compact --base ${FALLOW_BASE:-origin/master}",
-    "check": "bun run format:check && bun run --filter @teampitch/ui check && bun run --filter @teampitch/worker check",
+    "check": "bun run format:check && bun run --filter @teampitch/ui check && bun run --filter @teampitch/worker check && bun run --filter @teampitch/evals check",
     "check:all": "bun run check && bun run audit"
   },
   "devDependencies": {

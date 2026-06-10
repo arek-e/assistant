@@ -10,7 +10,7 @@ The runner validates fixtures with Effect Schema, exercises the app-side Canonic
 
 ## Adding A Regression
 
-Add a fixture in `evals/fixtures.ts` when the assistant makes a bad memory, retrieval, or routing decision.
+Add a fixture in `packages/evals/src/fixtures.ts` when the assistant makes a bad memory, retrieval, or routing decision.
 
 A good fixture includes:
 

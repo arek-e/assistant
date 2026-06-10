@@ -29,6 +29,7 @@ import {
   releaseAttachmentPreviews,
   type Attachment
 } from "@/features/attachments/attachments";
+import { MemoryDebugDrawer } from "@/features/debug/memory-debug-drawer";
 import { McpPanel } from "@/features/mcp/mcp-panel";
 import { ThemeToggle } from "@/features/theme/theme-toggle";
 import { ChatComposer } from "./chat-composer";
@@ -37,7 +38,7 @@ import { MessageList } from "./message-list";
 export function Chat() {
   const [connected, setConnected] = useState(false);
   const [input, setInput] = useState("");
-  const [showDebug, setShowDebug] = useState(false);
+  const [showDebugDrawer, setShowDebugDrawer] = useState(false);
   const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [isDragging, setIsDragging] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -256,10 +257,10 @@ export function Chat() {
             <div className="flex items-center gap-1.5">
               <BugIcon size={14} className="text-muted-foreground" />
               <Switch
-                checked={showDebug}
-                onCheckedChange={setShowDebug}
+                checked={showDebugDrawer}
+                onCheckedChange={setShowDebugDrawer}
                 size="sm"
-                aria-label="Toggle debug mode"
+                aria-label="Toggle debugger"
               />
             </div>
             <ThemeToggle />
@@ -306,7 +307,6 @@ export function Chat() {
         <div className="max-w-3xl mx-auto px-5 py-6 space-y-5">
           <MessageList
             messages={messages}
-            showDebug={showDebug}
             isStreaming={isStreaming}
             onStarterPrompt={(prompt) =>
               sendMessage({
@@ -333,6 +333,12 @@ export function Chat() {
         onAddFiles={addFiles}
         onPaste={handlePaste}
         onRemoveAttachment={removeAttachment}
+      />
+      <MemoryDebugDrawer
+        open={showDebugDrawer}
+        messages={messages}
+        onOpenChange={setShowDebugDrawer}
+        loadSnapshot={() => agent.stub.getMemoryDebugSnapshot()}
       />
     </div>
   );

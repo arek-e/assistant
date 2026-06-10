@@ -1,8 +1,8 @@
 import { Schema } from "effect";
 import { tool, type ToolSet } from "ai";
 import { effectInputSchema } from "@/server/effect-schema";
-import { routeTask } from "@/server/routing/effort-router";
-import type { SqliteCanonicalMemoryStore } from "./sqlite-memory-store";
+import { routeTask, type RouteDecision } from "@/server/routing/effort-router";
+import type { CanonicalMemoryStore } from "./contract";
 import type { MemoryRecord } from "./types";
 
 const memoryKindSchema = Schema.Literal(
@@ -82,7 +82,7 @@ const routeTaskInputSchema = effectInputSchema(
 );
 
 export function createMemoryPrimitiveTools(
-  store: SqliteCanonicalMemoryStore
+  store: CanonicalMemoryStore
 ): ToolSet {
   return {
     recordMemory: tool({
@@ -142,7 +142,8 @@ export function createMemoryPrimitiveTools(
             score: hit.score,
             reasons: hit.reasons
           })),
-          lifecycleViolations: result.lifecycleViolations
+          lifecycleViolations: result.lifecycleViolations,
+          blockedRecordIds: result.blockedRecordIds
         };
       }
     }),
@@ -169,9 +170,17 @@ export function createMemoryPrimitiveTools(
       execute: async ({ input }) => {
         const retrieval = store.search(input);
         const route = routeTask(input, retrieval);
+        const routeRecord = store.upsert(
+          toRouteRecord(
+            input,
+            route,
+            retrieval.hits.map((hit) => hit.record.id)
+          )
+        );
         return {
           route,
-          retrievedRecordIds: retrieval.hits.map((hit) => hit.record.id)
+          retrievedRecordIds: retrieval.hits.map((hit) => hit.record.id),
+          routeRecordId: routeRecord.id
         };
       }
     })
@@ -188,4 +197,56 @@ function toMemoryRecord(
     createdAt: now,
     updatedAt: now
   };
+}
+
+function toRouteRecord(
+  input: string,
+  route: RouteDecision,
+  retrievedRecordIds: readonly string[]
+): MemoryRecord {
+  const now = new Date().toISOString();
+  const inputHash = hashString(input);
+
+  return {
+    id: `route.${now.replace(/[^0-9]/g, "")}.${inputHash}`,
+    kind: "route_record",
+    scope: "session",
+    status: "active",
+    title: `${route.mode} route for ${truncate(input, 48)}`,
+    body: JSON.stringify(
+      {
+        input,
+        route,
+        retrievedRecordIds
+      },
+      null,
+      2
+    ),
+    evidence: `routeTask tool executed at ${now}`,
+    rationale: route.reason,
+    createdAt: now,
+    updatedAt: now,
+    reEvalTrigger:
+      "when a user corrects the route, cost, latency, or required effort",
+    consumerRules: [
+      "Use for debugging and route evaluation only",
+      "Do not present route records as durable product decisions"
+    ],
+    tags: ["routing", route.mode, route.effort, route.budget],
+    supersedes: []
+  };
+}
+
+function truncate(value: string, maxLength: number) {
+  return value.length <= maxLength
+    ? value
+    : `${value.slice(0, Math.max(0, maxLength - 3))}...`;
+}
+
+function hashString(value: string) {
+  let hash = 5381;
+  for (let index = 0; index < value.length; index += 1) {
+    hash = (hash * 33) ^ value.charCodeAt(index);
+  }
+  return (hash >>> 0).toString(36);
 }

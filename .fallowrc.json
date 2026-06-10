@@ -11,12 +11,24 @@
     "ignore": ["packages/ui/src/components/ui/**"]
   },
   "usedClassMembers": [
+    "debugSnapshot",
     {
       "extends": "AIChatAgent",
       "members": [
         "maxPersistedMessages",
         "onStart",
         "onChatMessage",
+        "executeTask"
+      ]
+    },
+    {
+      "extends": "Think",
+      "members": [
+        "maxSteps",
+        "getModel",
+        "getSystemPrompt",
+        "configureSession",
+        "getTools",
         "executeTask"
       ]
     }

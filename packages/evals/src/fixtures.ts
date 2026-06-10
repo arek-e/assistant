@@ -194,6 +194,14 @@ const proposedThinkDecision = record({
   tags: ["think", "prototype", "cloudflare", "lifecycle"]
 });
 
+const evalsPackageDecision = record({
+  id: "decision.evals.package",
+  kind: "decision_record",
+  title: "Keep assistant evals outside the Worker app",
+  body: "Assistant primitive evals live in packages/evals as a workspace package. Worker-specific unit tests stay in apps/worker, but memory, retrieval, routing, and lifecycle evals are product-quality infrastructure outside the deployable Worker app.",
+  tags: ["evals", "package", "packages", "worker", "workspace", "routing"]
+});
+
 export const fixtures: EvalFixture[] = [
   fixture({
     id: "retrieval.exact-package-runner",
@@ -252,6 +260,16 @@ export const fixtures: EvalFixture[] = [
       "forbidden_record_hits",
       "lifecycle_violations"
     ]
+  }),
+  fixture({
+    id: "retrieval.evals-package-boundary",
+    category: "retrieval",
+    seedRecords: [evalsPackageDecision],
+    input: "should assistant evals live inside the worker app?",
+    expectedRecordIds: ["decision.evals.package"],
+    expectedBehavior:
+      "Retrieve the package-boundary decision that keeps assistant primitive evals outside the deployable Worker app.",
+    metrics: ["retrieval_recall_at_5", "retrieval_precision_at_5"]
   }),
   fixture({
     id: "retrieval.negative-no-memory",

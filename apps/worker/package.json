@@ -10,6 +10,12 @@
   ],
   "license": "MIT",
   "type": "module",
+  "exports": {
+    "./server/assistant-primitives": {
+      "types": "./src/server/assistant-primitives.ts",
+      "default": "./src/server/assistant-primitives.ts"
+    }
+  },
   "scripts": {
     "dev": "vite dev",
     "start": "vite dev",
@@ -18,12 +24,11 @@
     "types": "wrangler types env.d.ts --include-runtime false",
     "typecheck": "tsc",
     "test": "bun test",
-    "test:all": "bun run test && bun run evals",
+    "test:all": "bun run test",
     "format": "oxfmt --write .",
     "format:check": "oxfmt --check .",
-    "lint": "oxlint src/ evals/",
-    "evals": "bun run evals/run.ts",
-    "check": "bun run format:check && bun run lint && bun run typecheck && bun run test && bun run evals",
+    "lint": "oxlint src/",
+    "check": "bun run format:check && bun run lint && bun run typecheck && bun run test",
     "storybook": "storybook dev -p 6006",
     "storybook:build": "storybook build"
   },
