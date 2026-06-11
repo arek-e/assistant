@@ -6,10 +6,12 @@ import { Schema } from "effect";
 
 import {
   type CanonicalMemoryStore,
+  createRouteRecordDraft,
   createLocalMemoryAccessContext,
   proposeMemoryWrite,
   routeTask,
   SqliteCanonicalMemoryStore,
+  type MemoryAccessContext,
   type MemoryRecord,
   type RetrievalResult
 } from "@teampitch/worker/server/assistant-primitives";
@@ -48,6 +50,7 @@ interface CategoryEvaluation {
 }
 
 interface EvaluationContext {
+  accessContext: MemoryAccessContext;
   fixture: EvalFixture;
   memoryStore: CanonicalMemoryStore;
   retrievalResult: RetrievalResult;
@@ -61,7 +64,8 @@ const CATEGORY_EVALUATORS = {
     evaluateRetrievalFixture(fixture, retrievalResult, retrievedRecordIds),
   memory_write: ({ fixture }) => evaluateMemoryWriteFixture(fixture),
   lifecycle: ({ fixture, memoryStore }) => evaluateLifecycleFixture(fixture, memoryStore),
-  routing: ({ fixture, retrievalResult }) => evaluateRoutingFixture(fixture, retrievalResult),
+  routing: ({ accessContext, fixture, memoryStore, retrievalResult }) =>
+    evaluateRoutingFixture(fixture, retrievalResult, memoryStore, accessContext),
   integration: () => noCategoryEvaluation()
 } satisfies Record<EvalFixture["category"], CategoryEvaluator>;
 
@@ -78,16 +82,20 @@ function validateFixture(fixture: unknown): EvalFixture {
 function evaluateFixture(fixture: EvalFixture): EvalResult {
   const startedAt = Date.now();
   const memoryStore = createMemoryStore(fixture);
-  const accessContext = createLocalMemoryAccessContext();
+  const accessContext = fixture.accessContext ?? createLocalMemoryAccessContext();
   const retrievalResult = memoryStore.search(fixture.input, accessContext);
   const retrievedRecordIds = retrievalResult.hits.map((hit) => hit.record.id);
   const categoryEvaluation = evaluateCategory(
+    accessContext,
     fixture,
     memoryStore,
     retrievalResult,
     retrievedRecordIds
   );
-  const checks = categoryEvaluation.checks;
+  const checks = [
+    ...categoryEvaluation.checks,
+    ...attributionChecks(fixture, accessContext, retrievalResult)
+  ];
 
   return {
     id: fixture.id,
@@ -102,6 +110,27 @@ function evaluateFixture(fixture: EvalFixture): EvalResult {
   };
 }
 
+function attributionChecks(
+  fixture: EvalFixture,
+  accessContext: MemoryAccessContext,
+  retrievalResult: RetrievalResult
+): EvalCheck[] {
+  if (!fixture.expectedActorDisplayName) return [];
+
+  return [
+    {
+      name: "expected actor display name",
+      passed: accessContext.displayName === fixture.expectedActorDisplayName,
+      detail: `expected ${fixture.expectedActorDisplayName}, got ${accessContext.displayName}`
+    },
+    {
+      name: "expected provenance actor",
+      passed: retrievalResult.provenance.displayName === fixture.expectedActorDisplayName,
+      detail: `expected ${fixture.expectedActorDisplayName}, got ${retrievalResult.provenance.displayName}`
+    }
+  ];
+}
+
 function createMemoryStore(fixture: EvalFixture): CanonicalMemoryStore {
   const memoryStore = new SqliteCanonicalMemoryStore(createEvalMemorySqlStorage());
   memoryStore.seed(fixture.seedRecords);
@@ -109,12 +138,14 @@ function createMemoryStore(fixture: EvalFixture): CanonicalMemoryStore {
 }
 
 function evaluateCategory(
+  accessContext: MemoryAccessContext,
   fixture: EvalFixture,
   memoryStore: CanonicalMemoryStore,
   retrievalResult: RetrievalResult,
   retrievedRecordIds: readonly string[]
 ): CategoryEvaluation {
   return CATEGORY_EVALUATORS[fixture.category]({
+    accessContext,
     fixture,
     memoryStore,
     retrievalResult,
@@ -212,9 +243,20 @@ function evaluateMemoryWriteFixture(fixture: EvalFixture): CategoryEvaluation {
 
 function evaluateRoutingFixture(
   fixture: EvalFixture,
-  retrievalResult: RetrievalResult
+  retrievalResult: RetrievalResult,
+  memoryStore: CanonicalMemoryStore,
+  accessContext: MemoryAccessContext
 ): CategoryEvaluation {
   const routeDecision = routeTask(fixture.input, retrievalResult);
+  const routeRecord = memoryStore.upsert(
+    createRouteRecordDraft(
+      fixture.input,
+      routeDecision,
+      retrievalResult.hits.map((hit) => hit.record.id),
+      sessionScopeId(accessContext),
+      accessContext
+    )
+  );
 
   return {
     checks: [
@@ -232,11 +274,34 @@ function evaluateRoutingFixture(
         name: "expected route budget",
         passed: routeDecision.budget === fixture.expectedRouteBudget,
         detail: `expected ${fixture.expectedRouteBudget}, got ${routeDecision.budget}`
-      }
+      },
+      ...routeRecordAttributionChecks(fixture, routeRecord)
     ],
     writeDecision: emptyWriteDecision,
     routeDecision
   };
+}
+
+function routeRecordAttributionChecks(
+  fixture: EvalFixture,
+  routeRecord: MemoryRecord
+): EvalCheck[] {
+  if (!fixture.expectedActorDisplayName) return [];
+
+  return [
+    {
+      name: "expected route record actor",
+      passed: routeRecord.actor.displayName === fixture.expectedActorDisplayName,
+      detail: `expected ${fixture.expectedActorDisplayName}, got ${routeRecord.actor.displayName}`
+    }
+  ];
+}
+
+function sessionScopeId(accessContext: MemoryAccessContext): string {
+  return (
+    accessContext.grants.find((grant) => grant.scope === "session")?.scopeId ??
+    accessContext.sessionId
+  );
 }
 
 function noCategoryEvaluation(): CategoryEvaluation {

@@ -1,5 +1,14 @@
+import { createAgentIdentityService, type AgentIdentityEnv } from "../agent-identity/client";
 import type { MemoryAccessContext } from "../memory/access";
-import { createAuthIdentityAdapter } from "./identity";
+import {
+  getDemoAuthCookieName,
+  getDemoAuthUser,
+  getDemoAuthUserFromRequest,
+  isDemoAuthEnabled,
+  listDemoAuthUsers,
+  type AuthDemoUserSummary
+} from "./demo-users";
+import { createAuthIdentityAdapter, createDemoMemoryAccessContext } from "./identity";
 import {
   authenticateWorkOSSession,
   createClearCookieHeader,
@@ -19,6 +28,7 @@ import {
   sanitizeReturnTo,
   type WorkOSSessionEnv
 } from "./workos-session";
+import { createWorkOSSponsorValidator } from "./workos-sponsor-validation";
 
 export interface AuthMeResponse {
   authenticated: boolean;
@@ -39,6 +49,7 @@ export interface AuthMeResponse {
     permissions: readonly string[];
     grants: readonly { scope: string; scopeId: string }[];
   };
+  demoUsers?: readonly AuthDemoUserSummary[];
   reason?: string;
 }
 
@@ -54,6 +65,8 @@ export async function handleAuthRequest(
       return handleLogin(request, env, "sign-in");
     case "/auth/signup":
       return handleLogin(request, env, "sign-up");
+    case "/auth/demo":
+      return handleDemoLogin(request, env);
     case "/auth/callback":
       return handleCallback(request, env);
     case "/auth/logout":
@@ -67,7 +80,7 @@ export async function handleAuthRequest(
 
 export async function requireAuthenticatedAgentRequest(
   request: Request,
-  env: WorkOSSessionEnv
+  env: WorkOSSessionEnv & AgentIdentityEnv
 ): Promise<Response | null> {
   const url = new URL(request.url);
   if (!url.pathname.startsWith("/agents/")) return null;
@@ -86,7 +99,27 @@ export async function requireAuthenticatedAgentRequest(
     return json({ error: "authentication_required" }, 401);
   }
 
+  await recordAgentRuntimeRequest(request, env, identity);
+
   return null;
+}
+
+async function recordAgentRuntimeRequest(
+  request: Request,
+  env: WorkOSSessionEnv & AgentIdentityEnv,
+  identity: MemoryAccessContext
+): Promise<void> {
+  if (identity.subjectType !== "agent" || !identity.agent) return;
+
+  const service = createAgentIdentityService(env, undefined, {
+    sponsorValidator: createWorkOSSponsorValidator(env)
+  });
+  await service.recordRuntimeAction({
+    actor: identity,
+    targetType: "agent_request",
+    targetId: new URL(request.url).pathname,
+    metadata: { method: request.method }
+  });
 }
 
 async function handleLogin(
@@ -154,6 +187,7 @@ async function handleCallback(request: Request, env: WorkOSSessionEnv): Promise<
 
     return redirect(cookieState.returnTo, 303, [
       stateCookieClear,
+      createClearCookieHeader(request, getDemoAuthCookieName(env)),
       createCookieHeader(request, getWorkOSSessionCookieName(env), authResponse.sealedSession, {
         path: "/",
         httpOnly: true
@@ -164,24 +198,46 @@ async function handleCallback(request: Request, env: WorkOSSessionEnv): Promise<
   }
 }
 
+async function handleDemoLogin(request: Request, env: WorkOSSessionEnv): Promise<Response> {
+  if (!isDemoAuthEnabled(env, request)) {
+    return json({ error: "demo_auth_disabled" }, 404);
+  }
+  if (!isSameOriginPost(request)) {
+    return json({ error: "method_not_allowed" }, 405);
+  }
+
+  const url = new URL(request.url);
+  const user = getDemoAuthUser(url.searchParams.get("user"));
+  if (!user) return json({ error: "unknown_demo_user" }, 400);
+
+  return redirect(url.searchParams.get("returnTo") ?? "/", 303, [
+    createClearCookieHeader(request, getWorkOSSessionCookieName(env)),
+    createCookieHeader(request, getDemoAuthCookieName(env), user.id, {
+      path: "/",
+      httpOnly: true
+    })
+  ]);
+}
+
 async function handleLogout(request: Request, env: WorkOSSessionEnv): Promise<Response> {
   if (!isSameOriginPost(request)) {
     return json({ error: "method_not_allowed" }, 405);
   }
 
   const sessionCookieClear = createClearCookieHeader(request, getWorkOSSessionCookieName(env));
+  const demoCookieClear = createClearCookieHeader(request, getDemoAuthCookieName(env));
 
   if (!isWorkOSAuthConfigured(env)) {
-    return redirect("/", 303, [sessionCookieClear]);
+    return redirect("/", 303, [sessionCookieClear, demoCookieClear]);
   }
   const cookiePassword = env.WORKOS_COOKIE_PASSWORD;
   if (!cookiePassword) {
-    return redirect("/", 303, [sessionCookieClear]);
+    return redirect("/", 303, [sessionCookieClear, demoCookieClear]);
   }
 
   const workos = createWorkOSClient(env);
   const sessionData = getCookieValue(request, getWorkOSSessionCookieName(env));
-  if (!sessionData) return redirect("/", 303, [sessionCookieClear]);
+  if (!sessionData) return redirect("/", 303, [sessionCookieClear, demoCookieClear]);
 
   try {
     const session = workos.userManagement.loadSealedSession({
@@ -191,13 +247,15 @@ async function handleLogout(request: Request, env: WorkOSSessionEnv): Promise<Re
     const logoutUrl = await session.getLogoutUrl({
       returnTo: getLogoutReturnTo(request, env)
     });
-    return redirect(logoutUrl, 303, [sessionCookieClear]);
+    return redirect(logoutUrl, 303, [sessionCookieClear, demoCookieClear]);
   } catch {
-    return redirect("/", 303, [sessionCookieClear]);
+    return redirect("/", 303, [sessionCookieClear, demoCookieClear]);
   }
 }
 
 async function handleMe(request: Request, env: WorkOSSessionEnv): Promise<Response> {
+  const demoUsers = listDemoAuthUsers(request, env);
+
   if (!isWorkOSMode(env)) {
     const identity = await createAuthIdentityAdapter(env).resolve({
       env,
@@ -211,7 +269,25 @@ async function handleMe(request: Request, env: WorkOSSessionEnv): Promise<Respon
       user: {
         id: identity.subjectId,
         name: identity.displayName
-      }
+      },
+      demoUsers
+    } satisfies AuthMeResponse);
+  }
+
+  const demoUser = getDemoAuthUserFromRequest(request, env);
+  if (demoUser) {
+    const identity = createDemoMemoryAccessContext(demoUser);
+    return json({
+      authenticated: true,
+      configured: isWorkOSAuthConfigured(env),
+      provider: identity.provider,
+      identity: serializeIdentity(identity),
+      user: {
+        id: demoUser.subjectId,
+        email: demoUser.email,
+        name: demoUser.name
+      },
+      demoUsers
     } satisfies AuthMeResponse);
   }
 
@@ -220,6 +296,7 @@ async function handleMe(request: Request, env: WorkOSSessionEnv): Promise<Respon
       authenticated: false,
       configured: false,
       provider: "workos",
+      demoUsers,
       reason: "workos_not_configured"
     } satisfies AuthMeResponse);
   }
@@ -242,6 +319,7 @@ async function handleMe(request: Request, env: WorkOSSessionEnv): Promise<Respon
         authenticated: false,
         configured: true,
         provider: "workos",
+        demoUsers,
         reason: sessionResult.reason
       } satisfies AuthMeResponse),
       { status: 200, headers }
@@ -273,7 +351,8 @@ async function handleMe(request: Request, env: WorkOSSessionEnv): Promise<Respon
         id: sessionResult.session.user.id,
         email: sessionResult.session.user.email,
         name: userDisplayName(sessionResult.session.user)
-      }
+      },
+      demoUsers
     } satisfies AuthMeResponse),
     { status: 200, headers }
   );

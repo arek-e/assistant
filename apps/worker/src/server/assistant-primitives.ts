@@ -29,6 +29,7 @@ export {
   type MemoryWriteKind,
   type MemoryWriteStatus
 } from "./memory/admission";
+export { createRouteRecordDraft } from "./memory/route-record";
 export {
   type BlockedMemoryRecord,
   type RetrievalProvenance,

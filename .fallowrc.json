@@ -15,6 +15,10 @@
       "members": ["maxPersistedMessages", "onStart", "onChatMessage", "executeTask"]
     },
     {
+      "extends": "DurableObject",
+      "members": ["fetch"]
+    },
+    {
       "extends": "Think",
       "members": [
         "maxSteps",

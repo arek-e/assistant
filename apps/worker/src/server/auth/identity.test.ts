@@ -79,6 +79,48 @@ describe("auth identity adapters", () => {
     expect(identity.grants).toEqual([{ scope: "session", scopeId: "session-anonymous" }]);
   });
 
+  test("resolves demo users as WorkOS-shaped identities only in safe demo contexts", async () => {
+    const adapter = createAuthIdentityAdapter({
+      AUTH_IDENTITY_ADAPTER: "workos"
+    });
+    const demoEnv = {
+      AUTH_IDENTITY_ADAPTER: "workos",
+      AUTH_DEMO_USERS_ENABLED: "1"
+    };
+
+    const identity = await adapter.resolve({
+      env: demoEnv,
+      request: new Request("http://localhost:5174", {
+        headers: { cookie: "tp-demo-user=member" }
+      })
+    });
+
+    expect(identity).toMatchObject({
+      provider: "workos",
+      subjectId: "demo-member",
+      sessionId: "demo-session-member",
+      organizationId: "demo-org",
+      role: "member",
+      displayName: "Demo Member"
+    });
+    expect(identity.permissions).not.toContain("agent:admin");
+    expect(identity.grants).toContainEqual({
+      scope: "team",
+      scopeId: "demo-finance-team"
+    });
+
+    const productionIdentity = await adapter.resolve({
+      env: demoEnv,
+      request: new Request("https://assistant.example.com", {
+        headers: { cookie: "tp-demo-user=member" }
+      }),
+      sessionId: "anonymous-production"
+    });
+
+    expect(productionIdentity.provider).toBe("anonymous");
+    expect(productionIdentity.sessionId).toBe("anonymous-production");
+  });
+
   test("can verify a real WorkOS token when E2E env vars are present", async () => {
     const token = process.env.WORKOS_E2E_ACCESS_TOKEN;
     const clientId = process.env.WORKOS_CLIENT_ID;

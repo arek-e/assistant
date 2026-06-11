@@ -15,6 +15,10 @@
       "types": "./src/lib/utils.ts",
       "default": "./src/lib/utils.ts"
     },
+    "./lib/surface-tokens": {
+      "types": "./src/lib/surface-tokens.ts",
+      "default": "./src/lib/surface-tokens.ts"
+    },
     "./hooks/*": {
       "types": "./src/hooks/*.ts",
       "default": "./src/hooks/*.ts"

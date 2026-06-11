@@ -5,6 +5,7 @@ import { Effect, Schema } from "effect";
 
 import { getDemoWeather } from "@/effects";
 import type { MemoryAccessContext } from "@/server/memory";
+import { summarizeMemoryAccessContext } from "@/server/memory/actor-summary";
 import { encodeScheduledTaskPayload } from "@/server/scheduled-task";
 
 import { effectInputSchema } from "./effect-schema";
@@ -113,7 +114,7 @@ export function createAssistantTools(context: AssistantToolContext, mcpTools: To
         if (!input) return "Invalid schedule type";
         try {
           const identity = context.getIdentity
-            ? summarizeIdentity(await context.getIdentity())
+            ? summarizeMemoryAccessContext(await context.getIdentity())
             : undefined;
           context.schedule(
             input,
@@ -151,14 +152,5 @@ export function createAssistantTools(context: AssistantToolContext, mcpTools: To
         }
       }
     })
-  };
-}
-
-function summarizeIdentity(accessContext: MemoryAccessContext) {
-  return {
-    subjectId: accessContext.subjectId,
-    subjectType: accessContext.subjectType,
-    provider: accessContext.provider,
-    grants: accessContext.grants.map((grant) => ({ ...grant }))
   };
 }

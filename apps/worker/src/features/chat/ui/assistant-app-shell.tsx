@@ -20,7 +20,11 @@ import {
   WrenchIcon
 } from "@/components/app/icons";
 import { Button, Switch } from "@/components/app/ui";
-import { AgentAvatar, type AgentVisualState } from "@/features/avatar/agent-avatar";
+import {
+  glassNavigationSurfaceClassName,
+  glassPanelSurfaceClassName,
+  solidSurfaceClassName
+} from "@teampitch/ui/lib/surface-tokens";
 import { cn } from "@teampitch/ui/lib/utils";
 
 const expandedPanelWidth = 304;
@@ -30,11 +34,12 @@ const panelDragOpenThreshold = 80;
 const panelDragCloseThreshold = 96;
 const panelDragVelocityThreshold = 1600;
 const panelDragDeadzone = 4;
+const secondaryNavExitDurationMs = 200;
 const defaultPreviewChatColumnWidth = 432;
 const minPreviewChatColumnWidth = 360;
 const maxPreviewChatColumnWidth = 520;
-const visibleProfilePanelMotion = { opacity: 1, scale: 1, y: 0 };
-const hiddenProfilePanelMotion = { opacity: 0, scale: 0.98, y: 4 };
+
+export type PrimaryAppView = "home" | "chats" | "integrations";
 
 interface AssistantShellSlots {
   primaryAndSecondaryNavigation: ReactNode;
@@ -44,14 +49,17 @@ interface AssistantShellSlots {
 
 interface DesktopNavigationSlots {
   primaryRail: ReactNode;
-  secondaryNav: ReactNode;
-  resizeBoundary: ReactNode;
+  secondaryNav?: ReactNode;
+  resizeBoundary?: ReactNode;
 }
 
 export function AssistantAppShell({
   children,
   composer,
   connected,
+  activeView,
+  routeContent,
+  routeDetails,
   workspacePreview,
   isStreaming,
   showDebug,
@@ -61,12 +69,18 @@ export function AssistantAppShell({
   integrationControls,
   themeToggle,
   accountControls,
+  activeChatStartedAt,
+  onOpenSettings,
+  onNavigateView,
   onShowDebugChange,
   onNewChat
 }: {
   children: ReactNode;
   composer: ReactNode;
   connected: boolean;
+  activeView: PrimaryAppView;
+  routeContent?: ReactNode;
+  routeDetails?: ReactNode;
   workspacePreview?: ReactNode;
   isStreaming: boolean;
   showDebug: boolean;
@@ -76,28 +90,41 @@ export function AssistantAppShell({
   integrationControls: ReactNode;
   themeToggle: ReactNode;
   accountControls: ReactNode;
+  activeChatStartedAt: Date;
+  onOpenSettings?: () => void;
+  onNavigateView: (view: PrimaryAppView) => void;
   onShowDebugChange: (checked: boolean) => void;
   onNewChat: () => void;
 }) {
   const [panelOpen, setPanelOpen] = useState(true);
-  const hasWorkspacePreview = Boolean(workspacePreview);
+  const showingChat = activeView === "chats";
+  const hasWorkspacePreview = showingChat && Boolean(workspacePreview);
   const [detailsPanelOpen, setDetailsPanelOpen] = useState(() => !hasWorkspacePreview);
   const statusLabel = getStatusLabel(isStreaming, connected);
+  const handleOpenSettings = useCallback(() => {
+    onOpenSettings?.();
+  }, [onOpenSettings]);
+  const secondaryNavigation = showingChat ? (
+    <ChatSecondaryNavigationContent
+      activeChatStartedAt={activeChatStartedAt}
+      messageCount={messageCount}
+      onNewChat={onNewChat}
+    />
+  ) : null;
   const shellSlots: AssistantShellSlots = {
     primaryAndSecondaryNavigation: (
       <DesktopAssistantNav
-        connected={connected}
-        messageCount={messageCount}
+        activeView={activeView}
         panelOpen={panelOpen}
-        showDebug={showDebug}
-        onNewChat={onNewChat}
+        secondaryNavigation={secondaryNavigation}
+        onNavigateView={onNavigateView}
         onPanelOpenChange={setPanelOpen}
-        onShowDebugChange={onShowDebugChange}
+        onOpenSettings={handleOpenSettings}
         themeToggle={themeToggle}
         accountControls={accountControls}
       />
     ),
-    mainContent: (
+    mainContent: showingChat ? (
       <AssistantMainContentSlot
         composer={composer}
         detailsPanelOpen={detailsPanelOpen}
@@ -110,8 +137,10 @@ export function AssistantAppShell({
       >
         {children}
       </AssistantMainContentSlot>
+    ) : (
+      <AssistantRouteContentSlot>{routeContent}</AssistantRouteContentSlot>
     ),
-    rightDetails: (
+    rightDetails: showingChat ? (
       <AssistantDetailsPanel
         connected={connected}
         open={detailsPanelOpen}
@@ -125,6 +154,10 @@ export function AssistantAppShell({
         onOpenChange={setDetailsPanelOpen}
         onShowDebugChange={onShowDebugChange}
       />
+    ) : (
+      <AssistantRouteDetailsPanel open={Boolean(routeDetails)}>
+        {routeDetails}
+      </AssistantRouteDetailsPanel>
     )
   };
 
@@ -139,7 +172,12 @@ function AssistantShellFrame({ slots }: { slots: AssistantShellSlots }) {
     >
       <div className="flex h-full min-h-0 overflow-visible">
         {slots.primaryAndSecondaryNavigation}
-        <main className="relative z-10 flex min-w-0 flex-1 overflow-hidden rounded-[1.125rem] border border-white/80 bg-background shadow-[0_0_0_1px_rgba(16,16,15,0.1),0_1px_2px_-1px_rgba(16,16,15,0.1),0_2px_4px_rgba(16,16,15,0.05)] md:ml-[3px]">
+        <main
+          className={cn(
+            "relative z-10 flex min-w-0 flex-1 rounded-[1.125rem] md:ml-[3px]",
+            glassPanelSurfaceClassName
+          )}
+        >
           <div className="flex min-h-0 flex-1 overflow-hidden">
             {slots.mainContent}
             {slots.rightDetails}
@@ -221,6 +259,43 @@ function AssistantMainContentSlot({
         </div>
       </div>
     </section>
+  );
+}
+
+function AssistantRouteContentSlot({ children }: { children: ReactNode }) {
+  return (
+    <section data-shell-slot="main-route" className="min-h-0 flex-1 overflow-y-auto bg-transparent">
+      <div className="mx-auto w-full max-w-5xl px-5 py-8 sm:px-8 lg:py-12">{children}</div>
+    </section>
+  );
+}
+
+function AssistantRouteDetailsPanel({ children, open }: { children?: ReactNode; open: boolean }) {
+  return (
+    <m.aside
+      data-shell-slot="route-details"
+      aria-hidden={!open}
+      className={cn(
+        "absolute inset-y-0 right-0 z-40 h-full rounded-none border-y-0 border-r-0 transition-[width,box-shadow] duration-200 ease-out lg:relative lg:z-auto lg:block lg:shrink-0",
+        glassPanelSurfaceClassName,
+        open ? "border-l" : "border-l-0",
+        !open && "pointer-events-none"
+      )}
+      initial={false}
+      style={{
+        width: getDetailsPanelWidth(open),
+        boxShadow: getDetailsPanelShadow(open)
+      }}
+    >
+      <m.div
+        inert={getDetailsPanelInert(open)}
+        className="flex h-full w-80 flex-col transition-opacity duration-150"
+        initial={false}
+        style={{ opacity: getDetailsPanelContentOpacity(open) }}
+      >
+        {children}
+      </m.div>
+    </m.aside>
   );
 }
 
@@ -388,13 +463,21 @@ function ResizeBoundaryHandle({
 
     updateResizeDrag(clientX);
     const offsetX = clientX - dragStartXRef.current;
+    const moved = dragMovedRef.current;
 
     draggingRef.current = false;
     dragCleanupRef.current?.();
-    onDragEnd(offsetX, dragVelocityXRef.current);
     if (pointerId !== undefined) {
       safelyReleasePointerCapture(target, pointerId);
     }
+    if (!moved && onClick) {
+      onDragEnd(0, 0);
+      dragMovedRef.current = true;
+      onClick();
+      return;
+    }
+
+    onDragEnd(offsetX, dragVelocityXRef.current);
   }
 
   function handleClick(event: ReactMouseEvent<HTMLButtonElement>) {
@@ -412,6 +495,7 @@ function ResizeBoundaryHandle({
       <button
         type="button"
         aria-label={ariaLabel}
+        title={ariaLabel}
         className="group absolute top-0 left-0 h-full w-8 -translate-x-1/2 cursor-col-resize touch-none outline-none select-none"
         onClick={handleClick}
         onMouseDown={handleMouseDown}
@@ -452,26 +536,30 @@ function AssistantDetailsPanel({
     <m.aside
       data-shell-slot="right-details"
       aria-hidden={!open}
-      className="hidden h-full shrink-0 overflow-hidden bg-background lg:block"
+      className={cn(
+        "absolute inset-y-0 right-0 z-40 h-full rounded-none border-y-0 border-r-0 transition-[width,box-shadow] duration-200 ease-out lg:relative lg:z-auto lg:block lg:shrink-0",
+        glassPanelSurfaceClassName,
+        open ? "border-l" : "border-l-0",
+        !open && "pointer-events-none"
+      )}
       initial={false}
-      animate={{
+      style={{
         width: getDetailsPanelWidth(open),
         boxShadow: getDetailsPanelShadow(open)
       }}
-      transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
     >
       <m.div
         inert={getDetailsPanelInert(open)}
-        className="flex h-full w-80 flex-col"
+        className="flex h-full w-80 flex-col transition-opacity duration-150"
         initial={false}
-        animate={{ opacity: getDetailsPanelContentOpacity(open) }}
-        transition={{ duration: getDetailsPanelContentFadeDuration(open) }}
+        style={{ opacity: getDetailsPanelContentOpacity(open) }}
       >
         <div className="flex h-12 shrink-0 items-center justify-between gap-3 px-5">
           <h2 className="truncate text-sm font-medium text-neutral-950">Agent details</h2>
           <button
             type="button"
             aria-label="Collapse details panel"
+            title="Collapse details panel"
             className="relative grid size-8 shrink-0 place-items-center rounded-md text-neutral-700 transition-[background-color,scale] before:absolute before:-inset-1 before:content-[''] hover:bg-black/5 active:scale-[0.96]"
             onClick={() => onOpenChange(false)}
           >
@@ -584,71 +672,106 @@ function DetailsSwitchRow({
 }
 
 function DesktopAssistantNav({
-  connected,
-  messageCount,
+  activeView,
   panelOpen,
-  showDebug,
+  secondaryNavigation,
   themeToggle,
   accountControls,
-  onNewChat,
-  onPanelOpenChange,
-  onShowDebugChange
+  onNavigateView,
+  onOpenSettings,
+  onPanelOpenChange
 }: {
-  connected: boolean;
-  messageCount: number;
+  activeView: PrimaryAppView;
   panelOpen: boolean;
-  showDebug: boolean;
+  secondaryNavigation?: ReactNode;
   themeToggle: ReactNode;
   accountControls: ReactNode;
-  onNewChat: () => void;
+  onNavigateView: (view: PrimaryAppView) => void;
+  onOpenSettings: () => void;
   onPanelOpenChange: (open: boolean) => void;
-  onShowDebugChange: (checked: boolean) => void;
 }) {
-  const avatarState = getAvatarState(connected);
   const [dragPanelWidth, setDragPanelWidth] = useState<number | null>(null);
   const dragStartPanelWidthRef = useRef(0);
-  const renderedPanelWidth = dragPanelWidth ?? getPanelWidth(panelOpen);
+  const hasSecondaryNavigation = Boolean(secondaryNavigation);
+  const [secondaryNavigationMounted, setSecondaryNavigationMounted] =
+    useState(hasSecondaryNavigation);
+  const lastSecondaryNavigationRef = useRef<ReactNode>(secondaryNavigation);
+  const secondaryNavigationExitTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const shouldRenderSecondaryNavigation = hasSecondaryNavigation || secondaryNavigationMounted;
+  const secondaryPanelOpen = hasSecondaryNavigation && panelOpen;
+  const renderedPanelWidth = dragPanelWidth ?? getPanelWidth(secondaryPanelOpen);
   const isPanelDragging = dragPanelWidth !== null;
+
+  if (hasSecondaryNavigation) {
+    lastSecondaryNavigationRef.current = secondaryNavigation;
+  }
+
+  useEffect(() => {
+    if (secondaryNavigationExitTimerRef.current) {
+      clearTimeout(secondaryNavigationExitTimerRef.current);
+      secondaryNavigationExitTimerRef.current = null;
+    }
+
+    if (hasSecondaryNavigation) {
+      setSecondaryNavigationMounted(true);
+      return;
+    }
+
+    if (!lastSecondaryNavigationRef.current || !secondaryNavigationMounted) return;
+
+    secondaryNavigationExitTimerRef.current = setTimeout(() => {
+      setSecondaryNavigationMounted(false);
+      lastSecondaryNavigationRef.current = null;
+      secondaryNavigationExitTimerRef.current = null;
+    }, secondaryNavExitDurationMs);
+
+    return () => {
+      if (secondaryNavigationExitTimerRef.current) {
+        clearTimeout(secondaryNavigationExitTimerRef.current);
+        secondaryNavigationExitTimerRef.current = null;
+      }
+    };
+  }, [hasSecondaryNavigation, secondaryNavigationMounted]);
+
   const navigationSlots: DesktopNavigationSlots = {
     primaryRail: (
       <PrimaryRail
-        connected={connected}
-        panelOpen={panelOpen}
+        activeView={activeView}
+        hasSecondaryNavigation={hasSecondaryNavigation}
         themeToggle={themeToggle}
         accountControls={accountControls}
-        onNewChat={onNewChat}
+        onNavigateView={onNavigateView}
+        onOpenSettings={onOpenSettings}
         onPanelOpenChange={onPanelOpenChange}
       />
     ),
-    secondaryNav: (
+    secondaryNav: shouldRenderSecondaryNavigation ? (
       <SecondaryNavigationSlot
-        avatarState={avatarState}
+        closing={!hasSecondaryNavigation}
         isPanelDragging={isPanelDragging}
-        messageCount={messageCount}
         renderedPanelWidth={renderedPanelWidth}
-        showDebug={showDebug}
-        onNewChat={onNewChat}
-        onShowDebugChange={onShowDebugChange}
-      />
-    ),
-    resizeBoundary: (
+      >
+        {hasSecondaryNavigation ? secondaryNavigation : lastSecondaryNavigationRef.current}
+      </SecondaryNavigationSlot>
+    ) : null,
+    resizeBoundary: hasSecondaryNavigation ? (
       <PanelBoundary
-        panelOpen={panelOpen}
+        panelOpen={secondaryPanelOpen}
         onPanelOpenChange={onPanelOpenChange}
         onPanelDrag={(offsetX) => {
           setDragPanelWidth(clampPanelWidth(dragStartPanelWidthRef.current + offsetX));
         }}
         onPanelDragEnd={(offsetX, velocityX) => {
-          const nextPanelOpen = getNextPanelOpenState(panelOpen, offsetX, velocityX);
+          const nextPanelOpen = getNextPanelOpenState(secondaryPanelOpen, offsetX, velocityX);
           setDragPanelWidth(null);
           onPanelOpenChange(nextPanelOpen);
         }}
         onPanelDragStart={() => {
-          dragStartPanelWidthRef.current = getPanelWidth(panelOpen);
-          setDragPanelWidth(getPanelWidth(panelOpen));
+          dragStartPanelWidthRef.current = getPanelWidth(secondaryPanelOpen);
+          setDragPanelWidth(getPanelWidth(secondaryPanelOpen));
         }}
       />
-    )
+    ) : null
   };
 
   return <DesktopNavigationFrame slots={navigationSlots} />;
@@ -665,148 +788,184 @@ function DesktopNavigationFrame({ slots }: { slots: DesktopNavigationSlots }) {
 }
 
 function SecondaryNavigationSlot({
-  avatarState,
+  children,
+  closing,
   isPanelDragging,
-  messageCount,
-  renderedPanelWidth,
-  showDebug,
-  onNewChat,
-  onShowDebugChange
+  renderedPanelWidth
 }: {
-  avatarState: AgentVisualState;
+  children: ReactNode;
+  closing: boolean;
   isPanelDragging: boolean;
-  messageCount: number;
   renderedPanelWidth: number;
-  showDebug: boolean;
-  onNewChat: () => void;
-  onShowDebugChange: (checked: boolean) => void;
 }) {
   return (
     <m.aside
       data-shell-slot="secondary-nav"
       aria-hidden={renderedPanelWidth === collapsedPanelWidth}
-      className="h-full overflow-hidden bg-transparent"
-      animate={{ width: renderedPanelWidth }}
-      transition={isPanelDragging ? { duration: 0 } : { duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
+      className={cn(
+        "h-full overflow-hidden bg-transparent",
+        !isPanelDragging &&
+          "transition-[width] duration-200 ease-[cubic-bezier(0.23,1,0.32,1)] motion-reduce:transition-none"
+      )}
+      style={{ width: renderedPanelWidth }}
     >
       <m.div
-        className="flex h-full w-[19rem] flex-col p-3"
-        animate={{ opacity: getPanelContentOpacity(renderedPanelWidth) }}
-        transition={isPanelDragging ? { duration: 0 } : { duration: 0.12 }}
+        inert={renderedPanelWidth === collapsedPanelWidth || closing}
+        className={cn(
+          "flex h-full w-[19rem] flex-col p-3",
+          !isPanelDragging &&
+            "transition-opacity duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] motion-reduce:transition-none"
+        )}
+        style={{ opacity: getPanelContentOpacity(renderedPanelWidth) }}
       >
-        <div className="mb-4 flex h-9 items-center px-1">
-          <div className="flex min-w-0 items-center gap-2">
-            <AgentAvatar state={avatarState} size="sm" />
-            <div className="min-w-0 truncate text-sm font-medium text-neutral-900">Teampitch</div>
-          </div>
-        </div>
-
-        <div className="min-h-0 flex-1 space-y-5 overflow-y-auto pr-1">
-          <NavSection title="Chats">
-            <PanelNavLabel
-              active
-              icon={<ChatCircleDotsIcon size={16} />}
-              label="Current chat"
-              value={formatMessageCount(messageCount)}
-            />
-            <PanelAction icon={<PlusIcon size={16} />} label="New chat" onClick={onNewChat} />
-          </NavSection>
-
-          <NavSection title="Workspace">
-            <PanelNavLabel icon={<PlugsConnectedIcon size={16} />} label="Integrations" />
-            <PanelNavLabel icon={<WrenchIcon size={16} />} label="Tools" />
-            <PanelNavButton
-              active={showDebug}
-              icon={<BrainIcon size={16} />}
-              label="Memory"
-              onClick={() => onShowDebugChange(!showDebug)}
-            />
-          </NavSection>
-
-          <NavSection title="System">
-            <PanelNavLabel icon={<GearIcon size={16} />} label="Settings" />
-          </NavSection>
-        </div>
+        {children}
       </m.div>
     </m.aside>
   );
 }
 
+function ChatSecondaryNavigationContent({
+  activeChatStartedAt,
+  messageCount,
+  onNewChat
+}: {
+  activeChatStartedAt: Date;
+  messageCount: number;
+  onNewChat: () => void;
+}) {
+  return (
+    <>
+      <div className="mb-4 flex h-9 items-center justify-between px-1">
+        <h2 className="min-w-0 truncate text-sm font-medium text-neutral-900">Chats</h2>
+        <Button
+          variant="ghost"
+          size="sm"
+          shape="square"
+          icon={<PlusIcon size={15} />}
+          aria-label="New chat"
+          title="New chat"
+          onClick={onNewChat}
+        />
+      </div>
+
+      <div className="min-h-0 flex-1 space-y-5 overflow-y-auto pr-1">
+        <NavSection title="Active chats">
+          <PanelNavLabel
+            active
+            icon={<ChatCircleDotsIcon size={16} />}
+            label={messageCount > 0 ? "Current chat" : "New chat"}
+            value={formatChatTimestamp(activeChatStartedAt)}
+          />
+        </NavSection>
+      </div>
+    </>
+  );
+}
+
 function PrimaryRail({
-  connected,
-  panelOpen,
+  activeView,
+  hasSecondaryNavigation,
   themeToggle,
   accountControls,
-  onNewChat,
+  onNavigateView,
+  onOpenSettings,
   onPanelOpenChange
 }: {
-  connected: boolean;
-  panelOpen: boolean;
+  activeView: PrimaryAppView;
+  hasSecondaryNavigation: boolean;
   themeToggle: ReactNode;
   accountControls: ReactNode;
-  onNewChat: () => void;
+  onNavigateView: (view: PrimaryAppView) => void;
+  onOpenSettings: () => void;
   onPanelOpenChange: (open: boolean) => void;
 }) {
-  const connectionDotClass = getConnectionDotClass(connected);
-
   return (
     <aside
       data-shell-slot="primary-rail"
-      className="relative flex h-full w-16 shrink-0 flex-col items-center rounded-[1.125rem] bg-[#10100f] py-3 text-white shadow-[0_10px_28px_rgba(16,16,15,0.18)]"
+      data-navigation-shell="primary"
+      className="relative flex h-full w-16 shrink-0 text-white"
     >
-      <button
-        type="button"
-        aria-label="Open assistant panel"
-        className="grid size-9 place-items-center rounded-lg text-white transition-colors hover:bg-white/[0.08] active:scale-95"
-        onClick={() => onPanelOpenChange(true)}
-      >
-        <RailMark />
-      </button>
-
-      <nav className="mt-7 flex flex-1 flex-col items-center gap-1.5">
-        <RailButton
-          active={panelOpen}
-          label="Current chat"
-          icon={<ChatCircleDotsIcon size={17} />}
-          onClick={() => onPanelOpenChange(true)}
-        />
-        <RailButton label="New chat" icon={<PlusIcon size={17} />} onClick={onNewChat} />
-        <RailButton
-          label="Assistant tools"
-          icon={<WrenchIcon size={17} />}
-          onClick={() => onPanelOpenChange(true)}
-        />
-      </nav>
-
-      <PrimaryRailBottomActions
-        connected={connected}
-        connectionDotClass={connectionDotClass}
-        themeToggle={themeToggle}
-        accountControls={accountControls}
+      <span
+        aria-hidden
+        className={cn(
+          "app-navigation-shell-transition pointer-events-none absolute inset-0",
+          glassNavigationSurfaceClassName
+        )}
       />
+      <div
+        data-navigation-content="primary"
+        className="app-navigation-content-transition relative z-10 flex h-full w-full flex-col items-center py-3"
+      >
+        <button
+          type="button"
+          aria-label={hasSecondaryNavigation ? "Open secondary navigation" : "Home"}
+          className="grid size-9 place-items-center rounded-lg text-white transition-colors hover:bg-white/[0.08] active:scale-95"
+          onClick={() => {
+            if (hasSecondaryNavigation) {
+              onPanelOpenChange(true);
+              return;
+            }
+
+            onNavigateView("home");
+          }}
+        >
+          <RailMark />
+        </button>
+
+        <nav className="mt-7 flex flex-1 flex-col items-center gap-1.5">
+          <RailButton
+            active={activeView === "home"}
+            label="Home"
+            icon={<RailMark compact />}
+            onClick={() => {
+              onNavigateView("home");
+              onPanelOpenChange(true);
+            }}
+          />
+          <RailButton
+            active={activeView === "chats"}
+            label="Chats"
+            icon={<ChatCircleDotsIcon size={17} />}
+            onClick={() => {
+              onNavigateView("chats");
+              onPanelOpenChange(true);
+            }}
+          />
+          <RailButton
+            active={activeView === "integrations"}
+            label="Integrations"
+            icon={<PlugsConnectedIcon size={17} />}
+            onClick={() => {
+              onNavigateView("integrations");
+              onPanelOpenChange(true);
+            }}
+          />
+        </nav>
+
+        <PrimaryRailBottomActions
+          themeToggle={themeToggle}
+          accountControls={accountControls}
+          onOpenSettings={onOpenSettings}
+        />
+      </div>
     </aside>
   );
 }
 
 function PrimaryRailBottomActions({
-  connected,
-  connectionDotClass,
   themeToggle,
-  accountControls
+  accountControls,
+  onOpenSettings
 }: {
-  connected: boolean;
-  connectionDotClass: string;
   themeToggle: ReactNode;
   accountControls: ReactNode;
+  onOpenSettings: () => void;
 }) {
   const [profileOpen, setProfileOpen] = useState(false);
 
   return (
     <>
-      <div className="mb-2 flex shrink-0 flex-col items-center gap-2">
-        <div className="[&>button]:size-8 [&>button]:border-white/10 [&>button]:bg-white/[0.10] [&>button]:text-white [&>button:hover]:bg-white/[0.16]">
-          {themeToggle}
-        </div>
+      <div className="mb-2 flex shrink-0 flex-col items-center">
         <button
           type="button"
           aria-controls="primary-rail-profile-panel"
@@ -816,48 +975,50 @@ function PrimaryRailBottomActions({
           onClick={() => setProfileOpen(!profileOpen)}
         >
           TP
-          <span
-            className={cn(
-              "absolute right-0 bottom-0 size-2.5 rounded-full ring-2 ring-[#10100f]",
-              connectionDotClass
-            )}
-            title={getConnectionLabel(connected)}
-          />
         </button>
       </div>
 
-      <m.div
+      <div
         id="primary-rail-profile-panel"
         aria-hidden={getProfilePanelHidden(profileOpen)}
         className={getProfilePanelClassName(profileOpen)}
-        initial={false}
-        animate={getProfilePanelMotion(profileOpen)}
-        transition={{ duration: 0.16, ease: [0.22, 1, 0.36, 1] }}
+        style={getProfilePanelStyle(profileOpen)}
       >
-        <div className="flex items-center gap-2">
-          <span className="grid size-8 shrink-0 place-items-center rounded-full bg-neutral-950 text-xs font-medium text-white">
-            TP
-          </span>
-          <span className="min-w-0">
-            <span className="block truncate text-sm font-medium">Teampitch</span>
-            <span className="block truncate text-xs text-muted-foreground">Local workspace</span>
-          </span>
+        <div className="space-y-2">
+          <div className="flex min-h-9 items-center justify-between gap-3 rounded-lg px-2 text-sm">
+            <span className="text-muted-foreground">Theme</span>
+            <div className="[&>button]:size-8">{themeToggle}</div>
+          </div>
+          <button
+            type="button"
+            className="flex h-9 w-full items-center gap-2 rounded-lg px-2 text-left text-sm text-neutral-700 transition-colors hover:bg-black/5 hover:text-neutral-950"
+            onClick={() => {
+              onOpenSettings();
+              setProfileOpen(false);
+            }}
+          >
+            <GearIcon size={15} className="shrink-0 text-neutral-500" />
+            <span className="min-w-0 flex-1 truncate">Settings</span>
+          </button>
         </div>
         <div className="mt-3 border-t border-border/70 pt-3 [&>div]:w-full [&>div]:justify-between">
           {accountControls}
         </div>
-      </m.div>
+      </div>
     </>
   );
 }
 
-function RailMark() {
+function RailMark({ compact = false }: { compact?: boolean }) {
   return (
-    <span aria-hidden className="grid size-5 grid-cols-2 grid-rows-2 gap-0.5">
-      <span className="bg-white" />
-      <span className="bg-white" />
-      <span className="bg-white" />
-      <span className="bg-white" />
+    <span
+      aria-hidden
+      className={cn("grid grid-cols-2 grid-rows-2 gap-0.5", compact ? "size-4" : "size-5")}
+    >
+      <span className="bg-current" />
+      <span className="bg-current" />
+      <span className="bg-current" />
+      <span className="bg-current" />
     </span>
   );
 }
@@ -910,16 +1071,12 @@ function getDetailsPanelContentOpacity(open: boolean) {
   return open ? 1 : 0;
 }
 
-function getDetailsPanelContentFadeDuration(open: boolean) {
-  return open ? 0.16 : 0.1;
-}
-
 function getDetailsPanelInert(open: boolean) {
   return !open;
 }
 
 function getMainContentSlotClassName() {
-  return "relative flex min-w-0 flex-1 flex-col bg-background";
+  return "relative flex min-w-0 flex-1 flex-col bg-transparent";
 }
 
 function getMainContentBodyClassName(hasWorkspacePreview: boolean) {
@@ -933,7 +1090,7 @@ function getMainContentBodyClassName(hasWorkspacePreview: boolean) {
 
 function getChatColumnClassName(hasWorkspacePreview: boolean, isResizing = false) {
   return cn(
-    "flex min-h-0 flex-col bg-background",
+    "flex min-h-0 flex-col bg-transparent",
     hasWorkspacePreview
       ? [
           "min-w-0 flex-1 overflow-hidden xl:w-[var(--preview-chat-width)] xl:min-w-[22.5rem] xl:flex-none xl:overflow-visible xl:pl-3",
@@ -971,7 +1128,8 @@ function getComposerDockClassName(hasWorkspacePreview: boolean) {
 
 function getWorkspacePreviewSlotClassName(open: boolean) {
   return cn(
-    "hidden min-w-0 flex-1 flex-col overflow-hidden rounded-lg border border-black/10 bg-[#fbfbfa]",
+    "relative hidden min-w-0 flex-1 flex-col rounded-lg",
+    glassPanelSurfaceClassName,
     open && "xl:flex"
   );
 }
@@ -1003,12 +1161,11 @@ function getNextPanelOpenState(panelOpen: boolean, offsetX: number, velocityX: n
   return offsetX >= panelDragOpenThreshold || velocityX >= panelDragVelocityThreshold;
 }
 
-function getAvatarState(connected: boolean): AgentVisualState {
-  return connected ? "idle" : "error";
-}
-
-function formatMessageCount(messageCount: number) {
-  return `${messageCount} message${messageCount === 1 ? "" : "s"}`;
+function formatChatTimestamp(value: Date) {
+  return new Intl.DateTimeFormat(undefined, {
+    hour: "numeric",
+    minute: "2-digit"
+  }).format(value);
 }
 
 function getConnectionLabel(connected: boolean) {
@@ -1028,7 +1185,7 @@ function getAgentDotClass(isStreaming: boolean) {
 }
 
 function getPanelToggleLabel(panelOpen: boolean) {
-  return panelOpen ? "Collapse assistant panel" : "Open assistant panel";
+  return panelOpen ? "Resize or collapse navigation" : "Resize or open navigation";
 }
 
 function getProfilePanelHidden(profileOpen: boolean) {
@@ -1037,13 +1194,17 @@ function getProfilePanelHidden(profileOpen: boolean) {
 
 function getProfilePanelClassName(profileOpen: boolean) {
   return cn(
-    "absolute bottom-2 left-[4.5rem] w-56 rounded-xl border border-black/10 bg-background p-3 text-neutral-950 shadow-[0_12px_32px_rgba(16,16,15,0.16)]",
+    "absolute bottom-2 left-[4.5rem] z-50 w-56 p-3 text-neutral-950 transition-[opacity,transform] duration-150 ease-out",
+    solidSurfaceClassName,
     !profileOpen && "pointer-events-none"
   );
 }
 
-function getProfilePanelMotion(profileOpen: boolean) {
-  return profileOpen ? visibleProfilePanelMotion : hiddenProfilePanelMotion;
+function getProfilePanelStyle(profileOpen: boolean): CSSProperties {
+  return {
+    opacity: profileOpen ? 1 : 0,
+    transform: profileOpen ? "translateY(0) scale(1)" : "translateY(4px) scale(0.98)"
+  };
 }
 
 function safelySetPointerCapture(target: HTMLButtonElement, pointerId: number) {
@@ -1100,27 +1261,6 @@ function NavSection({ title, children }: { title: string; children: ReactNode })
   );
 }
 
-function PanelAction({
-  icon,
-  label,
-  onClick
-}: {
-  icon: ReactNode;
-  label: string;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      className="flex h-8 w-full items-center gap-2 rounded-md px-2 text-left text-sm text-neutral-700 transition-colors hover:bg-black/5"
-      onClick={onClick}
-    >
-      <span className="shrink-0 text-neutral-500">{icon}</span>
-      <span className="min-w-0 flex-1 truncate">{label}</span>
-    </button>
-  );
-}
-
 function PanelNavLabel({
   active = false,
   icon,
@@ -1136,24 +1276,6 @@ function PanelNavLabel({
     <div className={getPanelNavClassName(active)}>
       <PanelNavContent icon={icon} label={label} value={value} />
     </div>
-  );
-}
-
-function PanelNavButton({
-  active = false,
-  icon,
-  label,
-  onClick
-}: {
-  active?: boolean;
-  icon: ReactNode;
-  label: string;
-  onClick: () => void;
-}) {
-  return (
-    <button type="button" className={getPanelNavClassName(active, true)} onClick={onClick}>
-      <PanelNavContent icon={icon} label={label} />
-    </button>
   );
 }
 
@@ -1215,14 +1337,15 @@ function ChatTopbar({
           New chat
         </Button>
         {!detailsPanelOpen && (
-          <button
-            type="button"
-            aria-label="Open details panel"
-            className="relative grid size-8 shrink-0 place-items-center rounded-md text-neutral-700 transition-[background-color,scale] before:absolute before:-inset-1 before:content-[''] hover:bg-black/5 active:scale-[0.96]"
+          <Button
+            variant="secondary"
+            size="sm"
+            title="Open details panel"
+            icon={<PanelLeftClose size={15} className="scale-x-[-1]" />}
             onClick={() => onDetailsPanelOpenChange(true)}
           >
-            <PanelLeftClose size={15} className="scale-x-[-1]" />
-          </button>
+            Details
+          </Button>
         )}
       </div>
     </header>

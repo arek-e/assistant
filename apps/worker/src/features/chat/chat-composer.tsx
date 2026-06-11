@@ -3,6 +3,8 @@ import type { ChangeEvent, ClipboardEvent, FormEvent, KeyboardEvent, RefObject }
 import { PaperclipIcon, PaperPlaneRightIcon, StopIcon, XIcon } from "@/components/app/icons";
 import { Button, InputArea } from "@/components/app/ui";
 import type { Attachment } from "@/features/attachments/attachments";
+import { glassSurfaceClassName } from "@teampitch/ui/lib/surface-tokens";
+import { cn } from "@teampitch/ui/lib/utils";
 
 export function ChatComposer({
   input,
@@ -41,7 +43,12 @@ export function ChatComposer({
 
         <AttachmentPreviewList attachments={attachments} onRemoveAttachment={onRemoveAttachment} />
 
-        <div className="flex items-end gap-2 rounded-xl border border-border/90 bg-background p-2 shadow-[0_18px_55px_rgba(0,0,0,0.10),0_1px_0_rgba(0,0,0,0.03)] transition-shadow focus-within:border-neutral-300 focus-within:shadow-[0_22px_70px_rgba(0,0,0,0.14),0_0_0_1px_rgba(0,0,0,0.04)]">
+        <div
+          className={cn(
+            glassSurfaceClassName,
+            "relative flex items-end gap-2 rounded-xl p-2 transition-[border-color,box-shadow] focus-within:border-neutral-300 focus-within:shadow-[0_22px_70px_rgba(0,0,0,0.14),0_0_0_1px_rgba(0,0,0,0.04)]"
+          )}
+        >
           <AttachmentButton disabled={controlsDisabled} fileInputRef={fileInputRef} />
           <InputArea
             ref={textareaRef}

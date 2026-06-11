@@ -29,6 +29,22 @@ const MemoryScopeGrantSchema = Schema.Struct({
 
 export type MemoryScopeGrant = Schema.Schema.Type<typeof MemoryScopeGrantSchema>;
 
+const MemoryActorSponsorSchema = Schema.Struct({
+  subjectId: Schema.String,
+  displayName: Schema.String,
+  role: Schema.String,
+  permissions: Schema.Array(Schema.String)
+});
+
+const MemoryActorAgentSchema = Schema.Struct({
+  identityId: Schema.String,
+  keyId: Schema.String,
+  name: Schema.String,
+  actingMode: Schema.Literal("obou", "standalone"),
+  status: Schema.String,
+  expiresAt: Schema.String
+});
+
 const MemoryRecordActorSchema = Schema.Struct({
   subjectId: Schema.String,
   subjectType: AuthSubjectTypeSchema,
@@ -38,7 +54,9 @@ const MemoryRecordActorSchema = Schema.Struct({
   organizationId: Schema.String,
   role: Schema.String,
   permissions: Schema.Array(Schema.String),
-  grants: Schema.Array(MemoryScopeGrantSchema)
+  grants: Schema.Array(MemoryScopeGrantSchema),
+  sponsor: Schema.optional(MemoryActorSponsorSchema),
+  agent: Schema.optional(MemoryActorAgentSchema)
 });
 
 export type MemoryRecordActor = Schema.Schema.Type<typeof MemoryRecordActorSchema>;

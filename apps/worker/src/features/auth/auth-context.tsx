@@ -11,14 +11,17 @@ import {
 import type { AuthMeResponse } from "@/server/auth";
 
 export type AuthSession = AuthMeResponse & { authenticated: true };
+export type AuthDemoUser = NonNullable<AuthMeResponse["demoUsers"]>[number];
 
 interface AuthContextValue {
   loading: boolean;
   session: AuthSession | null;
+  demoUsers: AuthDemoUser[];
   error: string | null;
   refresh: () => Promise<void>;
   signIn: () => void;
   signUp: () => void;
+  demoSignIn: (userId: string) => void;
   signOut: () => void;
 }
 
@@ -28,6 +31,7 @@ AuthContext.displayName = "AuthContext";
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
   const [session, setSession] = useState<AuthSession | null>(null);
+  const [demoUsers, setDemoUsers] = useState<AuthDemoUser[]>([]);
   const [error, setError] = useState<string | null>(null);
 
   const refresh = useCallback(async () => {
@@ -36,6 +40,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const result = await loadAuthSession();
     setSession(result.session);
+    setDemoUsers(result.demoUsers);
     setError(result.error);
     setLoading(false);
   }, []);
@@ -52,6 +57,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     window.location.assign(`/auth/signup?returnTo=${encodeURIComponent(currentReturnTo())}`);
   }, []);
 
+  const demoSignIn = useCallback((userId: string) => {
+    const form = document.createElement("form");
+    form.method = "POST";
+    form.action = `/auth/demo?user=${encodeURIComponent(
+      userId
+    )}&returnTo=${encodeURIComponent(currentReturnTo())}`;
+    form.style.display = "none";
+    document.body.appendChild(form);
+    form.submit();
+  }, []);
+
   const signOut = useCallback(() => {
     const form = document.createElement("form");
     form.method = "POST";
@@ -65,13 +81,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     () => ({
       loading,
       session,
+      demoUsers,
       error,
       refresh,
       signIn,
       signUp,
+      demoSignIn,
       signOut
     }),
-    [error, loading, refresh, session, signIn, signOut, signUp]
+    [demoSignIn, demoUsers, error, loading, refresh, session, signIn, signOut, signUp]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
@@ -93,6 +111,7 @@ function isAuthSession(response: AuthMeResponse): response is AuthSession {
 
 interface AuthSessionLoadResult {
   session: AuthSession | null;
+  demoUsers: AuthDemoUser[];
   error: string | null;
 }
 
@@ -101,11 +120,13 @@ async function loadAuthSession(): Promise<AuthSessionLoadResult> {
     const nextSession = await fetchAuthMe();
     return {
       session: isAuthSession(nextSession) ? nextSession : null,
+      demoUsers: [...(nextSession.demoUsers ?? [])],
       error: null
     };
   } catch (caught) {
     return {
       session: null,
+      demoUsers: [],
       error: authErrorMessage(caught)
     };
   }

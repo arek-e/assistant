@@ -49,8 +49,39 @@ Optional environment variables:
 - `WORKOS_JWKS_URL`: optional override for the WorkOS JWKS URL.
 - `WORKOS_ACCESS_TOKEN_COOKIE`: optional cookie name for WorkOS access tokens. Defaults to `workos_access_token`.
 - `WORKOS_ACCESS_TOKEN_QUERY_PARAM`: optional query parameter name for access tokens passed to Agent connections. Defaults to `access_token`; `token` is also accepted.
+- `WORKOS_E2E_ADMIN_SESSION_COOKIE`: optional sealed WorkOS admin session cookie value used only by the skipped-by-default WorkOS agent identity E2E test.
+- `AUTH_DEMO_USERS_ENABLED`: set to `1` to show local/staging demo users on the sign-in screen. Demo users are disabled by default, only work on localhost or a staging-like environment, and resolve as WorkOS-shaped identities only when this flag is enabled.
+- `AUTH_DEMO_ENVIRONMENT`: optional explicit demo environment marker. Use `staging`, `stage`, `preview`, `development`, or `local` for deployed non-production demo auth. Common `APP_ENV`, `ENVIRONMENT`, `NODE_ENV`, and `WORKOS_ENVIRONMENT` values are also accepted.
+- `AUTH_DEMO_SESSION_COOKIE`: optional demo session cookie name. Defaults to `tp-demo-user`.
+- `AGENT_ACCESS_TOKEN_SECRET`: optional secret used to sign short-lived agent access tokens. Defaults to `WORKOS_COOKIE_PASSWORD` when present, then a local development fallback.
+- `AGENT_IDENTITY_CREATION_DISABLED`: set to `1` to block new agent identity creation.
+- `AGENT_IDENTITY_MAX_EXPIRY_DAYS`: optional maximum key lifetime for creation and renewal.
+- `AGENT_IDENTITY_ALLOWED_CAPABILITIES`: optional comma- or space-separated capability allowlist, such as `memory:read,memory:write`.
+- `AGENT_IDENTITY_REDIRECT_URI_ALLOWLIST`: optional comma- or space-separated exact redirect URI allowlist that constrains registered non-local OAuth clients.
+- `AGENT_IDENTITY_POLICY`: optional JSON policy object. Supports `creationDisabled`, `maxExpiryDays`, `allowedCapabilities`, `allowedCapabilitiesByRole`, and `allowedRedirectUris`.
 
 When `AUTH_IDENTITY_ADAPTER=workos`, the app exposes `/auth/login`, `/auth/callback`, `/auth/logout`, and `/auth/me`. Browser sessions use a sealed, HTTP-only WorkOS session cookie. Agent requests without a valid WorkOS session or access token fail closed instead of receiving local grants.
+
+The app also exposes sponsor-bound agent identity controls:
+
+- `GET /api/agent-identities`
+- `POST /api/agent-identities`
+- `GET /api/agent-identities/:id`
+- `POST /api/agent-identities/:id/renew`
+- `POST /api/agent-identities/:id/revoke`
+- `POST /api/agent-identities/:id/disable`
+- `GET /api/agent-identities/:id/audit-events`
+- `GET /api/agent-oauth-clients`
+- `POST /api/agent-oauth-clients`
+- `POST /api/agent-oauth-clients/:id/disable`
+
+Admins can pass `all=1`, `sponsor`, `status`, `scope`, `expires_before`, and `last_used_after` to `GET /api/agent-identities` for audit filtering.
+
+Public clients can authorize named agents with OAuth2-PKCE through `/oauth/authorize`, `/oauth/token`, and `/oauth/revoke`. `/oauth/authorize` requires `state` and `code_challenge_method=S256`. Non-local redirects must belong to an active registered OAuth client. Local loopback redirects are accepted for local fallback CLI development. Agent key ids identify lifecycle records; they are not bearer credentials.
+
+When WorkOS is configured, agent token exchange, refresh, and access-token resolution revalidate the sponsor user and active organization membership through WorkOS before granting access. Sponsor removal or deactivation disables the related OBOU agent key and writes an `agent.disabled` audit event.
+
+The Worker has a daily cron trigger for agent lifecycle maintenance. It expires active keys past `expiresAt`, emits `agent.expiry_warning` audit notification events at the configured warning thresholds, and revokes expired hashed refresh sessions as background cleanup.
 
 In the WorkOS dashboard, configure:
 
@@ -79,6 +110,7 @@ packages/
 docs/
   adr/
   brainstorms/
+  rfcs/
 ```
 
 ## Architecture Notes
@@ -87,3 +119,4 @@ docs/
 - The Worker entry stays thin at `apps/worker/src/server.ts`.
 - Memory and routing primitives stay in `apps/worker/src/server`; `packages/evals` imports them through explicit Worker package exports.
 - Coss UI primitives live in `packages/ui`; Teampitch-specific composition and icons stay in `apps/worker/src/components/app`.
+- RFCs for larger product and architecture changes live in `docs/rfcs`.

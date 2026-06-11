@@ -9,7 +9,26 @@ export interface ScheduledTaskActor {
   subjectId: string;
   subjectType: string;
   provider: string;
+  displayName?: string;
+  organizationId?: string;
+  sessionId?: string;
+  role?: string;
+  permissions?: readonly string[];
   grants: Array<{ scope: string; scopeId: string }>;
+  sponsor?: {
+    subjectId: string;
+    displayName: string;
+    role: string;
+    permissions: readonly string[];
+  };
+  agent?: {
+    identityId: string;
+    keyId: string;
+    name: string;
+    actingMode: string;
+    status: string;
+    expiresAt: string;
+  };
 }
 
 interface ScheduledTaskPayload {

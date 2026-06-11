@@ -4,14 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { BrainIcon, BugIcon, GearIcon, WrenchIcon } from "@/components/app/icons";
 import { Badge, Button, Surface, Text } from "@/components/app/ui";
 import type { ThinkAgent } from "@/server";
-import {
-  Drawer,
-  DrawerDescription,
-  DrawerHeader,
-  DrawerPanel,
-  DrawerPopup,
-  DrawerTitle
-} from "@teampitch/ui/components/drawer";
+import { Drawer, DrawerPopup } from "@teampitch/ui/components/drawer";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@teampitch/ui/components/tabs";
 
 type MemoryDebugSnapshot = Awaited<ReturnType<ThinkAgent["getMemoryDebugSnapshot"]>>;
@@ -50,6 +43,22 @@ export function MemoryDebugDrawer({
   onOpenChange: (open: boolean) => void;
   loadSnapshot: () => Promise<MemoryDebugSnapshot>;
 }) {
+  return (
+    <Drawer open={open} onOpenChange={onOpenChange} position="right">
+      <DrawerPopup className="max-w-2xl" position="right" showCloseButton variant="straight">
+        <MemoryDebugPanel messages={messages} loadSnapshot={loadSnapshot} />
+      </DrawerPopup>
+    </Drawer>
+  );
+}
+
+export function MemoryDebugPanel({
+  messages,
+  loadSnapshot
+}: {
+  messages: UIMessage[];
+  loadSnapshot: () => Promise<MemoryDebugSnapshot>;
+}) {
   const [snapshot, setSnapshot] = useState<MemoryDebugSnapshot | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -72,73 +81,71 @@ export function MemoryDebugDrawer({
   }, [loadSnapshot]);
 
   useEffect(() => {
-    if (open) void refresh();
-  }, [open, refresh]);
+    void refresh();
+  }, [refresh]);
 
   return (
-    <Drawer open={open} onOpenChange={onOpenChange} position="right">
-      <DrawerPopup className="max-w-2xl" position="right" showCloseButton variant="straight">
-        <DrawerHeader>
-          <div className="flex items-start justify-between gap-4 pe-8">
-            <div className="space-y-2">
-              <DrawerTitle className="flex items-center gap-2">
-                <BugIcon size={18} />
-                Debugger
-              </DrawerTitle>
-              <DrawerDescription>
-                Memory records, retrieval evidence, and Effort Router traces.
-              </DrawerDescription>
-            </div>
-            <Button
-              size="sm"
-              variant="secondary"
-              icon={<GearIcon size={14} />}
-              onClick={() => void refresh()}
-              disabled={isRefreshing}
-            >
-              {isRefreshing ? "Refreshing" : "Refresh"}
-            </Button>
+    <>
+      <header className="px-6 py-5">
+        <div className="flex items-start justify-between gap-4">
+          <div className="space-y-2">
+            <h1 className="flex items-center gap-2 text-lg font-semibold text-foreground">
+              <BugIcon size={18} />
+              Debugger
+            </h1>
+            <p className="text-sm text-muted-foreground">
+              Memory records, retrieval evidence, and Effort Router traces.
+            </p>
           </div>
-        </DrawerHeader>
+          <Button
+            size="sm"
+            variant="secondary"
+            icon={<GearIcon size={14} />}
+            onClick={() => void refresh()}
+            disabled={isRefreshing}
+          >
+            {isRefreshing ? "Refreshing" : "Refresh"}
+          </Button>
+        </div>
+      </header>
 
-        <DrawerPanel className="pt-0">
-          <Tabs defaultValue="memory" className="min-h-0">
-            <TabsList className="mb-4">
-              <TabsTrigger value="memory">
-                <BrainIcon size={14} />
-                Memory
-              </TabsTrigger>
-              <TabsTrigger value="routing">
-                <WrenchIcon size={14} />
-                Routing
-              </TabsTrigger>
-              <TabsTrigger value="raw">
-                <BugIcon size={14} />
-                Raw
-              </TabsTrigger>
-            </TabsList>
+      <div className="px-6 pb-6">
+        <Tabs defaultValue="memory" className="min-h-0">
+          <TabsList className="mb-4">
+            <TabsTrigger value="memory">
+              <BrainIcon size={14} />
+              Memory
+            </TabsTrigger>
+            <TabsTrigger value="routing">
+              <WrenchIcon size={14} />
+              Routing
+            </TabsTrigger>
+            <TabsTrigger value="raw">
+              <BugIcon size={14} />
+              Raw
+            </TabsTrigger>
+          </TabsList>
 
-            {error && (
-              <Surface className="mb-4 border-destructive/40 p-3">
-                <Text size="xs" variant="secondary">
-                  {error}
-                </Text>
-              </Surface>
-            )}
+          {error && (
+            <Surface className="mb-4 border-destructive/40 p-3">
+              <Text size="xs" variant="secondary">
+                {error}
+              </Text>
+            </Surface>
+          )}
 
-            <TabsContent value="memory">
-              <MemoryPanel snapshot={snapshot} traces={memoryTraces} />
-            </TabsContent>
-            <TabsContent value="routing">
-              <RoutingPanel snapshot={snapshot} traces={routingTraces} />
-            </TabsContent>
-            <TabsContent value="raw">
-              <RawPanel snapshot={snapshot} traces={toolTraces} />
-            </TabsContent>
-          </Tabs>
-        </DrawerPanel>
-      </DrawerPopup>
-    </Drawer>
+          <TabsContent value="memory">
+            <MemoryPanel snapshot={snapshot} traces={memoryTraces} />
+          </TabsContent>
+          <TabsContent value="routing">
+            <RoutingPanel snapshot={snapshot} traces={routingTraces} />
+          </TabsContent>
+          <TabsContent value="raw">
+            <RawPanel snapshot={snapshot} traces={toolTraces} />
+          </TabsContent>
+        </Tabs>
+      </div>
+    </>
   );
 }
 
@@ -215,6 +222,24 @@ function IdentityDetails({ identity }: { identity: SnapshotIdentity | null }) {
       <Text className="block" size="xs" variant="secondary">
         {identity.displayName} · {identity.subjectId}
       </Text>
+      {identity.sponsor && (
+        <Text className="block" size="xs" variant="secondary">
+          Sponsor: {identity.sponsor.displayName} · {identity.sponsor.subjectId}
+        </Text>
+      )}
+      {identity.agent && (
+        <Text className="block" size="xs" variant="secondary">
+          Agent: {identity.agent.name} · key {identity.agent.keyId} · {identity.agent.status} ·
+          expires {formatDebugDate(identity.agent.expiresAt)}
+        </Text>
+      )}
+      <div className="flex flex-wrap gap-1.5">
+        {identity.permissions.map((permission) => (
+          <Badge key={permission} variant="secondary">
+            {permission}
+          </Badge>
+        ))}
+      </div>
       <div className="flex flex-wrap gap-1.5">
         {identity.grants.map((grant) => (
           <Badge key={`${grant.scope}:${grant.scopeId}`} variant="secondary">
@@ -224,6 +249,10 @@ function IdentityDetails({ identity }: { identity: SnapshotIdentity | null }) {
       </div>
     </div>
   );
+}
+
+function formatDebugDate(value: string): string {
+  return new Date(value).toLocaleDateString();
 }
 
 function identityBadgeLabels(identity: SnapshotIdentity | null): string[] {

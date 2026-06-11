@@ -120,6 +120,30 @@ describe("memory primitive tools", () => {
       error: "Access denied for memory record decision.other-private"
     });
   });
+
+  test("writes agent actor metadata to route records", async () => {
+    const accessContext = agentContext();
+    const store = new InMemoryCanonicalMemoryStore();
+    const tools = createMemoryPrimitiveTools(store, accessContext);
+    const execute = tools.routeTask.execute;
+    expect(execute).toBeDefined();
+    if (!execute) throw new Error("routeTask tool is missing execute");
+
+    await execute({ input: "implement the approval workflow" }, toolOptions(execute));
+
+    const routeRecord = store.list().find((record) => record.kind === "route_record");
+    expect(routeRecord?.actor).toMatchObject({
+      subjectId: "agent-123",
+      subjectType: "agent",
+      displayName: "Sarah via Codex",
+      sponsor: { subjectId: "user-123", displayName: "Sarah" },
+      agent: { identityId: "agent-123", keyId: "ak-123", name: "Codex" }
+    });
+    expect(JSON.parse(routeRecord?.body ?? "{}").actor).toMatchObject({
+      displayName: "Sarah via Codex",
+      agent: { keyId: "ak-123" }
+    });
+  });
 });
 
 function privateOnlyContext(): MemoryAccessContext {
@@ -151,6 +175,37 @@ function teamContext(): MemoryAccessContext {
       { scope: "org", scopeId: "org-123" },
       { scope: "session", scopeId: "session-123" }
     ]
+  };
+}
+
+function agentContext(): MemoryAccessContext {
+  return {
+    subjectId: "agent-123",
+    subjectType: "agent",
+    provider: "workos",
+    displayName: "Sarah via Codex",
+    sessionId: "agent-session-123",
+    organizationId: "org-123",
+    role: "admin",
+    permissions: ["memory:read", "routing:write"],
+    grants: [
+      { scope: "org", scopeId: "org-123" },
+      { scope: "session", scopeId: "agent-session-123" }
+    ],
+    sponsor: {
+      subjectId: "user-123",
+      displayName: "Sarah",
+      role: "admin",
+      permissions: ["memory:read", "routing:write"]
+    },
+    agent: {
+      identityId: "agent-123",
+      keyId: "ak-123",
+      name: "Codex",
+      actingMode: "obou",
+      status: "active",
+      expiresAt: "2026-07-10T00:00:00.000Z"
+    }
   };
 }
 

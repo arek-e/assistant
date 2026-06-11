@@ -18,6 +18,8 @@ export interface MemoryAccessContext {
   role: string;
   permissions: readonly string[];
   grants: readonly MemoryScopeGrant[];
+  sponsor?: MemoryRecordActor["sponsor"];
+  agent?: MemoryRecordActor["agent"];
 }
 
 const localMemoryScopeIds = {
@@ -36,7 +38,13 @@ export function createLocalMemoryAccessContext(): MemoryAccessContext {
     sessionId: localMemoryScopeIds.session,
     organizationId: localMemoryScopeIds.org,
     role: "local-admin",
-    permissions: ["memory:read", "memory:write"],
+    permissions: [
+      "memory:read",
+      "memory:write",
+      "memory:lifecycle",
+      "routing:write",
+      "tools:schedule"
+    ],
     grants: [
       { scope: "private", scopeId: localMemoryScopeIds.private },
       { scope: "team", scopeId: localMemoryScopeIds.team },
@@ -82,7 +90,9 @@ export function toMemoryRecordActor(accessContext: MemoryAccessContext): MemoryR
     organizationId: accessContext.organizationId,
     role: accessContext.role,
     permissions: [...accessContext.permissions],
-    grants: accessContext.grants.map((grant) => ({ ...grant }))
+    grants: accessContext.grants.map((grant) => ({ ...grant })),
+    sponsor: accessContext.sponsor,
+    agent: accessContext.agent
   };
 }
 
