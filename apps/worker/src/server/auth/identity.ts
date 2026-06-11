@@ -23,6 +23,7 @@ export interface AuthIdentityEnv extends WorkOSSessionEnv, AgentIdentityEnv {
   AUTH_LOCAL_ORG_ID?: string;
   AUTH_LOCAL_SESSION_ID?: string;
   WORKOS_JWKS_URL?: string;
+  WORKOS_ISSUER?: string;
   WORKOS_ACCESS_TOKEN_COOKIE?: string;
   WORKOS_ACCESS_TOKEN_QUERY_PARAM?: string;
 }
@@ -66,7 +67,10 @@ export type WorkOSTokenVerifier = (
 export interface WorkOSAuthIdentityConfig {
   clientId: string;
   jwksUrl: string;
+  issuer: string;
 }
+
+type WorkOSSessionAuthenticator = typeof authenticateWorkOSSession;
 
 const localMemoryScopeIds = {
   private: "local-user",
@@ -104,9 +108,16 @@ export class LocalAuthIdentityAdapter implements AuthIdentityAdapter {
 }
 
 export class WorkOSAuthIdentityAdapter implements AuthIdentityAdapter {
-  constructor(private readonly verifyAccessToken: WorkOSTokenVerifier = verifyWorkOSToken) {}
+  constructor(
+    private readonly verifyAccessToken: WorkOSTokenVerifier = verifyWorkOSToken,
+    private readonly authenticateSession: WorkOSSessionAuthenticator = authenticateWorkOSSession
+  ) {}
 
   async resolve(input: AuthIdentityResolutionInput): Promise<MemoryAccessContext> {
+    if (hasWorkOSSessionCookie(input)) {
+      return this.resolveSession(input);
+    }
+
     const token = getRequestToken(input);
     const clientId = input.env.WORKOS_CLIENT_ID;
     if (token) {
@@ -132,12 +143,13 @@ export class WorkOSAuthIdentityAdapter implements AuthIdentityAdapter {
     try {
       const claims = await this.verifyAccessToken(token, {
         clientId,
-        jwksUrl: workOSJwksUrl(input.env, clientId)
+        jwksUrl: workOSJwksUrl(input.env, clientId),
+        issuer: workOSIssuer(input.env)
       });
 
       return createWorkOSMemoryAccessContext(claims, input.sessionId);
     } catch {
-      return createAnonymousMemoryAccessContext(input.sessionId);
+      return this.resolveSession(input);
     }
   }
 
@@ -147,7 +159,7 @@ export class WorkOSAuthIdentityAdapter implements AuthIdentityAdapter {
     }
 
     try {
-      const sessionResult = await authenticateWorkOSSession(input.request!, input.env);
+      const sessionResult = await this.authenticateSession(input.request!, input.env);
       if (!sessionResult.authenticated) return createAnonymousMemoryAccessContext(input.sessionId);
 
       return createWorkOSMemoryAccessContext({
@@ -292,6 +304,10 @@ function workOSJwksUrl(env: AuthIdentityEnv, clientId: string): string {
   return env.WORKOS_JWKS_URL ?? `https://api.workos.com/sso/jwks/${clientId}`;
 }
 
+function workOSIssuer(env: AuthIdentityEnv): string {
+  return env.WORKOS_ISSUER ?? "https://api.workos.com";
+}
+
 function hasWorkOSSessionCookie({ env, request }: AuthIdentityResolutionInput): boolean {
   return Boolean(getCookieValue(request, getWorkOSSessionCookieName(env)));
 }
@@ -306,7 +322,10 @@ async function verifyWorkOSToken(
 ): Promise<WorkOSClaims> {
   const { createRemoteJWKSet, jwtVerify } = await import("jose");
   const jwks = createRemoteJWKSet(new URL(config.jwksUrl));
-  const { payload } = await jwtVerify(token, jwks);
+  const { payload } = await jwtVerify(token, jwks, {
+    audience: config.clientId,
+    issuer: config.issuer
+  });
   return payload as WorkOSClaims;
 }
 
@@ -324,11 +343,10 @@ function getCookieToken(request: Request | undefined, env: AuthIdentityEnv): str
 }
 
 function getQueryToken(request: Request | undefined, env: AuthIdentityEnv): string | null {
-  if (!request) return null;
+  if (!request || !env.WORKOS_ACCESS_TOKEN_QUERY_PARAM) return null;
 
   const url = new URL(request.url);
-  const queryParam = env.WORKOS_ACCESS_TOKEN_QUERY_PARAM ?? "access_token";
-  return url.searchParams.get(queryParam) ?? url.searchParams.get("token");
+  return url.searchParams.get(env.WORKOS_ACCESS_TOKEN_QUERY_PARAM);
 }
 
 function claimsFromSession(session: WorkOSAuthenticatedSession): WorkOSClaims {
