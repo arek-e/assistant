@@ -289,7 +289,7 @@ export class SqliteAgentIdentityStore implements AgentIdentityStore {
           )
           .toArray();
 
-    return rows.map((row) => JSON.parse(String(row.record)) as AgentIdentity);
+    return rows.map((row) => parseRecord<AgentIdentity>(row));
   }
 
   async listLifecycleIdentities(filter: AgentIdentityLifecycleFilter): Promise<AgentIdentity[]> {
@@ -301,7 +301,7 @@ export class SqliteAgentIdentityStore implements AgentIdentityStore {
       )
       .toArray();
 
-    return rows.map((row) => JSON.parse(String(row.record)) as AgentIdentity);
+    return rows.map((row) => parseRecord<AgentIdentity>(row));
   }
 
   async upsertOAuthClient(client: AgentOAuthClient): Promise<AgentOAuthClient> {
@@ -348,7 +348,7 @@ export class SqliteAgentIdentityStore implements AgentIdentityStore {
           )
           .toArray();
 
-    return rows.map((row) => JSON.parse(String(row.record)) as AgentOAuthClient);
+    return rows.map((row) => parseRecord<AgentOAuthClient>(row));
   }
 
   async saveAuthorizationCode(code: AgentAuthorizationCode): Promise<void> {
@@ -430,7 +430,7 @@ export class SqliteAgentIdentityStore implements AgentIdentityStore {
       )
       .toArray();
 
-    return rows.map((row) => JSON.parse(String(row.record)) as AgentRefreshSession);
+    return rows.map((row) => parseRecord<AgentRefreshSession>(row));
   }
 
   async revokeRefreshSession(
@@ -486,7 +486,7 @@ export class SqliteAgentIdentityStore implements AgentIdentityStore {
           .toArray();
 
     return rows
-      .map((row) => JSON.parse(String(row.record)) as AgentAuditEvent)
+      .map((row) => parseRecord<AgentAuditEvent>(row))
       .filter(
         (event) => !filter.sponsorSubjectId || event.sponsorSubjectId === filter.sponsorSubjectId
       );
@@ -575,8 +575,15 @@ export class SqliteAgentIdentityStore implements AgentIdentityStore {
 
   private getRecord<RecordType>(query: string, ...params: MemorySqlValue[]): RecordType | null {
     const rows = this.sql.exec(query, ...params).toArray() as AgentIdentityRow[];
-    return rows[0]?.record ? (JSON.parse(rows[0].record) as RecordType) : null;
+    return rows[0] ? parseRecord<RecordType>(rows[0]) : null;
   }
+}
+
+function parseRecord<RecordType>(row: Record<string, MemorySqlValue>): RecordType {
+  if (typeof row.record !== "string") {
+    throw new Error("Expected agent identity store record to be serialized JSON");
+  }
+  return JSON.parse(row.record) as RecordType;
 }
 
 function clone<Value>(value: Value): Value {

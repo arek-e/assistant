@@ -153,12 +153,6 @@ export function Chat({
     }
   }, [isStreaming]);
 
-  useEffect(() => {
-    if (activeView !== "chats" && showDebugDrawer) {
-      setShowDebugDrawer(false);
-    }
-  }, [activeView, showDebugDrawer]);
-
   const handleAddServer = useCallback(async () => {
     if (!mcpName.trim() || !mcpUrl.trim()) return;
     setIsAddingServer(true);
@@ -267,6 +261,16 @@ export function Chat({
   const stopStreaming = useCallback(() => {
     void stop();
   }, [stop]);
+
+  const navigateView = useCallback(
+    (view: PrimaryAppView) => {
+      if (view !== "chats") {
+        setShowDebugDrawer(false);
+      }
+      onNavigateView(view);
+    },
+    [onNavigateView]
+  );
 
   const startNewChat = useCallback(() => {
     clearHistory();
@@ -413,7 +417,7 @@ export function Chat({
         activeChatStartedAt={activeChatStartedAt}
         routeContent={routeContent}
         workspacePreview={workspacePreviewSlot}
-        onNavigateView={onNavigateView}
+        onNavigateView={navigateView}
         onOpenSettings={onOpenSettings}
         onShowDebugChange={setShowDebugDrawer}
         onNewChat={startNewChat}
@@ -430,7 +434,7 @@ export function Chat({
         </div>
       </AssistantAppShell>
       <MemoryDebugDrawer
-        open={showDebugDrawer}
+        open={activeView === "chats" && showDebugDrawer}
         messages={messages}
         onOpenChange={setShowDebugDrawer}
         loadSnapshot={() => agent.stub.getMemoryDebugSnapshot()}
@@ -459,16 +463,7 @@ function WorkspaceRoutePage({
   );
 }
 
-function IntegrationsRoute({
-  mcpState,
-  name,
-  url,
-  isAddingServer,
-  onNameChange,
-  onUrlChange,
-  onAddServer,
-  onRemoveServer
-}: {
+interface IntegrationConnectionProps {
   mcpState: MCPServersState;
   name: string;
   url: string;
@@ -477,7 +472,10 @@ function IntegrationsRoute({
   onUrlChange: (value: string) => void;
   onAddServer: () => void;
   onRemoveServer: (serverId: string) => void;
-}) {
+}
+
+function IntegrationsRoute(props: IntegrationConnectionProps) {
+  const { mcpState } = props;
   const serverCount = Object.keys(mcpState.servers).length;
   const toolCount = mcpState.tools.length;
 
@@ -505,16 +503,7 @@ function IntegrationsRoute({
         </TabsList>
 
         <TabsContent className="pt-1" value="connections">
-          <ConnectionsSection
-            mcpState={mcpState}
-            name={name}
-            url={url}
-            isAddingServer={isAddingServer}
-            onNameChange={onNameChange}
-            onUrlChange={onUrlChange}
-            onAddServer={onAddServer}
-            onRemoveServer={onRemoveServer}
-          />
+          <ConnectionsSection {...props} />
         </TabsContent>
 
         <TabsContent className="pt-1" value="tools">
@@ -538,16 +527,7 @@ function ConnectionsSection({
   onUrlChange,
   onAddServer,
   onRemoveServer
-}: {
-  mcpState: MCPServersState;
-  name: string;
-  url: string;
-  isAddingServer: boolean;
-  onNameChange: (value: string) => void;
-  onUrlChange: (value: string) => void;
-  onAddServer: () => void;
-  onRemoveServer: (serverId: string) => void;
-}) {
+}: IntegrationConnectionProps) {
   return (
     <section className="space-y-4">
       <SectionIntro
@@ -596,8 +576,8 @@ function ToolsSection({ mcpState }: { mcpState: MCPServersState }) {
 
         {tools.length > 0 && (
           <div className="grid gap-2">
-            {tools.map((tool, index) => (
-              <Surface key={`${getMcpToolName(tool)}:${index}`} className="p-4">
+            {tools.map((tool) => (
+              <Surface key={getMcpToolKey(tool)} className="p-4">
                 <div className="flex flex-wrap items-center gap-2">
                   <WrenchIcon size={14} className="text-muted-foreground" />
                   <Text bold>{getMcpToolName(tool)}</Text>
@@ -690,6 +670,14 @@ function getMcpToolServerName(tool: unknown): string | null {
 function getMcpToolDescription(tool: unknown): string | null {
   const record = asRecord(tool);
   return stringValue(record.description);
+}
+
+function getMcpToolKey(tool: unknown): string {
+  return [
+    getMcpToolServerName(tool) ?? "unknown-server",
+    getMcpToolName(tool),
+    getMcpToolDescription(tool) ?? "no-description"
+  ].join(":");
 }
 
 function asRecord(value: unknown): Record<string, unknown> {

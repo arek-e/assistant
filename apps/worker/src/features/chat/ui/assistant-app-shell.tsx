@@ -272,8 +272,24 @@ function AssistantRouteContentSlot({ children }: { children: ReactNode }) {
 
 function AssistantRouteDetailsPanel({ children, open }: { children?: ReactNode; open: boolean }) {
   return (
+    <DetailsPanelSurface dataSlot="route-details" open={open}>
+      {children}
+    </DetailsPanelSurface>
+  );
+}
+
+function DetailsPanelSurface({
+  children,
+  dataSlot,
+  open
+}: {
+  children?: ReactNode;
+  dataSlot: "right-details" | "route-details";
+  open: boolean;
+}) {
+  return (
     <m.aside
-      data-shell-slot="route-details"
+      data-shell-slot={dataSlot}
       aria-hidden={!open}
       className={cn(
         "absolute inset-y-0 right-0 z-40 h-full rounded-none border-y-0 border-r-0 transition-[width,box-shadow] duration-200 ease-out lg:relative lg:z-auto lg:block lg:shrink-0",
@@ -533,85 +549,60 @@ function AssistantDetailsPanel({
   onShowDebugChange: (checked: boolean) => void;
 }) {
   return (
-    <m.aside
-      data-shell-slot="right-details"
-      aria-hidden={!open}
-      className={cn(
-        "absolute inset-y-0 right-0 z-40 h-full rounded-none border-y-0 border-r-0 transition-[width,box-shadow] duration-200 ease-out lg:relative lg:z-auto lg:block lg:shrink-0",
-        glassPanelSurfaceClassName,
-        open ? "border-l" : "border-l-0",
-        !open && "pointer-events-none"
-      )}
-      initial={false}
-      style={{
-        width: getDetailsPanelWidth(open),
-        boxShadow: getDetailsPanelShadow(open)
-      }}
-    >
-      <m.div
-        inert={getDetailsPanelInert(open)}
-        className="flex h-full w-80 flex-col transition-opacity duration-150"
-        initial={false}
-        style={{ opacity: getDetailsPanelContentOpacity(open) }}
-      >
-        <div className="flex h-12 shrink-0 items-center justify-between gap-3 px-5">
-          <h2 className="truncate text-sm font-medium text-neutral-950">Agent details</h2>
-          <button
-            type="button"
-            aria-label="Collapse details panel"
-            title="Collapse details panel"
-            className="relative grid size-8 shrink-0 place-items-center rounded-md text-neutral-700 transition-[background-color,scale] before:absolute before:-inset-1 before:content-[''] hover:bg-black/5 active:scale-[0.96]"
-            onClick={() => onOpenChange(false)}
-          >
-            <PanelLeftClose size={15} />
-          </button>
-        </div>
+    <DetailsPanelSurface dataSlot="right-details" open={open}>
+      <div className="flex h-12 shrink-0 items-center justify-between gap-3 px-5">
+        <h2 className="truncate text-sm font-medium text-neutral-950">Agent details</h2>
+        <button
+          type="button"
+          aria-label="Collapse details panel"
+          title="Collapse details panel"
+          className="relative grid size-8 shrink-0 place-items-center rounded-md text-neutral-700 transition-[background-color,scale] before:absolute before:-inset-1 before:content-[''] hover:bg-black/5 active:scale-[0.96]"
+          onClick={() => onOpenChange(false)}
+        >
+          <PanelLeftClose size={15} />
+        </button>
+      </div>
 
-        <div className="min-h-0 flex-1 overflow-y-auto">
-          <DetailsSection title="Runtime">
-            <DetailsRow
-              icon={<ChatCircleDotsIcon size={15} />}
-              label="Status"
-              value={statusLabel}
-            />
-            <DetailsRow
-              label="Connection"
-              value={getConnectionLabel(connected)}
-              dotClassName={getConnectionDotClass(connected)}
-            />
-            <DetailsRow
-              label="Agent"
-              value={getAgentLabel(isStreaming)}
-              dotClassName={getAgentDotClass(isStreaming)}
-            />
-            <DetailsRow
-              icon={<ChatCircleDotsIcon size={15} />}
-              label="Messages"
-              value={`${messageCount}`}
-            />
-          </DetailsSection>
+      <div className="min-h-0 flex-1 overflow-y-auto">
+        <DetailsSection title="Runtime">
+          <DetailsRow icon={<ChatCircleDotsIcon size={15} />} label="Status" value={statusLabel} />
+          <DetailsRow
+            label="Connection"
+            value={getConnectionLabel(connected)}
+            dotClassName={getConnectionDotClass(connected)}
+          />
+          <DetailsRow
+            label="Agent"
+            value={getAgentLabel(isStreaming)}
+            dotClassName={getAgentDotClass(isStreaming)}
+          />
+          <DetailsRow
+            icon={<ChatCircleDotsIcon size={15} />}
+            label="Messages"
+            value={`${messageCount}`}
+          />
+        </DetailsSection>
 
-          <DetailsSection title="Integrations">
-            <DetailsRow icon={<WrenchIcon size={15} />} label="MCP tools" value={`${toolCount}`} />
-            <DetailsRow
-              icon={<PlugsConnectedIcon size={15} />}
-              label="MCP servers"
-              value={`${serverCount}`}
-            />
-            <div className="mt-2 px-5">{integrationControls}</div>
-          </DetailsSection>
+        <DetailsSection title="Integrations">
+          <DetailsRow icon={<WrenchIcon size={15} />} label="MCP tools" value={`${toolCount}`} />
+          <DetailsRow
+            icon={<PlugsConnectedIcon size={15} />}
+            label="MCP servers"
+            value={`${serverCount}`}
+          />
+          <div className="mt-2 px-5">{integrationControls}</div>
+        </DetailsSection>
 
-          <DetailsSection title="Memory">
-            <DetailsSwitchRow
-              checked={showDebug}
-              icon={<BrainIcon size={15} />}
-              label="Debugger"
-              onCheckedChange={onShowDebugChange}
-            />
-          </DetailsSection>
-        </div>
-      </m.div>
-    </m.aside>
+        <DetailsSection title="Memory">
+          <DetailsSwitchRow
+            checked={showDebug}
+            icon={<BrainIcon size={15} />}
+            label="Debugger"
+            onCheckedChange={onShowDebugChange}
+          />
+        </DetailsSection>
+      </div>
+    </DetailsPanelSurface>
   );
 }
 
@@ -1161,11 +1152,13 @@ function getNextPanelOpenState(panelOpen: boolean, offsetX: number, velocityX: n
   return offsetX >= panelDragOpenThreshold || velocityX >= panelDragVelocityThreshold;
 }
 
+const chatTimestampFormatter = new Intl.DateTimeFormat(undefined, {
+  hour: "numeric",
+  minute: "2-digit"
+});
+
 function formatChatTimestamp(value: Date) {
-  return new Intl.DateTimeFormat(undefined, {
-    hour: "numeric",
-    minute: "2-digit"
-  }).format(value);
+  return chatTimestampFormatter.format(value);
 }
 
 function getConnectionLabel(connected: boolean) {

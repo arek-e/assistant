@@ -52,7 +52,7 @@ export function MemoryDebugDrawer({
   );
 }
 
-export function MemoryDebugPanel({
+function MemoryDebugPanel({
   messages,
   loadSnapshot
 }: {

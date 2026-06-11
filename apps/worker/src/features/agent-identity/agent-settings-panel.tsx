@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useReducer } from "react";
 
 import { WrenchIcon } from "@/components/app/icons";
 import {
@@ -24,7 +24,20 @@ const capabilities = [
   "tools:schedule"
 ] as const satisfies readonly AgentCapability[];
 
+const defaultAgentCapabilities: AgentCapability[] = ["memory:read", "memory:write"];
+const lifecycleActionStatuses = new Set<AgentIdentity["status"]>(["active", "expired"]);
+
 type AgentSettingsPanelMode = "summary" | "create";
+
+interface AgentSettingsState {
+  agents: AgentIdentity[];
+  name: string;
+  expiresAt: string;
+  selectedCapabilities: AgentCapability[];
+  loading: boolean;
+  busy: boolean;
+  error: string | null;
+}
 
 export function AgentSettingsPanel({
   auth,
@@ -43,29 +56,24 @@ export function AgentSettingsPanel({
   onCreateRequest?: () => void;
   onCreated?: () => void;
 }) {
-  const [agents, setAgents] = useState<AgentIdentity[]>([]);
-  const [name, setName] = useState("Codex");
-  const [expiresAt, setExpiresAt] = useState(() => futureIsoDate(30));
-  const [selectedCapabilities, setSelectedCapabilities] = useState<AgentCapability[]>([
-    "memory:read",
-    "memory:write"
-  ]);
-  const [loading, setLoading] = useState(true);
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [
+    { agents, busy, error, expiresAt, loading, name, selectedCapabilities },
+    dispatchAgentSettings
+  ] = useReducer(agentSettingsReducer, undefined, createInitialAgentSettingsState);
 
   const admin = isAdminSession(auth);
   const expiresAtDate = useMemo(() => new Date(expiresAt), [expiresAt]);
 
   const refresh = useCallback(async () => {
-    setLoading(true);
-    setError(null);
+    dispatchAgentSettings({ error: null, loading: true });
     try {
-      setAgents(await requestJson<AgentIdentity[]>("/api/agent-identities"));
+      dispatchAgentSettings({
+        agents: await requestJson<AgentIdentity[]>("/api/agent-identities")
+      });
     } catch (caught) {
-      setError(errorMessage(caught));
+      dispatchAgentSettings({ error: errorMessage(caught) });
     } finally {
-      setLoading(false);
+      dispatchAgentSettings({ loading: false });
     }
   }, []);
 
@@ -73,86 +81,90 @@ export function AgentSettingsPanel({
     void refresh();
   }, [refresh]);
 
-  const createAgent = useCallback(async () => {
-    if (!name.trim()) return;
-    setBusy(true);
-    setError(null);
-    try {
-      await requestJson("/api/agent-identities", {
-        method: "POST",
-        body: JSON.stringify({
-          name: name.trim(),
-          allowedCapabilities: selectedCapabilities,
-          expiresAt
-        })
-      });
-      await refresh();
-      setName("Codex");
-      setExpiresAt(futureIsoDate(30));
-      onCreated?.();
-    } catch (caught) {
-      setError(errorMessage(caught));
-    } finally {
-      setBusy(false);
-    }
-  }, [expiresAt, name, onCreated, refresh, selectedCapabilities]);
-
-  const revokeAgent = useCallback(
-    async (agent: AgentIdentity) => {
-      setBusy(true);
-      setError(null);
+  const runAgentMutation = useCallback(
+    async (mutation: () => Promise<unknown>, onSuccess?: () => void) => {
+      dispatchAgentSettings({ busy: true, error: null });
       try {
-        await requestJson(`/api/agent-identities/${agent.id}/revoke`, {
-          method: "POST",
-          body: JSON.stringify({ reason: "sponsor revoked from settings" })
-        });
+        await mutation();
         await refresh();
+        onSuccess?.();
       } catch (caught) {
-        setError(errorMessage(caught));
+        dispatchAgentSettings({ error: errorMessage(caught) });
       } finally {
-        setBusy(false);
+        dispatchAgentSettings({ busy: false });
       }
     },
     [refresh]
+  );
+
+  const createAgent = useCallback(async () => {
+    const trimmedName = name.trim();
+    if (!trimmedName) return;
+
+    await runAgentMutation(
+      () =>
+        requestJson("/api/agent-identities", {
+          method: "POST",
+          body: JSON.stringify({
+            name: trimmedName,
+            allowedCapabilities: selectedCapabilities,
+            expiresAt
+          })
+        }),
+      () => {
+        dispatchAgentSettings({ expiresAt: futureIsoDate(30), name: "Codex" });
+        onCreated?.();
+      }
+    );
+  }, [expiresAt, name, onCreated, runAgentMutation, selectedCapabilities]);
+
+  const revokeAgent = useCallback(
+    async (agent: AgentIdentity) => {
+      await runAgentMutation(() =>
+        requestJson(`/api/agent-identities/${agent.id}/revoke`, {
+          method: "POST",
+          body: JSON.stringify({ reason: "sponsor revoked from settings" })
+        })
+      );
+    },
+    [runAgentMutation]
   );
 
   const renewAgent = useCallback(
     async (agent: AgentIdentity) => {
-      setBusy(true);
-      setError(null);
-      try {
-        await requestJson(`/api/agent-identities/${agent.id}/renew`, {
+      await runAgentMutation(() =>
+        requestJson(`/api/agent-identities/${agent.id}/renew`, {
           method: "POST",
           body: JSON.stringify({ expiresAt: futureIsoDate(30) })
-        });
-        await refresh();
-      } catch (caught) {
-        setError(errorMessage(caught));
-      } finally {
-        setBusy(false);
-      }
+        })
+      );
     },
-    [refresh]
+    [runAgentMutation]
   );
 
   const disableAgent = useCallback(
     async (agent: AgentIdentity) => {
-      setBusy(true);
-      setError(null);
-      try {
-        await requestJson(`/api/agent-identities/${agent.id}/disable`, {
+      await runAgentMutation(() =>
+        requestJson(`/api/agent-identities/${agent.id}/disable`, {
           method: "POST",
           body: JSON.stringify({ reason: "admin disabled from settings" })
-        });
-        await refresh();
-      } catch (caught) {
-        setError(errorMessage(caught));
-      } finally {
-        setBusy(false);
-      }
+        })
+      );
     },
-    [refresh]
+    [runAgentMutation]
   );
+
+  const handleExpiresAtChange = useCallback((date: Date) => {
+    dispatchAgentSettings({ expiresAt: endOfDayIsoDate(date) });
+  }, []);
+
+  const handleNameChange = useCallback((nextName: string) => {
+    dispatchAgentSettings({ name: nextName });
+  }, []);
+
+  const handleSelectedCapabilitiesChange = useCallback((nextCapabilities: AgentCapability[]) => {
+    dispatchAgentSettings({ selectedCapabilities: nextCapabilities });
+  }, []);
 
   const rootClassName = embedded
     ? "space-y-0"
@@ -193,10 +205,10 @@ export function AgentSettingsPanel({
           name={name}
           selectedCapabilities={selectedCapabilities}
           onCancel={onCancelCreate}
-          onCreate={createAgent}
-          onExpiresAtChange={(date) => setExpiresAt(endOfDayIsoDate(date))}
-          onNameChange={setName}
-          onSelectedCapabilitiesChange={setSelectedCapabilities}
+          onCreate={() => void createAgent()}
+          onExpiresAtChange={handleExpiresAtChange}
+          onNameChange={handleNameChange}
+          onSelectedCapabilitiesChange={handleSelectedCapabilitiesChange}
         />
       ) : (
         <AgentKeySummary
@@ -205,9 +217,9 @@ export function AgentSettingsPanel({
           loading={loading}
           showAdminActions={admin}
           onCreateRequest={onCreateRequest}
-          onDisable={disableAgent}
-          onRenew={renewAgent}
-          onRevoke={revokeAgent}
+          onDisable={(agent) => void disableAgent(agent)}
+          onRenew={(agent) => void renewAgent(agent)}
+          onRevoke={(agent) => void revokeAgent(agent)}
         />
       )}
     </>
@@ -222,6 +234,25 @@ export function AgentSettingsPanel({
       {content}
     </Surface>
   );
+}
+
+function createInitialAgentSettingsState(): AgentSettingsState {
+  return {
+    agents: [],
+    busy: false,
+    error: null,
+    expiresAt: futureIsoDate(30),
+    loading: true,
+    name: "Codex",
+    selectedCapabilities: [...defaultAgentCapabilities]
+  };
+}
+
+function agentSettingsReducer(
+  state: AgentSettingsState,
+  action: Partial<AgentSettingsState>
+): AgentSettingsState {
+  return { ...state, ...action };
 }
 
 function AgentCreateForm({
@@ -504,42 +535,43 @@ function AgentRowActions({
   onRenew: (agent: AgentIdentity) => void;
   onRevoke: (agent: AgentIdentity) => void;
 }) {
-  const canRenew = agent.status === "active" || agent.status === "expired";
-  const canRevoke = agent.status === "active" || agent.status === "expired";
-  const canDisable = showAdminActions && agent.status === "active";
+  const actions = [
+    {
+      key: "renew",
+      label: "Renew",
+      onSelect: () => onRenew(agent),
+      visible: lifecycleActionStatuses.has(agent.status)
+    },
+    {
+      key: "revoke",
+      label: "Revoke",
+      onSelect: () => onRevoke(agent),
+      visible: lifecycleActionStatuses.has(agent.status)
+    },
+    {
+      key: "disable",
+      label: "Disable",
+      onSelect: () => onDisable(agent),
+      visible: showAdminActions && agent.status === "active"
+    }
+  ].filter((action) => action.visible);
 
-  if (!canRenew && !canRevoke && !canDisable) return null;
+  if (actions.length === 0) return null;
 
   return (
     <div className="flex shrink-0 gap-1.5">
-      {canRenew && (
-        <Button size="sm" variant="outline" disabled={busy} onClick={() => onRenew(agent)}>
-          Renew
+      {actions.map((action) => (
+        <Button
+          key={action.key}
+          size="sm"
+          variant="outline"
+          disabled={busy}
+          onClick={action.onSelect}
+        >
+          {action.label}
         </Button>
-      )}
-      {canRevoke && (
-        <Button size="sm" variant="outline" disabled={busy} onClick={() => onRevoke(agent)}>
-          Revoke
-        </Button>
-      )}
-      {canDisable && <AdminDisableButton agent={agent} busy={busy} onDisable={onDisable} />}
+      ))}
     </div>
-  );
-}
-
-function AdminDisableButton({
-  agent,
-  busy,
-  onDisable
-}: {
-  agent: AgentIdentity;
-  busy: boolean;
-  onDisable: (agent: AgentIdentity) => void;
-}) {
-  return (
-    <Button size="sm" variant="outline" disabled={busy} onClick={() => onDisable(agent)}>
-      Disable
-    </Button>
   );
 }
 
@@ -552,7 +584,7 @@ async function requestJson<ResponseBody>(
     headers: {
       "content-type": "application/json",
       accept: "application/json",
-      ...init.headers
+      ...headersToRecord(init.headers)
     },
     ...init
   });
@@ -567,6 +599,13 @@ function toggleCapability(
   return selected.includes(capability)
     ? selected.filter((item) => item !== capability)
     : [...selected, capability];
+}
+
+function headersToRecord(headers: HeadersInit | undefined): Record<string, string> {
+  if (!headers) return {};
+  if (headers instanceof Headers) return Object.fromEntries(headers.entries());
+  if (Array.isArray(headers)) return Object.fromEntries(headers);
+  return headers;
 }
 
 function futureIsoDate(days: number): string {
@@ -586,10 +625,12 @@ function endOfDayIsoDate(value: Date): string {
   return date.toISOString();
 }
 
+const agentDateFormatter = new Intl.DateTimeFormat(undefined, {
+  dateStyle: "medium"
+});
+
 function formatDate(value: string | Date): string {
-  return new Intl.DateTimeFormat(undefined, {
-    dateStyle: "medium"
-  }).format(new Date(value));
+  return agentDateFormatter.format(new Date(value));
 }
 
 function isAdminSession(auth: AuthSession): boolean {

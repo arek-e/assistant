@@ -8,7 +8,6 @@ import {
   useNavigate
 } from "@tanstack/react-router";
 import { Suspense, startTransition, useCallback } from "react";
-import { flushSync } from "react-dom";
 
 import { AuthProvider, useAuth } from "@/features/auth/auth-context";
 import { AuthLoading, LoginScreen } from "@/features/auth/auth-shell";
@@ -181,7 +180,7 @@ function runRouteViewTransition(updateRoute: () => void) {
   }
 
   startViewTransition(() => {
-    flushSync(updateRoute);
+    startTransition(updateRoute);
   });
 }
 
