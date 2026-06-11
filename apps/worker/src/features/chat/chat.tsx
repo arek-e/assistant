@@ -12,8 +12,8 @@ import {
   type ReactNode
 } from "react";
 
-import { ImageIcon, PlugsConnectedIcon, WrenchIcon } from "@/components/app/icons";
-import { Badge, Button } from "@/components/app/ui";
+import { BrainIcon, ImageIcon, PlugsConnectedIcon, WrenchIcon } from "@/components/app/icons";
+import { Badge, Button, Surface, Text } from "@/components/app/ui";
 import {
   clipboardFiles,
   createAttachment,
@@ -28,18 +28,31 @@ import { MemoryDebugDrawer } from "@/features/debug/memory-debug-drawer";
 import { McpPanel } from "@/features/mcp/mcp-panel";
 import { ThemeToggle } from "@/features/theme/theme-toggle";
 import type { ThinkAgent } from "@/server";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@teampitch/ui/components/tabs";
 import { toastManager } from "@teampitch/ui/components/toast";
 import { cn } from "@teampitch/ui/lib/utils";
 
 import { ChatComposer } from "./chat-composer";
 import { MessageList } from "./message-list";
-import { AssistantAppShell } from "./ui/assistant-app-shell";
+import { AssistantAppShell, type PrimaryAppView } from "./ui/assistant-app-shell";
 
 type OutgoingMessagePart =
   | { type: "text"; text: string }
   | { type: "file"; mediaType: string; url: string };
 
-export function Chat({ auth, onSignOut }: { auth: AuthSession; onSignOut: () => void }) {
+export function Chat({
+  activeView,
+  auth,
+  onNavigateView,
+  onOpenSettings,
+  onSignOut
+}: {
+  activeView: PrimaryAppView;
+  auth: AuthSession;
+  onNavigateView: (view: PrimaryAppView) => void;
+  onOpenSettings: () => void;
+  onSignOut: () => void;
+}) {
   const [connected, setConnected] = useState(false);
   const [input, setInput] = useState("");
   const [showDebugDrawer, setShowDebugDrawer] = useState(false);
@@ -58,6 +71,8 @@ export function Chat({ auth, onSignOut }: { auth: AuthSession; onSignOut: () => 
   const [mcpName, setMcpName] = useState("");
   const [mcpUrl, setMcpUrl] = useState("");
   const [isAddingServer, setIsAddingServer] = useState(false);
+  const [activeChatStartedAt, setActiveChatStartedAt] = useState(() => new Date());
+  const activeChatTimestampCapturedRef = useRef(false);
   const mcpPanelRef = useRef<HTMLDivElement>(null);
 
   const agent = useAgent<ThinkAgent>({
@@ -104,6 +119,18 @@ export function Chat({ auth, onSignOut }: { auth: AuthSession; onSignOut: () => 
   const mcpServerCount = Object.keys(mcpState.servers).length;
 
   useEffect(() => {
+    if (messages.length === 0) {
+      activeChatTimestampCapturedRef.current = false;
+      return;
+    }
+
+    if (!activeChatTimestampCapturedRef.current) {
+      activeChatTimestampCapturedRef.current = true;
+      setActiveChatStartedAt(new Date());
+    }
+  }, [messages.length]);
+
+  useEffect(() => {
     if (!showMcpPanel) return;
 
     function handleClickOutside(event: MouseEvent) {
@@ -125,6 +152,12 @@ export function Chat({ auth, onSignOut }: { auth: AuthSession; onSignOut: () => 
       textareaRef.current.focus();
     }
   }, [isStreaming]);
+
+  useEffect(() => {
+    if (activeView !== "chats" && showDebugDrawer) {
+      setShowDebugDrawer(false);
+    }
+  }, [activeView, showDebugDrawer]);
 
   const handleAddServer = useCallback(async () => {
     if (!mcpName.trim() || !mcpUrl.trim()) return;
@@ -235,6 +268,12 @@ export function Chat({ auth, onSignOut }: { auth: AuthSession; onSignOut: () => 
     void stop();
   }, [stop]);
 
+  const startNewChat = useCallback(() => {
+    clearHistory();
+    activeChatTimestampCapturedRef.current = false;
+    setActiveChatStartedAt(new Date());
+  }, [clearHistory]);
+
   const respondToToolApproval = useCallback(
     (response: Parameters<typeof addToolApprovalResponse>[0]) => {
       void addToolApprovalResponse(response);
@@ -291,6 +330,37 @@ export function Chat({ auth, onSignOut }: { auth: AuthSession; onSignOut: () => 
     [auth, onSignOut]
   );
   const workspacePreviewSlot = useMemo(() => <WorkspacePreviewDocument />, []);
+  const routeContent = useMemo(() => {
+    if (activeView === "home") {
+      return (
+        <WorkspaceRoutePage
+          title="Home"
+          description="A workspace overview for the assistant shell, active work surfaces, and the main control areas."
+        >
+          <Surface className="h-[min(640px,calc(100vh-14rem))] overflow-hidden p-0">
+            <WorkspacePreviewDocument />
+          </Surface>
+        </WorkspaceRoutePage>
+      );
+    }
+
+    if (activeView === "integrations") {
+      return (
+        <IntegrationsRoute
+          mcpState={mcpState}
+          name={mcpName}
+          url={mcpUrl}
+          isAddingServer={isAddingServer}
+          onNameChange={setMcpName}
+          onUrlChange={setMcpUrl}
+          onAddServer={addMcpServer}
+          onRemoveServer={removeMcpServer}
+        />
+      );
+    }
+
+    return null;
+  }, [activeView, addMcpServer, isAddingServer, mcpName, mcpState, mcpUrl, removeMcpServer]);
   const composerSlot = useMemo(
     () => (
       <ChatComposer
@@ -330,6 +400,7 @@ export function Chat({ auth, onSignOut }: { auth: AuthSession; onSignOut: () => 
     >
       {isDragging && <ImageDropOverlay />}
       <AssistantAppShell
+        activeView={activeView}
         connected={connected}
         isStreaming={isStreaming}
         showDebug={showDebugDrawer}
@@ -339,9 +410,13 @@ export function Chat({ auth, onSignOut }: { auth: AuthSession; onSignOut: () => 
         integrationControls={integrationControls}
         themeToggle={themeToggleSlot}
         accountControls={accountControlsSlot}
+        activeChatStartedAt={activeChatStartedAt}
+        routeContent={routeContent}
         workspacePreview={workspacePreviewSlot}
+        onNavigateView={onNavigateView}
+        onOpenSettings={onOpenSettings}
         onShowDebugChange={setShowDebugDrawer}
-        onNewChat={clearHistory}
+        onNewChat={startNewChat}
         composer={composerSlot}
       >
         <div className="space-y-5">
@@ -364,6 +439,231 @@ export function Chat({ auth, onSignOut }: { auth: AuthSession; onSignOut: () => 
   );
 }
 
+function WorkspaceRoutePage({
+  children,
+  description,
+  title
+}: {
+  children: ReactNode;
+  description: string;
+  title: string;
+}) {
+  return (
+    <div className="space-y-6">
+      <header>
+        <h1 className="text-[1.375rem] leading-7 font-semibold text-neutral-950">{title}</h1>
+        <p className="mt-1.5 max-w-2xl text-[13px] leading-5 text-neutral-500">{description}</p>
+      </header>
+      {children}
+    </div>
+  );
+}
+
+function IntegrationsRoute({
+  mcpState,
+  name,
+  url,
+  isAddingServer,
+  onNameChange,
+  onUrlChange,
+  onAddServer,
+  onRemoveServer
+}: {
+  mcpState: MCPServersState;
+  name: string;
+  url: string;
+  isAddingServer: boolean;
+  onNameChange: (value: string) => void;
+  onUrlChange: (value: string) => void;
+  onAddServer: () => void;
+  onRemoveServer: (serverId: string) => void;
+}) {
+  const serverCount = Object.keys(mcpState.servers).length;
+  const toolCount = mcpState.tools.length;
+
+  return (
+    <WorkspaceRoutePage
+      title="Integrations"
+      description="Connect MCP servers and review the tools they make available to the assistant."
+    >
+      <Tabs defaultValue="connections" className="gap-7">
+        <TabsList
+          variant="underline"
+          className="w-fit gap-2 bg-transparent p-0 text-neutral-600 [&_[data-slot=tab-indicator]]:hidden"
+        >
+          <TabsTrigger className={integrationTabClassName} value="connections">
+            Connections
+            <TabCount>{serverCount}</TabCount>
+          </TabsTrigger>
+          <TabsTrigger className={integrationTabClassName} value="tools">
+            Tools
+            <TabCount>{toolCount}</TabCount>
+          </TabsTrigger>
+          <TabsTrigger className={integrationTabClassName} value="skills">
+            Skills
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent className="pt-1" value="connections">
+          <ConnectionsSection
+            mcpState={mcpState}
+            name={name}
+            url={url}
+            isAddingServer={isAddingServer}
+            onNameChange={onNameChange}
+            onUrlChange={onUrlChange}
+            onAddServer={onAddServer}
+            onRemoveServer={onRemoveServer}
+          />
+        </TabsContent>
+
+        <TabsContent className="pt-1" value="tools">
+          <ToolsSection mcpState={mcpState} />
+        </TabsContent>
+
+        <TabsContent className="pt-1" value="skills">
+          <SkillsSection />
+        </TabsContent>
+      </Tabs>
+    </WorkspaceRoutePage>
+  );
+}
+
+function ConnectionsSection({
+  mcpState,
+  name,
+  url,
+  isAddingServer,
+  onNameChange,
+  onUrlChange,
+  onAddServer,
+  onRemoveServer
+}: {
+  mcpState: MCPServersState;
+  name: string;
+  url: string;
+  isAddingServer: boolean;
+  onNameChange: (value: string) => void;
+  onUrlChange: (value: string) => void;
+  onAddServer: () => void;
+  onRemoveServer: (serverId: string) => void;
+}) {
+  return (
+    <section className="space-y-4">
+      <SectionIntro
+        title="Connections"
+        description="Add or remove Model Context Protocol servers for this workspace."
+      />
+      <McpPanel
+        embedded
+        mcpState={mcpState}
+        name={name}
+        url={url}
+        isAddingServer={isAddingServer}
+        onNameChange={onNameChange}
+        onUrlChange={onUrlChange}
+        onAddServer={onAddServer}
+        onClose={() => undefined}
+        onRemoveServer={onRemoveServer}
+      />
+    </section>
+  );
+}
+
+function ToolsSection({ mcpState }: { mcpState: MCPServersState }) {
+  const tools = mcpState.tools;
+
+  return (
+    <section className="space-y-4">
+      <SectionIntro
+        title="Tools"
+        description="Tools available to the assistant from connected MCP servers."
+      />
+      <div className="grid gap-3">
+        <Surface className="flex min-h-[72px] items-center justify-between gap-4 p-5">
+          <div className="min-w-0">
+            <Text className="block" bold>
+              MCP tools
+            </Text>
+            <Text className="mt-1 block" size="xs" variant="secondary">
+              {tools.length
+                ? `${tools.length} tool${tools.length === 1 ? "" : "s"} available`
+                : "No tools are available from connected servers."}
+            </Text>
+          </div>
+          <Badge variant="secondary">{tools.length}</Badge>
+        </Surface>
+
+        {tools.length > 0 && (
+          <div className="grid gap-2">
+            {tools.map((tool, index) => (
+              <Surface key={`${getMcpToolName(tool)}:${index}`} className="p-4">
+                <div className="flex flex-wrap items-center gap-2">
+                  <WrenchIcon size={14} className="text-muted-foreground" />
+                  <Text bold>{getMcpToolName(tool)}</Text>
+                  {getMcpToolServerName(tool) && (
+                    <Badge variant="secondary">{getMcpToolServerName(tool)}</Badge>
+                  )}
+                </div>
+                {getMcpToolDescription(tool) && (
+                  <Text className="mt-2 block" size="xs" variant="secondary">
+                    {getMcpToolDescription(tool)}
+                  </Text>
+                )}
+              </Surface>
+            ))}
+          </div>
+        )}
+      </div>
+    </section>
+  );
+}
+
+function SkillsSection() {
+  return (
+    <section className="space-y-4">
+      <SectionIntro
+        title="Skills"
+        description="Workspace-level skills will appear here when they are available for this app."
+      />
+      <Surface className="flex min-h-[132px] items-center gap-4 p-5">
+        <span className="grid size-10 shrink-0 place-items-center rounded-lg bg-black/[0.04] text-neutral-500">
+          <BrainIcon size={18} />
+        </span>
+        <div className="min-w-0">
+          <Text className="block" bold>
+            No skills connected yet
+          </Text>
+          <Text className="mt-1 block max-w-xl" size="xs" variant="secondary">
+            This workspace does not currently have configurable skills, so there is nothing to
+            manage from this page yet.
+          </Text>
+        </div>
+      </Surface>
+    </section>
+  );
+}
+
+function SectionIntro({ description, title }: { description: string; title: string }) {
+  return (
+    <div>
+      <h2 className="text-xl leading-7 font-semibold text-neutral-950">{title}</h2>
+      <p className="mt-1 text-sm leading-5 text-neutral-500">{description}</p>
+    </div>
+  );
+}
+
+function TabCount({ children }: { children: number }) {
+  return (
+    <span className="ml-1 grid min-w-4 place-items-center rounded-full bg-black/[0.06] px-1.5 text-[11px] leading-4 text-neutral-500 group-data-active:bg-white/15 group-data-active:text-white/75">
+      {children}
+    </span>
+  );
+}
+
+const integrationTabClassName =
+  "group h-8 rounded-full border border-black/10 bg-white/45 px-3 text-sm font-medium text-neutral-600 shadow-[0_10px_28px_rgba(16,16,15,0.05),inset_0_1px_0_rgba(255,255,255,0.85)] backdrop-blur-md transition-[background-color,border-color,color,box-shadow,scale] hover:border-black/15 hover:bg-white/70 hover:text-neutral-950 data-active:border-neutral-950 data-active:bg-neutral-950 data-active:text-white data-active:shadow-[0_12px_30px_rgba(16,16,15,0.16)] active:scale-[0.98]";
+
 function ImageDropOverlay() {
   return (
     <div className="pointer-events-none absolute inset-0 z-50 m-2 flex items-center justify-center rounded-xl border-2 border-dashed border-primary bg-background/80 backdrop-blur-sm">
@@ -373,6 +673,31 @@ function ImageDropOverlay() {
       </div>
     </div>
   );
+}
+
+function getMcpToolName(tool: unknown): string {
+  const record = asRecord(tool);
+  return stringValue(record.name) ?? stringValue(record.toolName) ?? "Unnamed tool";
+}
+
+function getMcpToolServerName(tool: unknown): string | null {
+  const record = asRecord(tool);
+  return (
+    stringValue(record.serverName) ?? stringValue(record.server_id) ?? stringValue(record.serverId)
+  );
+}
+
+function getMcpToolDescription(tool: unknown): string | null {
+  const record = asRecord(tool);
+  return stringValue(record.description);
+}
+
+function asRecord(value: unknown): Record<string, unknown> {
+  return value && typeof value === "object" ? (value as Record<string, unknown>) : {};
+}
+
+function stringValue(value: unknown): string | null {
+  return typeof value === "string" && value.length > 0 ? value : null;
 }
 
 function canSendMessage(text: string, attachmentCount: number, isStreaming: boolean) {
@@ -501,11 +826,11 @@ function WorkspacePreviewDocument() {
     workspacePreviewPages.find((page) => page.id === activePageId) ?? workspacePreviewPages[0];
 
   return (
-    <div className="flex h-full min-h-0 flex-col bg-[#fbfbfa]">
+    <div className="flex h-full min-h-0 flex-col bg-transparent">
       <div
         role="tablist"
         aria-label="Preview pages"
-        className="relative flex h-11 shrink-0 items-end gap-1 overflow-visible border-b border-black/10 bg-[#f1f1ee] px-3 pt-2"
+        className="relative flex h-11 shrink-0 items-end gap-1 overflow-visible border-b border-black/10 bg-white/25 px-3 pt-2"
       >
         {workspacePreviewPages.map((page, index) => (
           <WorkspacePreviewTab
@@ -611,8 +936,8 @@ function getWorkspacePreviewTabClassName(active: boolean) {
   return cn(
     "relative h-9 shrink-0 px-3 text-sm transition-[background-color,color] outline-none",
     active
-      ? "z-10 -mb-px rounded-t-xl border border-b-0 border-black/10 bg-[#fbfbfa] pb-px text-neutral-950 focus-visible:border-black/20 focus-visible:underline focus-visible:underline-offset-4"
-      : "mb-px rounded-t-lg text-neutral-500 hover:bg-[#fbfbfa]/70 hover:text-neutral-800 focus-visible:bg-[#fbfbfa]/70 focus-visible:text-neutral-950 focus-visible:underline focus-visible:underline-offset-4"
+      ? "z-10 -mb-px rounded-t-xl border border-b-0 border-black/10 bg-white/70 pb-px text-neutral-950 focus-visible:border-black/20 focus-visible:underline focus-visible:underline-offset-4"
+      : "mb-px rounded-t-lg text-neutral-500 hover:bg-white/45 hover:text-neutral-800 focus-visible:bg-white/45 focus-visible:text-neutral-950 focus-visible:underline focus-visible:underline-offset-4"
   );
 }
 
@@ -640,8 +965,8 @@ function WorkspacePreviewTabCorner({ side }: { side: "left" | "right" }) {
       shapeRendering="geometricPrecision"
       viewBox="0 0 10 10"
     >
-      <path d={paths.background} fill="#fbfbfa" />
-      <path d={paths.cover} fill="#fbfbfa" />
+      <path d={paths.background} fill="rgba(255,255,255,0.7)" />
+      <path d={paths.cover} fill="rgba(255,255,255,0.7)" />
       <path d={paths.border} fill="rgba(0,0,0,0.1)" />
     </svg>
   );

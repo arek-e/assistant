@@ -180,6 +180,11 @@
   --code-foreground: var(--foreground);
   --code-highlight: --alpha(var(--color-black) / 4%);
   --radius: 0.625rem;
+  --settings-panel-max-width: 920px;
+  --settings-panel-padding-inline: 1.75rem;
+  --settings-panel-padding-inline-lg: 3rem;
+  --settings-panel-padding-block: 2rem;
+  --settings-panel-padding-block-lg: 2.5rem;
   --sidebar: var(--color-neutral-50);
   --sidebar-accent: --alpha(var(--color-black) / 4%);
   --sidebar-accent-foreground: var(--color-neutral-800);
@@ -221,6 +226,208 @@ body {
   background: var(--background);
   color: var(--foreground);
   font-family: var(--font-sans);
+}
+
+.app-navigation-shell-transition {
+  view-transition-name: app-primary-navigation;
+}
+
+.app-navigation-content-transition[data-navigation-content="primary"] {
+  view-transition-name: app-primary-navigation-content-primary;
+}
+
+.app-navigation-content-transition[data-navigation-content="settings"] {
+  view-transition-name: app-primary-navigation-content-settings;
+}
+
+[data-shell-slot="secondary-nav"] {
+  view-transition-name: app-secondary-navigation;
+}
+
+[hidden] .app-navigation-shell-transition,
+[hidden] .app-navigation-content-transition {
+  view-transition-name: none;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  ::view-transition-group(root) {
+    animation-duration: 1ms;
+  }
+
+  ::view-transition-old(root),
+  ::view-transition-new(root) {
+    animation: none;
+    mix-blend-mode: normal;
+  }
+
+  ::view-transition-old(root) {
+    opacity: 0;
+  }
+
+  ::view-transition-new(root) {
+    opacity: 1;
+  }
+
+  ::view-transition-group(app-primary-navigation) {
+    animation-duration: 280ms;
+    animation-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
+    border-radius: 1.125rem;
+    overflow: clip;
+  }
+
+  ::view-transition-image-pair(app-primary-navigation),
+  ::view-transition-old(app-primary-navigation),
+  ::view-transition-new(app-primary-navigation) {
+    animation-duration: 280ms;
+    animation-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
+    border-radius: inherit;
+    mix-blend-mode: normal;
+    overflow: clip;
+  }
+
+  ::view-transition-old(app-primary-navigation) {
+    animation-name: app-primary-navigation-stable;
+  }
+
+  ::view-transition-new(app-primary-navigation) {
+    animation-name: app-primary-navigation-stable;
+  }
+
+  ::view-transition-old(app-primary-navigation-content-primary),
+  ::view-transition-old(app-primary-navigation-content-settings) {
+    animation: app-primary-navigation-content-out 90ms cubic-bezier(0.22, 1, 0.36, 1) both;
+    mix-blend-mode: normal;
+  }
+
+  ::view-transition-new(app-primary-navigation-content-primary),
+  ::view-transition-new(app-primary-navigation-content-settings) {
+    animation: app-primary-navigation-content-in 170ms cubic-bezier(0.22, 1, 0.36, 1) 80ms both;
+    mix-blend-mode: normal;
+  }
+
+  ::view-transition-group(app-secondary-navigation) {
+    animation-duration: 200ms;
+    animation-timing-function: cubic-bezier(0.23, 1, 0.32, 1);
+    overflow: clip;
+  }
+
+  ::view-transition-image-pair(app-secondary-navigation),
+  ::view-transition-old(app-secondary-navigation),
+  ::view-transition-new(app-secondary-navigation) {
+    animation-duration: 200ms;
+    animation-timing-function: cubic-bezier(0.23, 1, 0.32, 1);
+    mix-blend-mode: normal;
+    overflow: clip;
+  }
+
+  ::view-transition-old(app-secondary-navigation) {
+    animation-name: app-secondary-navigation-out;
+    transform-origin: left center;
+  }
+
+  ::view-transition-new(app-secondary-navigation) {
+    animation-name: app-secondary-navigation-in;
+    transform-origin: left center;
+  }
+
+  html[data-view-transitions="fallback"]
+    [data-navigation-shell="settings"]
+    .app-navigation-shell-transition {
+    animation: app-settings-sidebar-fallback-in 280ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+
+  html[data-view-transitions="fallback"]
+    [data-navigation-shell="primary"]
+    .app-navigation-shell-transition {
+    animation: app-primary-rail-fallback-in 180ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+
+  html[data-view-transitions="fallback"] .app-navigation-content-transition {
+    animation: app-primary-navigation-content-in 170ms cubic-bezier(0.22, 1, 0.36, 1) 80ms both;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-group(*),
+  ::view-transition-old(*),
+  ::view-transition-new(*) {
+    animation-duration: 1ms;
+  }
+}
+
+@keyframes app-primary-navigation-stable {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes app-primary-navigation-content-out {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+@keyframes app-primary-navigation-content-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes app-secondary-navigation-out {
+  from {
+    clip-path: inset(0 0 0 0);
+    opacity: 1;
+    transform: translateX(0);
+  }
+  to {
+    clip-path: inset(0 100% 0 0);
+    opacity: 0;
+    transform: translateX(-6px);
+  }
+}
+
+@keyframes app-secondary-navigation-in {
+  from {
+    clip-path: inset(0 100% 0 0);
+    opacity: 0;
+    transform: translateX(-6px);
+  }
+  to {
+    clip-path: inset(0 0 0 0);
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes app-settings-sidebar-fallback-in {
+  from {
+    clip-path: inset(0 calc(100% - 4rem) 0 0 round 1.125rem);
+    opacity: 0.96;
+  }
+  to {
+    clip-path: inset(0 0 0 0 round 1.125rem);
+    opacity: 1;
+  }
+}
+
+@keyframes app-primary-rail-fallback-in {
+  from {
+    opacity: 0.94;
+    transform: translateX(-2px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
 }
 
 .dark {

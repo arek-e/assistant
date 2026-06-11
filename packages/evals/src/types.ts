@@ -2,6 +2,7 @@ import { Schema } from "effect";
 
 import {
   MemoryRecordSchema,
+  type MemoryAccessContext,
   type MemoryRecord,
   type MemoryWriteDecision,
   type MemoryWriteKind,
@@ -49,6 +50,41 @@ const WorkspaceFileSchema = Schema.Struct({
   body: Schema.String
 });
 
+const MemoryScopeGrantSchema = Schema.Struct({
+  scope: Schema.Literal("private", "team", "org", "session"),
+  scopeId: Schema.String
+});
+
+const AccessSponsorSchema = Schema.Struct({
+  subjectId: Schema.String,
+  displayName: Schema.String,
+  role: Schema.String,
+  permissions: Schema.Array(Schema.String)
+});
+
+const AccessAgentSchema = Schema.Struct({
+  identityId: Schema.String,
+  keyId: Schema.String,
+  name: Schema.String,
+  actingMode: Schema.Literal("obou", "standalone"),
+  status: Schema.String,
+  expiresAt: Schema.String
+});
+
+const MemoryAccessContextSchema: Schema.Schema<MemoryAccessContext> = Schema.Struct({
+  subjectId: Schema.String,
+  subjectType: Schema.Literal("user", "agent"),
+  provider: Schema.String,
+  displayName: Schema.String,
+  sessionId: Schema.String,
+  organizationId: Schema.String,
+  role: Schema.String,
+  permissions: Schema.Array(Schema.String),
+  grants: Schema.Array(MemoryScopeGrantSchema),
+  sponsor: Schema.optional(AccessSponsorSchema),
+  agent: Schema.optional(AccessAgentSchema)
+});
+
 const ExpectedWriteKindSchema: Schema.Schema<MemoryWriteKind> = Schema.Literal(
   "none",
   "term_record",
@@ -77,6 +113,7 @@ export const EvalFixtureSchema = Schema.Struct({
   category: EvalCategorySchema,
   seedRecords: Schema.Array(MemoryRecordSchema),
   workspaceFiles: Schema.Array(WorkspaceFileSchema),
+  accessContext: Schema.optional(MemoryAccessContextSchema),
   input: Schema.String,
   expectedRecordIds: Schema.Array(Schema.String),
   forbiddenRecordIds: Schema.Array(Schema.String),
@@ -91,6 +128,7 @@ export const EvalFixtureSchema = Schema.Struct({
   expectedRouteMode: RouteModeSchema,
   expectedRouteEffort: RouteEffortSchema,
   expectedRouteBudget: RouteBudgetSchema,
+  expectedActorDisplayName: Schema.optional(Schema.String),
   expectedBehavior: Schema.String,
   metrics: Schema.Array(Schema.String),
   notes: Schema.String

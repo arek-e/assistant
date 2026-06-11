@@ -1,6 +1,6 @@
 import { canAccessMemoryRecord, scopePrecedence, type MemoryAccessContext } from "./access";
 import { hashStableValue } from "./hash";
-import type { MemoryRecord, MemoryScopeGrant } from "./types";
+import type { MemoryRecord, MemoryRecordActor, MemoryScopeGrant } from "./types";
 
 const STOP_WORDS = new Set([
   "a",
@@ -83,7 +83,12 @@ export interface RetrievalProvenance {
   subjectId: string;
   subjectType: string;
   provider: string;
+  displayName: string;
+  organizationId: string;
+  sessionId: string;
   grants: MemoryScopeGrant[];
+  sponsor?: MemoryRecordActor["sponsor"];
+  agent?: MemoryRecordActor["agent"];
   projectionVersion: string;
   scopeRoots: RetrievalScopeRoot[];
   records: RetrievalRecordProvenance[];
@@ -333,7 +338,12 @@ function createRetrievalProvenance(
     subjectId: accessContext.subjectId,
     subjectType: accessContext.subjectType,
     provider: accessContext.provider,
+    displayName: accessContext.displayName,
+    organizationId: accessContext.organizationId,
+    sessionId: accessContext.sessionId,
     grants: accessContext.grants.map((grant) => ({ ...grant })),
+    sponsor: accessContext.sponsor,
+    agent: accessContext.agent,
     projectionVersion: "canonical-memory-v1",
     scopeRoots: createScopeRoots(records, accessContext),
     records: hits.map((hit) => ({

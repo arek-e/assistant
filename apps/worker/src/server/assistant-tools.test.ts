@@ -123,19 +123,32 @@ describe("createAssistantTools", () => {
     const { context, scheduled } = createToolContext({
       async getIdentity() {
         return {
-          subjectId: "user-123",
-          subjectType: "user",
+          subjectId: "agent-123",
+          subjectType: "agent",
           provider: "workos",
-          displayName: "Test User",
-          sessionId: "session-123",
+          displayName: "Sarah via Codex",
+          sessionId: "agent-session-123",
           organizationId: "org-123",
           role: "admin",
           permissions: ["memory:write"],
           grants: [
-            { scope: "private", scopeId: "user-123" },
             { scope: "org", scopeId: "org-123" },
-            { scope: "session", scopeId: "session-123" }
-          ]
+            { scope: "session", scopeId: "agent-session-123" }
+          ],
+          sponsor: {
+            subjectId: "user-123",
+            displayName: "Sarah",
+            role: "admin",
+            permissions: ["memory:write"]
+          },
+          agent: {
+            identityId: "agent-123",
+            keyId: "ak-123",
+            name: "Codex",
+            actingMode: "obou",
+            status: "active",
+            expiresAt: "2026-07-10T00:00:00.000Z"
+          }
         };
       }
     });
@@ -153,9 +166,12 @@ describe("createAssistantTools", () => {
       type: "scheduled-task",
       description: "check auth",
       actor: {
-        subjectId: "user-123",
-        subjectType: "user",
-        provider: "workos"
+        subjectId: "agent-123",
+        subjectType: "agent",
+        provider: "workos",
+        displayName: "Sarah via Codex",
+        sponsor: { subjectId: "user-123", displayName: "Sarah" },
+        agent: { identityId: "agent-123", keyId: "ak-123", name: "Codex" }
       }
     });
   });

@@ -2,9 +2,18 @@ import { forwardRef, type ComponentProps, type ReactNode } from "react";
 
 import { Badge as CossBadge } from "@teampitch/ui/components/badge";
 import { Button as CossButton } from "@teampitch/ui/components/button";
+import { Calendar as CossCalendar } from "@teampitch/ui/components/calendar";
 import { Card } from "@teampitch/ui/components/card";
+import { Checkbox as CossCheckbox } from "@teampitch/ui/components/checkbox";
+import { Input as CossInput } from "@teampitch/ui/components/input";
+import { Label as CossLabel } from "@teampitch/ui/components/label";
+import {
+  Radio as CossRadio,
+  RadioGroup as CossRadioGroup
+} from "@teampitch/ui/components/radio-group";
 import { Switch as CossSwitch } from "@teampitch/ui/components/switch";
 import { Textarea } from "@teampitch/ui/components/textarea";
+import { glassSurfaceClassName, solidSurfaceClassName } from "@teampitch/ui/lib/surface-tokens";
 import { cn } from "@teampitch/ui/lib/utils";
 
 type ButtonProps = ComponentProps<"button"> & {
@@ -52,8 +61,53 @@ export function Badge({
   );
 }
 
-export function Surface({ className, ...props }: ComponentProps<"div">) {
-  return <Card className={cn("shadow-none", className)} {...props} />;
+type InputProps = ComponentProps<typeof CossInput> & {
+  onValueChange?: (value: string) => void;
+};
+
+export function Input({ onChange, onValueChange, ...props }: InputProps) {
+  return (
+    <CossInput
+      onChange={(event) => {
+        onChange?.(event);
+        onValueChange?.(event.currentTarget.value);
+      }}
+      {...props}
+    />
+  );
+}
+
+export function Checkbox(props: ComponentProps<typeof CossCheckbox>) {
+  return <CossCheckbox {...props} />;
+}
+
+export function RadioGroup(props: ComponentProps<typeof CossRadioGroup>) {
+  return <CossRadioGroup {...props} />;
+}
+
+export function Radio(props: ComponentProps<typeof CossRadio>) {
+  return <CossRadio {...props} />;
+}
+
+export function Label(props: ComponentProps<typeof CossLabel>) {
+  return <CossLabel {...props} />;
+}
+
+export function Calendar(props: ComponentProps<typeof CossCalendar>) {
+  return <CossCalendar {...props} />;
+}
+
+type SurfaceProps = ComponentProps<"div"> & {
+  variant?: "glass" | "solid";
+};
+
+export function Surface({ className, variant = "glass", ...props }: SurfaceProps) {
+  return (
+    <Card
+      className={cn(variant === "solid" ? solidSurfaceClassName : glassSurfaceClassName, className)}
+      {...props}
+    />
+  );
 }
 
 export function Text({

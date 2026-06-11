@@ -10,6 +10,13 @@ export interface WorkOSSessionEnv {
   WORKOS_RETURN_TO?: string;
   WORKOS_SESSION_COOKIE?: string;
   WORKOS_STATE_COOKIE?: string;
+  AUTH_DEMO_USERS_ENABLED?: string;
+  AUTH_DEMO_ENVIRONMENT?: string;
+  AUTH_DEMO_SESSION_COOKIE?: string;
+  APP_ENV?: string;
+  ENVIRONMENT?: string;
+  NODE_ENV?: string;
+  WORKOS_ENVIRONMENT?: string;
 }
 
 export interface WorkOSAuthenticatedSession {

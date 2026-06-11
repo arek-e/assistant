@@ -24,6 +24,7 @@ interface FixtureInput {
   id: string;
   category: EvalFixture["category"];
   seedRecords?: MemoryRecord[];
+  accessContext?: EvalFixture["accessContext"];
   input: string;
   expectedRecordIds?: string[];
   forbiddenRecordIds?: string[];
@@ -36,6 +37,7 @@ interface FixtureInput {
   expectedRouteMode?: EvalFixture["expectedRouteMode"];
   expectedRouteEffort?: EvalFixture["expectedRouteEffort"];
   expectedRouteBudget?: EvalFixture["expectedRouteBudget"];
+  expectedActorDisplayName?: string;
   expectedBehavior: string;
   metrics: string[];
   notes?: string;
@@ -258,6 +260,55 @@ const orgCanonicalMemoryPolicy = record({
   supersedes: ["decision.memory.private-vector-first"]
 });
 
+const sponsorPrivateApprovalLimit = record({
+  id: "preference.private.sponsor-approval-limit",
+  kind: "preference_record",
+  scope: "private",
+  scopeId: "local-user",
+  title: "Invoice approval limit",
+  body: "Sarah privately prefers invoice approvals up to 500 dollars.",
+  tags: ["invoice", "approval", "limit", "private"]
+});
+
+const orgApprovalPolicy = record({
+  id: "decision.org.invoice-approval-policy",
+  kind: "decision_record",
+  scope: "org",
+  scopeId: "default-org",
+  title: "Invoice approval limit",
+  body: "Organization policy requires manual review for invoice approvals above 100 dollars.",
+  tags: ["invoice", "approval", "limit", "org", "policy"]
+});
+
+const codexOrgOnlyAccessContext: NonNullable<EvalFixture["accessContext"]> = {
+  subjectId: "agent_codex",
+  subjectType: "agent",
+  provider: "workos",
+  displayName: "Sarah via Codex",
+  sessionId: "agent_session_eval",
+  organizationId: "default-org",
+  role: "member",
+  permissions: ["memory:read"],
+  grants: [
+    { scope: "org", scopeId: "default-org" },
+    { scope: "session", scopeId: "agent_session_eval" }
+  ],
+  sponsor: {
+    subjectId: "local-user",
+    displayName: "Sarah",
+    role: "member",
+    permissions: ["memory:read"]
+  },
+  agent: {
+    identityId: "agent_codex",
+    keyId: "ak_codex",
+    name: "Codex",
+    actingMode: "obou",
+    status: "active",
+    expiresAt: "2026-07-10T00:00:00.000Z"
+  }
+};
+
 export const fixtures: EvalFixture[] = [
   fixture({
     id: "retrieval.exact-package-runner",
@@ -351,6 +402,25 @@ export const fixtures: EvalFixture[] = [
     metrics: ["retrieval_recall_at_5", "forbidden_record_hits", "conflict_misses"]
   }),
   fixture({
+    id: "retrieval.agent-org-scope-blocks-sponsor-private",
+    category: "retrieval",
+    seedRecords: [sponsorPrivateApprovalLimit, orgApprovalPolicy],
+    accessContext: codexOrgOnlyAccessContext,
+    input: "what invoice approval limit should the agent use?",
+    expectedRecordIds: ["decision.org.invoice-approval-policy"],
+    forbiddenRecordIds: ["preference.private.sponsor-approval-limit"],
+    expectedBlockedRecordIds: ["preference.private.sponsor-approval-limit"],
+    expectedActorDisplayName: "Sarah via Codex",
+    expectedBehavior:
+      "An OBOU agent with only org grants should block even the sponsor's private memory and keep sponsor via agent attribution.",
+    metrics: [
+      "retrieval_recall_at_5",
+      "forbidden_record_hits",
+      "agent_scope_blocked",
+      "agent_attribution_present"
+    ]
+  }),
+  fixture({
     id: "retrieval.negative-no-memory",
     category: "retrieval",
     seedRecords: [routingDebugDrawer, sqliteFtsDecision],
@@ -420,5 +490,19 @@ export const fixtures: EvalFixture[] = [
     expectedRouteBudget: "standard",
     expectedBehavior: "Use an agent/tool route for a repo implementation task.",
     metrics: ["route_regret_rate", "tool_call_accuracy"]
+  }),
+  fixture({
+    id: "routing.agent-route-record-attribution",
+    category: "routing",
+    seedRecords: [orgApprovalPolicy],
+    accessContext: codexOrgOnlyAccessContext,
+    input: "implement the invoice approval workflow",
+    expectedRouteMode: "agent",
+    expectedRouteEffort: "medium",
+    expectedRouteBudget: "standard",
+    expectedActorDisplayName: "Sarah via Codex",
+    expectedBehavior:
+      "Agent-routed implementation work persists a route record with sponsor via agent attribution.",
+    metrics: ["route_regret_rate", "tool_call_accuracy", "agent_attribution_present"]
   })
 ];

@@ -2,7 +2,7 @@ import { tool, type ToolSet } from "ai";
 import { Schema } from "effect";
 
 import { effectInputSchema } from "@/server/effect-schema";
-import { routeTask, type RouteDecision } from "@/server/routing/effort-router";
+import { routeTask } from "@/server/routing/effort-router";
 
 import {
   canAccessMemoryRecord,
@@ -13,7 +13,9 @@ import {
   toMemoryRecordActor,
   type MemoryAccessContext
 } from "./access";
+import { summarizeMemoryAccessContext } from "./actor-summary";
 import type { CanonicalMemoryStore } from "./contract";
+import { createRouteRecordDraft } from "./route-record";
 import type { MemoryRecordDraft } from "./types";
 
 const memoryKindSchema = Schema.Literal(
@@ -202,7 +204,7 @@ export function createMemoryPrimitiveTools(
           return {
             promoted: false,
             error: `Access denied for memory record ${recordId}`,
-            identity: summarizeIdentity(accessContext)
+            identity: summarizeMemoryAccessContext(accessContext)
           };
         }
 
@@ -225,7 +227,7 @@ export function createMemoryPrimitiveTools(
         const retrieval = store.search(input, accessContext);
         const route = routeTask(input, retrieval);
         const routeRecord = store.upsert(
-          toRouteRecord(
+          createRouteRecordDraft(
             input,
             route,
             retrieval.hits.map((hit) => hit.record.id),
@@ -260,48 +262,6 @@ function toMemoryRecord(
   };
 }
 
-function toRouteRecord(
-  input: string,
-  route: RouteDecision,
-  retrievedRecordIds: readonly string[],
-  scopeId: string,
-  accessContext: MemoryAccessContext
-): MemoryRecordDraft {
-  const now = new Date().toISOString();
-  const inputHash = hashString(input);
-
-  return {
-    id: `route.${now.replace(/[^0-9]/g, "")}.${inputHash}`,
-    kind: "route_record",
-    scope: "session",
-    scopeId,
-    status: "active",
-    title: `${route.mode} route for ${truncate(input, 48)}`,
-    body: JSON.stringify(
-      {
-        input,
-        actor: summarizeIdentity(accessContext),
-        route,
-        retrievedRecordIds
-      },
-      null,
-      2
-    ),
-    evidence: `routeTask tool executed at ${now}`,
-    rationale: route.reason,
-    createdAt: now,
-    updatedAt: now,
-    reEvalTrigger: "when a user corrects the route, cost, latency, or required effort",
-    consumerRules: [
-      "Use for debugging and route evaluation only",
-      "Do not present route records as durable product decisions"
-    ],
-    tags: ["routing", route.mode, route.effort, route.budget],
-    actor: toMemoryRecordActor(accessContext),
-    supersedes: []
-  };
-}
-
 async function resolveAccessContext(
   provider: MemoryAccessContextProvider
 ): Promise<MemoryAccessContext> {
@@ -318,7 +278,7 @@ function denyInaccessibleWrite(
   return {
     saved: false,
     error: `Access denied for memory scope ${scope}:${scopeId}`,
-    identity: summarizeIdentity(accessContext)
+    identity: summarizeMemoryAccessContext(accessContext)
   };
 }
 
@@ -326,27 +286,6 @@ function denyMissingScope(scope: MemoryRecordDraft["scope"], accessContext: Memo
   return {
     saved: false,
     error: `No ${scope} memory grant is available for this actor`,
-    identity: summarizeIdentity(accessContext)
+    identity: summarizeMemoryAccessContext(accessContext)
   };
-}
-
-function summarizeIdentity(accessContext: MemoryAccessContext) {
-  return {
-    subjectId: accessContext.subjectId,
-    subjectType: accessContext.subjectType,
-    provider: accessContext.provider,
-    grants: accessContext.grants
-  };
-}
-
-function truncate(value: string, maxLength: number) {
-  return value.length <= maxLength ? value : `${value.slice(0, Math.max(0, maxLength - 3))}...`;
-}
-
-function hashString(value: string) {
-  let hash = 5381;
-  for (let index = 0; index < value.length; index += 1) {
-    hash = (hash * 33) ^ value.charCodeAt(index);
-  }
-  return (hash >>> 0).toString(36);
 }

@@ -1,5 +1,12 @@
+import {
+  getAgentAccessTokenSecret,
+  resolveAgentAccessTokenClaims,
+  type AgentIdentityEnv
+} from "../agent-identity/client";
+import { verifyAgentAccessToken } from "../agent-identity/tokens";
 import type { MemoryAccessContext, MemoryScopeGrant } from "../memory/access";
 import type { AuthSubjectType } from "../memory/types";
+import { getDemoAuthUserFromRequest, type DemoAuthUser } from "./demo-users";
 import {
   authenticateWorkOSSession,
   getCookieValue,
@@ -7,8 +14,9 @@ import {
   type WorkOSAuthenticatedSession,
   type WorkOSSessionEnv
 } from "./workos-session";
+import { createWorkOSSponsorValidator } from "./workos-sponsor-validation";
 
-export interface AuthIdentityEnv extends WorkOSSessionEnv {
+export interface AuthIdentityEnv extends WorkOSSessionEnv, AgentIdentityEnv {
   AUTH_IDENTITY_ADAPTER?: string;
   AUTH_LOCAL_SUBJECT_ID?: string;
   AUTH_LOCAL_TEAM_ID?: string;
@@ -101,14 +109,22 @@ export class WorkOSAuthIdentityAdapter implements AuthIdentityAdapter {
   async resolve(input: AuthIdentityResolutionInput): Promise<MemoryAccessContext> {
     const token = getRequestToken(input);
     const clientId = input.env.WORKOS_CLIENT_ID;
-    if (token && clientId) {
-      return this.resolveToken(input, token, clientId);
+    if (token) {
+      const agentIdentity = await resolveAgentToken(input, token);
+      if (agentIdentity) return agentIdentity;
     }
+
+    if (token && clientId) {
+      return this.resolveWorkOSToken(input, token, clientId);
+    }
+
+    const demoUser = getDemoAuthUserFromRequest(input.request, input.env);
+    if (demoUser) return createDemoMemoryAccessContext(demoUser);
 
     return this.resolveSession(input);
   }
 
-  private async resolveToken(
+  private async resolveWorkOSToken(
     input: AuthIdentityResolutionInput,
     token: string,
     clientId: string
@@ -141,6 +157,20 @@ export class WorkOSAuthIdentityAdapter implements AuthIdentityAdapter {
     } catch {
       return createAnonymousMemoryAccessContext(input.sessionId);
     }
+  }
+}
+
+async function resolveAgentToken(
+  input: AuthIdentityResolutionInput,
+  token: string
+): Promise<MemoryAccessContext | null> {
+  try {
+    const claims = await verifyAgentAccessToken(token, getAgentAccessTokenSecret(input.env));
+    return await resolveAgentAccessTokenClaims(input.env, claims, input.sessionId, {
+      sponsorValidator: createWorkOSSponsorValidator(input.env)
+    });
+  } catch {
+    return null;
   }
 }
 
@@ -212,6 +242,21 @@ export function createWorkOSMemoryAccessContext(
     role: firstString(claims.role) ?? roles[0] ?? "",
     permissions,
     grants
+  });
+}
+
+export function createDemoMemoryAccessContext(user: DemoAuthUser): MemoryAccessContext {
+  return createWorkOSMemoryAccessContext({
+    sub: user.subjectId,
+    sid: user.sessionId,
+    org_id: user.organizationId,
+    team_ids: user.teamIds,
+    role: user.role,
+    roles: [user.role],
+    permissions: user.permissions,
+    name: user.name,
+    email: user.email,
+    actor_type: "user"
   });
 }
 
